@@ -2004,6 +2004,11 @@ function bindForm(formId, handler) {
 // URL directa del Web App de Google Apps Script
 var GAS_DIRECT_URL = 'https://script.google.com/macros/s/AKfycbx6raorZG8zueSQW7X3OZtI8cdC9kS-AhQkf8p5PGwAU4Hm93sF3Tu-Q8lIS34TDzCT6g/exec';
 
+// Estado de la conexión (celulares con red inestable)
+var _proxyFalloHasta = 0;        // si el proxy falló por red, se evita probarlo de nuevo durante 60 s
+var _gasCbSeq = 0;               // contador para que cada llamada JSONP tenga un callback único
+var GAS_JSONP_MAX_URL = 7000;    // largo máximo seguro de URL en navegadores móviles
+
 function api(action, params, cb) {
   var cb0 = cb;
   cb = function(r) { if (r && r.tasks_done) showToast('✅ Se marcó como cumplida tu tarea', 'success'); if (cb0) cb0(r); };
@@ -2022,7 +2027,7 @@ function api(action, params, cb) {
           console.error('GAS Error [' + action + ']:', e);
           showToast('Error de conexión', 'error');
         }
-        if (cb) cb({ success: false, error: e.message || 'Error' });
+        if (cb) cb({ success: false, error: (e && e.message) || 'Error', network: true });
       })
       .handleApiRequest(p);
     return;
@@ -2030,23 +2035,33 @@ function api(action, params, cb) {
 
   // ── Modo 2: Vercel / cualquier servidor con proxy ──────────────────
   // Intenta /api/gas primero; si falla, cae al modo 3
-  var proxyUrl = '/api/gas';
-  _fetchPost(proxyUrl, p, function(err, data) {
+  if (Date.now() < _proxyFalloHasta) { _gasGetJsonp(GAS_DIRECT_URL, p, cb); return; }
+  _fetchPost('/api/gas', p, function(err, data) {
     if (!err) { if (cb) cb(data); return; }
-    console.warn('Proxy failed, trying direct GAS:', err);
+    console.warn('Proxy failed [' + action + ']:', err.message);
+    // Un timeout en una acción que escribe datos NO se reintenta por otra vía:
+    // el servidor pudo haberla procesado y se duplicaría el registro.
+    if (err.fallback === false) {
+      if (!isSilent) showToast('Error de conexión: el servidor tardó demasiado en responder', 'error');
+      if (cb) cb({ success: false, error: 'Timeout', network: true });
+      return;
+    }
+    _proxyFalloHasta = Date.now() + 60000;
     // ── Modo 3: llamada directa a GAS vía GET+JSONP ────────────────
     _gasGetJsonp(GAS_DIRECT_URL, p, cb);
   });
 }
 
-// Fetch POST con timeout de 20s — devuelve error si respuesta no es JSON
-function _fetchPost(url, payload, cb) {
+// Fetch POST con timeout de 35s — devuelve error si respuesta no es JSON
+function _fetchPost(url, payload, cb, intento) {
   var ctrl = new AbortController();
-  var tid = setTimeout(function() { ctrl.abort(); }, 35000); // CORRECCIÓN: 35s para cold starts de GAS
+  var tid = setTimeout(function() { ctrl.abort(); }, 35000); // 35s para cold starts de GAS
+  var esLectura = /^get/.test(String(payload && payload.action || ''));
   fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    cache: 'no-store',
     signal: ctrl.signal
   })
   .then(function(res) {
@@ -2062,44 +2077,81 @@ function _fetchPost(url, payload, cb) {
     try { cb(null, JSON.parse(txt)); }
     catch(e) { cb(new Error('JSON inválido: ' + txt.substring(0, 80))); }
   })
-  .catch(function(e) { clearTimeout(tid); cb(e); });
+  .catch(function(e) {
+    clearTimeout(tid);
+    // Red inestable en móvil: las lecturas se reintentan una vez antes de caer al modo directo
+    if (!intento && esLectura && e && e.name !== 'AbortError') {
+      setTimeout(function() { _fetchPost(url, payload, cb, 1); }, 800);
+      return;
+    }
+    if (e && e.name === 'AbortError' && !esLectura) e.fallback = false;
+    cb(e);
+  });
 }
 
 // Llamada directa a GAS vía GET con callback JSONP en URL
 function _gasGetJsonp(baseUrl, payload, cb) {
-  var isSilent = (payload && (payload.action === 'updateOnlineStatus' || payload.action === 'getNotifications' || payload.action === 'getChatMessages' || payload.action === 'getOnlineUsers'));
-  var cbName = '_gasCb_' + Date.now();
+  var isSilent = (payload && (payload.action === 'getTaskAlert' || payload.action === 'updateOnlineStatus' || payload.action === 'getNotifications' || payload.action === 'getChatMessages' || payload.action === 'getOnlineUsers'));
+  var cbName = '_gasCb_' + Date.now() + '_' + (++_gasCbSeq);   // único aunque varias llamadas salgan en el mismo milisegundo
   var tid;
-  window[cbName] = function(data) {
+  function limpiar() {
     clearTimeout(tid);
-    try { delete window[cbName]; } catch(e) {}
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
     var s = document.getElementById(cbName);
     if (s) s.remove();
+  }
+  window[cbName] = function(data) {
+    limpiar();
     if (cb) cb(data || {});
   };
+  var encoded = encodeURIComponent(JSON.stringify(payload));
+  var src = baseUrl + '?data=' + encoded + '&callback=' + cbName + '&_=' + Date.now();
+  if (src.length > GAS_JSONP_MAX_URL) {
+    limpiar();
+    console.error('GAS JSONP: solicitud demasiado grande (' + src.length + ' caracteres)');
+    if (!isSilent) showToast('Error de conexión: la solicitud es demasiado grande para el modo directo. Verifica el servidor (/api/gas).', 'error');
+    if (cb) cb({ success: false, error: 'Solicitud demasiado grande', network: true });
+    return;
+  }
   tid = setTimeout(function() {
-    try { delete window[cbName]; } catch(e) {}
-    var s = document.getElementById(cbName);
-    if (s) s.remove();
+    limpiar();
     if (!isSilent) {
       console.error('GAS JSONP timeout');
       showToast('Error: sin respuesta del servidor', 'error');
     }
-    if (cb) cb({ success: false, error: 'Timeout' });
+    if (cb) cb({ success: false, error: 'Timeout', network: true });
   }, 25000);
-  var encoded = encodeURIComponent(JSON.stringify(payload));
-  var src = baseUrl + '?data=' + encoded + '&callback=' + cbName;
   var script = document.createElement('script');
   script.id = cbName;
   script.src = src;
   script.onerror = function() {
-    clearTimeout(tid);
-    try { delete window[cbName]; } catch(e) {}
+    limpiar();
+    console.error('GAS JSONP: error de carga (red, bloqueo del navegador o cuenta de Google)');
     if (!isSilent) showToast('Error de conexión con el servidor', 'error');
-    if (cb) cb({ success: false, error: 'Error de red' });
+    if (cb) cb({ success: false, error: 'Error de red', network: true });
   };
   document.head.appendChild(script);
 }
+
+// Limpieza de service workers y cachés antiguos: evita que el navegador normal
+// siga sirviendo una versión vieja de la app (el modo incógnito arranca sin nada de esto).
+// Se conserva únicamente el service worker de notificaciones push (firebase-messaging-sw.js).
+(function limpiarCacheVieja_() {
+  try {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) {
+          var w = reg.active || reg.waiting || reg.installing;
+          var u = (w && w.scriptURL) || '';
+          if (u.indexOf('firebase-messaging-sw') === -1) reg.unregister();
+        });
+      }).catch(function() {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function(ks) { ks.forEach(function(k) { caches.delete(k); }); }).catch(function() {});
+    }
+  } catch (e) {}
+})();
 
 function apiGet(action, params, cb) {
   // Mapa de acción → clave de caché
@@ -2420,6 +2472,10 @@ function checkSession() {
     if (r && r.success && r.user) {
       App.token = t; App.user = r.user;
       initDashboard(r.user);
+    } else if (r && r.network) {
+      // Falla de red: se conserva el token para no cerrar la sesión; recargar reintenta
+      document.documentElement.classList.remove('has-session');
+      document.getElementById('login-container').style.display = 'flex';
     } else {
       try { localStorage.removeItem('gs_token'); } catch(e) {}
       document.documentElement.classList.remove('has-session');
