@@ -417,6 +417,14 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f0f2f5;color:var(--d
 .filters-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
 .filters-bar select,.filters-bar input[type="date"]{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--white);color:var(--dark);font-family:inherit;cursor:pointer}
 .filters-bar select:focus,.filters-bar input:focus{outline:none;border-color:var(--primary)}
+/* Ordenar tablas (clic en encabezado) y selector «Ordenar por» */
+.tbl-sortbar{margin:0;padding:10px 16px;border-bottom:1px solid var(--border);gap:8px}
+.tbl-sortbar label{font-size:12px;font-weight:600;color:var(--gray)}
+.tbl-sortable th{cursor:pointer;user-select:none}
+.tbl-sortable th:empty{cursor:default}
+.tbl-sortable th:not(:empty):hover{color:var(--primary)}
+.tbl-sortable th[data-sort="asc"]::after{content:" \25B2";font-size:9px;color:var(--primary)}
+.tbl-sortable th[data-sort="desc"]::after{content:" \25BC";font-size:9px;color:var(--primary)}
 
 /* MODAL */
 .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:2000;animation:fadeIn 0.2s ease;padding:20px}
@@ -2912,11 +2920,148 @@ function tblResetPage(tableId) {
 function tblBuild(tableId, allRows, emptyRow, theadHtml, perPage) {
   if (emptyRow) allRows._emptyRow = emptyRow;
   tblResetPage(tableId);
+  _tblOrig[tableId] = allRows.slice();   // orden original (para volver a «Orden original»)
+  // Si el usuario ya eligió un orden en esta tabla, se mantiene al volver a dibujarla (buscar, filtrar, guardar)
+  var so = _tblSort[tableId], nCols = (theadHtml.match(/<th[\s>]/g) || []).length;
+  if (so && so.col >= nCols) { delete _tblSort[tableId]; so = null; }
+  if (so) { var emp = allRows._emptyRow; allRows = _tblSorted(allRows, so.col, so.dir); if (emp) allRows._emptyRow = emp; }
   var pg = tblPaginate(tableId, allRows, perPage);
-  return '<div class="table-card"><div class="table-scroll"><table class="data-table">' +
-    '<thead>' + theadHtml + '</thead>' +
+  return '<div class="table-card">' + _tblSortBarHtml(tableId, theadHtml, allRows) + '<div class="table-scroll"><table class="data-table tbl-sortable">' +
+    '<thead>' + _tblMarkHead(theadHtml, so) + '</thead>' +
     '<tbody id="tbl-body-' + tableId + '">' + pg.rowsHtml + '</tbody>' +
   '</table></div>' + pg.paginationHtml + '</div>';
+}
+
+// ==================== ORDENAR TABLAS ====================
+// Todas las tablas hechas con tblBuild se pueden ordenar: con el selector «Ordenar por» (celular y PC) o con clic
+// en el encabezado de la columna (PC). El orden se aplica a TODOS los registros, no solo a la página que se ve.
+// Reconoce solo: fechas (dd/mm/aaaa), números / dinero (S/ 1,250.00 · 85% · 12K) y texto (A–Z, con tildes y ñ).
+var _tblSort = {};   // { tableId: { col: nº de columna, dir: 1 ascendente | -1 descendente } }
+var _tblOrig = {};   // { tableId: filas en su orden original }
+
+function _tblCellText(rowHtml, col) {
+  var tb = document.createElement('tbody'); tb.innerHTML = rowHtml;
+  var c = tb.rows[0] && tb.rows[0].cells[col];
+  return c ? c.textContent : '';
+}
+// Interpreta el texto de una celda: { e:1 } vacía · { k:'d' } fecha · { k:'n' } número · { k:'s' } texto
+function _tblVal(t) {
+  t = String(t == null ? '' : t).replace(/\s+/g, ' ').trim();
+  if (!t || t === '—' || t === '-') return { e: 1 };
+  var m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?$/);
+  if (m) return { k: 'd', x: +m[3] * 1e8 + +m[2] * 1e6 + +m[1] * 1e4 + (+m[4] || 0) * 100 + (+m[5] || 0), t: t };
+  m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (m && t.length <= 19) return { k: 'd', x: +m[1] * 1e8 + +m[2] * 1e6 + +m[3] * 1e4 + (+m[4] || 0) * 100 + (+m[5] || 0), t: t };
+  m = t.replace(/^S\/\s*/, '').replace(/\s*%$/, '').match(/^(-?\d[\d.,]*)(?:\s*(mil|K|M)(?![A-Za-zÁ-ú]))?(?:\s*[A-Za-zÁ-ú.\/]{1,8})?$/);
+  if (m) {
+    var n = m[1]; n = /,\d{3}(?!\d)/.test(n) ? n.replace(/,/g, '') : n.replace(',', '.');
+    var x = parseFloat(n);
+    if (!isNaN(x)) return { k: 'n', x: x * ({ mil: 1e3, K: 1e3, M: 1e6 }[m[2]] || 1), t: t };
+  }
+  return { k: 's', t: t };
+}
+// Tipo de una columna: todas fechas → 'd' · todas números → 'n' · cualquier otro caso → 's' (texto)
+function _tblKind(vals) {
+  var v = vals.filter(function(x) { return !x.e; });
+  if (!v.length) return 's';
+  if (v.every(function(x) { return x.k === 'd'; })) return 'd';
+  if (v.every(function(x) { return x.k === 'n'; })) return 'n';
+  return 's';
+}
+// Devuelve las filas ordenadas por la columna col (dir 1 / -1). Las celdas vacías van siempre al final.
+function _tblSorted(rows, col, dir) {
+  var items = rows.map(function(r, i) { return { r: r, i: i, v: _tblVal(_tblCellText(r, col)) }; });
+  var kind = _tblKind(items.map(function(x) { return x.v; }));
+  items.sort(function(a, b) {
+    if (a.v.e || b.v.e) return a.v.e === b.v.e ? a.i - b.i : (a.v.e ? 1 : -1);
+    var c = kind === 's' ? a.v.t.localeCompare(b.v.t, 'es', { sensitivity: 'base', numeric: true }) : a.v.x - b.v.x;
+    return c ? c * dir : a.i - b.i;
+  });
+  return items.map(function(x) { return x.r; });
+}
+// Aplica un orden (dir 0 = volver al orden original) y actualiza la tabla sin dibujar todo el módulo
+function tblSortApply(tableId, col, dir) {
+  var st = _tblState[tableId]; if (!st || !_tblOrig[tableId]) return;
+  var emp = st.allRows && st.allRows._emptyRow;
+  var rows = dir ? _tblSorted(_tblOrig[tableId], col, dir) : _tblOrig[tableId].slice();
+  if (emp) rows._emptyRow = emp;
+  if (dir) _tblSort[tableId] = { col: col, dir: dir }; else delete _tblSort[tableId];
+  st.allRows = rows;
+  tblGoPage(tableId, 1);
+  var body = document.getElementById('tbl-body-' + tableId), tbl = body && body.closest('table');
+  if (tbl) Array.prototype.forEach.call(tbl.querySelectorAll('th'), function(h, i) {
+    if (dir && i === col) h.setAttribute('data-sort', dir > 0 ? 'asc' : 'desc'); else h.removeAttribute('data-sort');
+  });
+  var sel = document.querySelector('select[data-tbl="' + tableId + '"]'); if (sel) sel.value = dir ? col + ':' + dir : '';
+}
+function tblSortSel(tableId, val) {
+  if (!val) { tblSortApply(tableId, 0, 0); return; }
+  var p = val.split(':'); tblSortApply(tableId, +p[0], +p[1]);
+}
+// Marca en el encabezado la columna ordenada (flecha ▲ / ▼)
+function _tblMarkHead(h, so) {
+  if (!so) return h;
+  var n = -1;
+  return h.replace(/<th(?=[\s>])/g, function(m) { n++; return n === so.col ? '<th data-sort="' + (so.dir > 0 ? 'asc' : 'desc') + '"' : m; });
+}
+// Selector «Ordenar por» con una opción ascendente y otra descendente por cada columna con título
+function _tblSortBarHtml(tableId, theadHtml, rows) {
+  if (!rows || rows.length < 2) return '';
+  var t = document.createElement('table'); t.innerHTML = '<thead>' + theadHtml + '</thead>';
+  var ths = t.querySelectorAll('th'), so = _tblSort[tableId], opts = '';
+  var sample = rows.slice(0, 8).map(function(r) { var tb = document.createElement('tbody'); tb.innerHTML = r; return tb.rows[0]; });
+  Array.prototype.forEach.call(ths, function(th, i) {
+    var name = th.textContent.trim(); if (!name) return;
+    var kind = _tblKind(sample.map(function(row) { return _tblVal(row && row.cells[i] ? row.cells[i].textContent : ''); }));
+    var lbl = kind === 'd' ? ['Más antigua primero', 'Más reciente primero'] : kind === 'n' ? ['Menor a mayor', 'Mayor a menor'] : ['A → Z', 'Z → A'];
+    [1, -1].forEach(function(d) {
+      opts += '<option value="' + i + ':' + d + '"' + (so && so.col === i && so.dir === d ? ' selected' : '') + '>' + escHtml(name) + ' — ' + lbl[d > 0 ? 0 : 1] + '</option>';
+    });
+  });
+  if (!opts) return '';
+  return '<div class="filters-bar tbl-sortbar"><label><i class="fas fa-sort-amount-down"></i> Ordenar por</label>' +
+    '<select class="tbl-sortsel" data-tbl="' + tableId + '" onchange="tblSortSel(\'' + tableId + '\', this.value)"><option value="">Orden original</option>' + opts + '</select></div>';
+}
+// Clic en el encabezado de una columna (PC): ascendente → descendente → ascendente…
+document.addEventListener('click', function(e) {
+  var th = e.target.closest && e.target.closest('.tbl-sortable th');
+  if (!th || !th.textContent.trim()) return;
+  var body = th.closest('table').querySelector('tbody[id^="tbl-body-"]'); if (!body) return;
+  var id = body.id.slice(9), col = th.cellIndex, cur = _tblSort[id];
+  tblSortApply(id, col, cur && cur.col === col ? -cur.dir : 1);
+});
+
+// ==================== ORDENAR TARJETAS (Salud / Mantenimiento) ====================
+// Valor «campo:dirección:tipo» → tipo d = fecha · n = número · s = texto. «@» = campo que se muestra con el nombre del galpón.
+var _cardSort = {};   // { módulo: 'campo:dirección:tipo' }
+var CARD_SORT_OPTS = {
+  health: [
+    ['date:-1:d', 'Fecha: más reciente primero'], ['date:1:d', 'Fecha: más antigua primero'],
+    ['cost:-1:n', 'Costo: mayor a menor'], ['cost:1:n', 'Costo: menor a mayor'],
+    ['house_id:1:s', 'Galpón: A → Z'], ['description:1:s', 'Descripción: A → Z']
+  ],
+  maintenance: [
+    ['scheduled_date:1:d', 'Programado: más próximo primero'], ['scheduled_date:-1:d', 'Programado: más lejano primero'],
+    ['cost:-1:n', 'Costo: mayor a menor'], ['cost:1:n', 'Costo: menor a mayor'],
+    ['house_id:1:s', 'Galpón: A → Z'], ['description:1:s', 'Descripción: A → Z']
+  ]
+};
+function cardSortSelectHtml(mod, renderFn) {
+  return '<select onchange="_cardSort[\'' + mod + '\']=this.value;' + renderFn + '"><option value="">Orden original</option>' +
+    CARD_SORT_OPTS[mod].map(function(o) { return '<option value="' + o[0] + '"' + (_cardSort[mod] === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+}
+// maps: { campo: { id: nombre } } para ordenar por el nombre y no por el id (ej. galpón)
+function cardSortRecords(list, mod, maps) {
+  var s = _cardSort[mod]; if (!s) return list;
+  var p = s.split(':'), f = p[0], dir = +p[1], t = p[2];
+  return list.map(function(r, i) { return { r: r, i: i, v: (maps && maps[f]) ? maps[f][r[f]] : r[f] }; }).sort(function(a, b) {
+    var ea = a.v === undefined || a.v === null || a.v === '', eb = b.v === undefined || b.v === null || b.v === '';
+    if (ea || eb) return ea === eb ? a.i - b.i : (ea ? 1 : -1);
+    var c = t === 'n' ? (parseFloat(a.v) || 0) - (parseFloat(b.v) || 0)
+          : t === 'd' ? String(a.v).localeCompare(String(b.v))
+          : String(a.v).localeCompare(String(b.v), 'es', { sensitivity: 'base', numeric: true });
+    return c ? c * dir : a.i - b.i;
+  }).map(function(x) { return x.r; });
 }
 // ==================== FIN PAGINACIÓN ====================
 
@@ -5450,6 +5595,7 @@ function renderHealth() {
     App._cache.health = events;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
       var filtered = filterHouse ? events.filter(function(e) { return e.house_id === filterHouse; }) : events;
+      filtered = cardSortRecords(filtered, 'health', { house_id: hMap });
       var typeIcons = { vaccine: 'fa-syringe', disease: 'fa-virus', treatment: 'fa-pills', checkup: 'fa-stethoscope' };
       var typeLabels = { vaccine: 'Vacuna', disease: 'Enfermedad', treatment: 'Tratamiento', checkup: 'Revisión' };
       var cards = filtered.map(function(ev) {
@@ -5478,7 +5624,7 @@ function renderHealth() {
       var html =
         '<div class="module-header"><div><h1 class="page-title">Salud / Veterinaria</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' eventos registrados</div></div>' +
         (seeAllFE() ? '' : '<button class="btn-primary" onclick="showHealthModal()"><i class="fas fa-plus"></i> Nuevo Evento</button>') + '</div>' + pendingBannerHtml(filtered) +
-        '<div class="filters-bar"><select id="health-filter-house" onchange="renderHealth()">' + hOpts + '</select></div>' +
+        '<div class="filters-bar"><select id="health-filter-house" onchange="renderHealth()">' + hOpts + '</select>' + cardSortSelectHtml('health', 'renderHealth()') + '</div>' +
         '<div class="health-grid">' + cards + '</div>' +
         '<div id="health-modal" class="modal" style="display:none"><div class="modal-content">' +
           '<div class="modal-header"><h3 id="health-modal-title">Nuevo Evento de Salud</h3><button class="close-modal" onclick="closeModal(\'health-modal\')">&times;</button></div>' +
@@ -5529,6 +5675,7 @@ function renderMaintenance() {
     App._cache.maintenance = records;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
       var filtered = filterStatus ? records.filter(function(r) { return r.status === filterStatus; }) : records;
+      filtered = cardSortRecords(filtered, 'maintenance', { house_id: hMap });
       var statusLabels = { pending: 'Pendiente', in_progress: 'En Progreso', done: 'Completado' };
       var statusBadges = { pending: 'badge-warning', in_progress: 'badge-info', done: 'badge-success' };
       var cards = filtered.map(function(m) {
@@ -5560,7 +5707,7 @@ function renderMaintenance() {
             '<option value="pending"' + (filterStatus === 'pending' ? ' selected' : '') + '>Pendiente</option>' +
             '<option value="in_progress"' + (filterStatus === 'in_progress' ? ' selected' : '') + '>En Progreso</option>' +
             '<option value="done"' + (filterStatus === 'done' ? ' selected' : '') + '>Completado</option>' +
-          '</select>' +
+          '</select>' + cardSortSelectHtml('maintenance', 'renderMaintenance()') +
         '</div>' +
         '<div class="maint-grid">' + cards + '</div>' +
         '<div id="maint-modal" class="modal" style="display:none"><div class="modal-content">' +
