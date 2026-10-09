@@ -310,6 +310,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f0f2f5;color:var(--d
 .menu-toggle{display:none;background:none;border:none;font-size:20px;cursor:pointer;color:var(--dark);padding:6px}
 .top-bar-title{font-size:15px;font-weight:600;color:var(--dark)}
 .top-bar-right{display:flex;align-items:center;gap:8px}
+.camp-chip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 12px;border-radius:999px;background:rgba(232,83,26,.1);color:var(--primary);font-size:12.5px}
+.camp-chip a{color:var(--primary);text-decoration:underline;margin-left:6px}
 .tb-btn{width:38px;height:38px;border-radius:var(--radius-sm);background:var(--light);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:16px;transition:all var(--transition);position:relative}
 .tb-btn:hover{background:var(--primary-light);color:var(--primary)}
 .tb-btn .badge{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--primary);border-radius:50%;border:2px solid white;display:none}
@@ -489,6 +491,13 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:#f0f2f5;color:var(--d
 .summary-card p{font-size:20px;font-weight:700;color:var(--dark);letter-spacing:-0.5px}
 .summary-card.positive p{color:var(--success)}
 .summary-card.negative p{color:var(--danger)}
+/* Números grandes: una sola línea y la letra se achica sola (fitNums_) para verse completos */
+.summary-card{min-width:0}.summary-card>div:last-child{min-width:0;flex:1}
+.summary-card p,.stock-card .val{white-space:nowrap;line-height:1.2}
+.summary-card small,.stock-card .sub{overflow-wrap:anywhere}
+.summary-icon.custom{background:rgba(128,128,128,.14);background:color-mix(in srgb,var(--ic,#888) 14%,transparent)}
+.summary-icon.custom i{color:var(--ic,var(--primary));font-size:20px}
+.summary-card[onclick]{cursor:pointer}
 .text-success{color:var(--success);font-weight:600}
 .text-danger{color:var(--danger);font-weight:600}
 
@@ -703,6 +712,36 @@ body[data-role="viewer"] .scan-panel{display:none}
 .task-card h4{font-size:13px;font-weight:600;margin-bottom:6px}
 .task-card p{font-size:12px;color:var(--gray);margin-bottom:8px;line-height:1.4}
 .task-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* ===== TAREAS: tablero mejorado ===== */
+.tk-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:4px 0 16px}
+.tk-stat{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-sm);min-width:0}
+.tk-stat .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent)}
+.tk-stat b{display:block;font-size:20px;font-weight:800;line-height:1.1;color:var(--dark)}
+.tk-stat small{font-size:11.5px;color:var(--gray);font-weight:600}
+.tasks-kanban .kanban-col{border-radius:var(--radius);border:1px solid var(--border);border-top:3px solid var(--kc,var(--border));background:var(--light);display:flex;flex-direction:column;min-width:0}
+.tasks-kanban .kanban-col-header{background:transparent;border-bottom:0;padding:14px 14px 6px}
+.kc-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}
+.kc-dot{width:9px;height:9px;border-radius:50%;background:var(--kc)}
+.kc-count{min-width:26px;height:24px;padding:0 8px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--kc);background:color-mix(in srgb,var(--kc) 15%,transparent)}
+.tasks-kanban .kanban-col-body{padding:8px 10px 12px;gap:10px;flex:1}
+.kc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:28px 8px;color:var(--gray-light);font-size:12.5px;border:1.5px dashed var(--border);border-radius:var(--radius-sm)}
+.kc-empty i{font-size:20px;opacity:.7}
+.tasks-kanban .task-card{border-radius:12px;padding:13px 14px;box-shadow:var(--shadow-sm);border-left-width:4px;border-left-color:var(--kc,transparent)}
+.tasks-kanban .task-card.priority-high{border-left-color:var(--danger)}
+.tasks-kanban .task-card h4{font-size:14px;font-weight:700;line-height:1.3;margin-bottom:8px}
+.tasks-kanban .task-card p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:8px 0}
+.tk-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11.5px;color:var(--gray)}
+.tk-user{display:flex;align-items:center;gap:7px;min-width:0}
+.tk-user span.av{width:24px;height:24px;border-radius:50%;background:var(--primary-light);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tk-user span.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-due{white-space:nowrap;font-weight:600}
+.tasks-kanban .task-card .actions{border-top:1px solid var(--border);padding-top:8px;margin-top:10px!important}
+@media(max-width:900px){.tk-stats{grid-template-columns:repeat(2,1fr)}.tk-stats .tk-stat:last-child{grid-column:1/-1}}
+@media(max-width:700px){.tasks-kanban{grid-auto-flow:column;grid-auto-columns:86%;grid-template-columns:none!important;scroll-snap-type:x mandatory;gap:12px}.tasks-kanban .kanban-col{scroll-snap-align:start}}
+.tasks-kanban.tk-3{grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}
+@media(max-width:900px){.tasks-kanban.tk-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.tasks-kanban.tk-3{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr!important;scroll-snap-type:none}}
 .priority-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .priority-high .priority-dot{background:var(--danger)}
 .priority-high{border-left-color:var(--danger)}
@@ -996,7 +1035,7 @@ button, .btn-primary, .btn-secondary, .btn-success,
   .health-grid { grid-template-columns: 1fr; gap: 8px; }
   .maint-grid { grid-template-columns: 1fr; gap: 8px; }
   .attendance-grid { grid-template-columns: 1fr; gap: 8px; }
-  .tasks-kanban { grid-template-columns: 1fr; gap: 10px; }
+  .tasks-kanban { gap: 10px; }
   .notif-type-grid { grid-template-columns: repeat(2, 1fr); }
 
   /* ── TABLAS ── */
@@ -1929,19 +1968,60 @@ function fmtNum(n) {
   return num.toLocaleString('es-PE');
 }
 
-// Números con muchos dígitos: <10 mil completo; ≥10 mil compacto (12,5 mil / 3,2 M).
+// Abreviar números como YouTube / Google: 1.2K · 45.9K · 1.2M (1 decimal, sin ceros sobrantes)
+function fmtK(n) {
+  var x = parseFloat(n) || 0, a = Math.abs(x);
+  if (a < 1000) return x.toLocaleString('es-PE', { maximumFractionDigits: 1 });
+  var v = a >= 1e6 ? x / 1e6 : x / 1e3, u = a >= 1e6 ? 'M' : 'K';
+  var t = Math.round(v * 10) / 10;
+  if (u === 'K' && Math.abs(t) >= 1000) { t = Math.round(x / 1e5) / 10; u = 'M'; }   // 999.96K → 1M
+  return String(t) + u;
+}
+// Cantidades: hasta 9,999 completo; desde 10,000 abreviado (12.5K / 3.2M). El valor exacto va en el tooltip.
 function fmtCompact(n) {
   var num = parseFloat(n) || 0;
   if (Math.abs(num) < 10000) return num.toLocaleString('es-PE', { maximumFractionDigits: 1 });
-  return new Intl.NumberFormat('es-PE', { notation: 'compact', maximumFractionDigits: 1 }).format(num);
+  return fmtK(num);
 }
-// Dinero: completo hasta S/ 99,999.99; después compacto. El valor exacto va en el tooltip (title).
-function fmtMoneyShort(n) {
+// Dinero: completo hasta S/ 99,999.99 (o hasta «min» si se indica); después abreviado (S/ 125.4K / S/ 1.2M).
+function fmtMoneyShort(n, min) {
   var num = parseFloat(n) || 0;
-  if (Math.abs(num) < 100000) return fmtMoney(num);
-  return 'S/ ' + new Intl.NumberFormat('es-PE', { notation: 'compact', maximumFractionDigits: 1 }).format(num);
+  if (Math.abs(num) < (min || 100000)) return fmtMoney(num);
+  return 'S/ ' + fmtK(num);
 }
 function tip(txt, full) { return '<span title="' + escHtml(full) + '">' + escHtml(txt) + '</span>'; }
+// Para tarjetas: dinero / cantidades abreviados (K, M) con el valor exacto al pasar el mouse o mantener presionado.
+function fmtMoneyCard(n, min) { var num = parseFloat(n) || 0; return tip(fmtMoneyShort(num, min || 10000), fmtMoney(num)); }
+function fmtNumCard(n, unit) { var num = parseFloat(n) || 0, u = unit || ''; return tip(fmtCompact(num) + u, fmtNum2(num) + u); }
+
+// Ajusta la letra de los números grandes para que SIEMPRE se vean completos (sin «…» ni cortes).
+var FIT_SEL_ = '.summary-card p,.stock-card .val,.kpi-value,.gx-card .v,.fit-num';
+function fitNums_(root) {
+  try {
+    var list = (root || document).querySelectorAll(FIT_SEL_);
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el.offsetParent) continue;                      // oculto: se ajusta cuando se muestre
+      var key = el.textContent + '|' + (el.parentNode ? el.parentNode.clientWidth : 0) + '|' + window.innerWidth;
+      if (el._fitKey === key) continue;                    // nada cambió desde el último ajuste
+      el.style.fontSize = '';
+      var fs = parseFloat(getComputedStyle(el).fontSize) || 16, guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && fs > 9 && guard++ < 40) { fs -= 0.5; el.style.fontSize = fs + 'px'; }
+      el._fitKey = key;
+    }
+  } catch (e) {}
+}
+(function() {
+  var t = null;
+  function sched() { if (t) return; t = setTimeout(function() { t = null; fitNums_(); }, 90); }
+  function start() {
+    try { new MutationObserver(sched).observe(document.body, { childList: true, subtree: true, characterData: true }); } catch (e) {}
+    window.addEventListener('resize', sched); window.addEventListener('orientationchange', sched);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sched);
+    sched();
+  }
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
 
 function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
@@ -2025,6 +2105,7 @@ function api(action, params, cb) {
   var p = Object.assign({}, params || {});
   p.action = action;
   if (App.token) p.token = App.token;
+  if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;   // aislamiento por campaña
 
   var isSilent = (action === 'getTaskAlert' || action === 'updateOnlineStatus' || action === 'getNotifications' || action === 'getChatMessages' || action === 'getOnlineUsers');
 
@@ -2505,11 +2586,12 @@ function startPolling() {
   pollNotifications();
   pollOnline();
   pollChat(); // Llamar inmediatamente para inicializar _lastChatMsgId
-  // Chat: 15s para notificaciones rápidas; Notif: 60s; Online: 60s
-  App.polls.notif  = setInterval(pollNotifications, 60000);
-  App.polls.online = setInterval(function() { api('updateOnlineStatus', {}); pollOnline(); }, 60000);
-  App.polls.chat   = setInterval(pollChat, 15000);
-  App.polls.taskAlert = setInterval(pollTaskAlerts, 120000);
+  // Intervalos más largos = menos ejecuciones de Apps Script. Chat: 30s; Notif: 2min; Online: 2min; Tareas: 3min
+  App.polls.notif  = setInterval(pollNotifications, 120000);
+  App.polls.online = setInterval(function() { api('updateOnlineStatus', {}); pollOnline(); }, 120000);
+  var _chatTick = 0;   // con la pestaña oculta el chat se consulta 4 veces menos (menos carga en Apps Script)
+  App.polls.chat   = setInterval(function() { if (document.hidden && (++_chatTick % 4)) return; pollChat(); }, 30000);
+  App.polls.taskAlert = setInterval(pollTaskAlerts, 180000);
   // Vista del operador: se actualiza sola cada minuto para que las horas pasen a «te toca ahora» sin recargar
   App.polls.myTasks = setInterval(function() {
     if (App.currentModule !== 'tasks' || isMgrFE() || document.hidden) return;
@@ -2702,7 +2784,114 @@ function pollChat() {
 }
 
 // ==================== MÓDULOS ====================
+// ==================== FILTRO GLOBAL DE CAMPAÑA ====================
+// Un selector en la barra superior: «General» = todas las campañas juntas; o una campaña concreta.
+// Dashboard: lo filtra el servidor. Registro diario, Alimentación, Finanzas, Salud y Mantenimiento: se filtra aquí.
+// Regla de pertenencia (la misma del servidor): campaign_id/bird_id, o galpón + fechas de esa campaña.
+var CAMP_MODS = { houses: 1, birds: 1, production: 1, feeding: 1, finance: 1, health: 1, maintenance: 1, staff: 1, attendance: 1, payments: 1, pending: 1 };
+// Acciones del servidor que reciben automáticamente la campaña elegida (el servidor filtra y guarda con ella)
+var CAMP_API_ = { getProductionModule: 1, getFeedingModule: 1, getFinanceModule: 1, getHealthModule: 1, getMaintenanceModule: 1, getAttendanceModule: 1, saveAttendance: 1, getStaffModule: 1, saveStaffPayment: 1, generateStaffSalaries: 1, getVouchers: 1, getPendingReview: 1, getTaskAlert: 1 };
+function campLoadSaved_() {
+  if (App._campInit) return; App._campInit = true;
+  App.camp = '';   // sin filtro de campaña: se ven todas
+  try { localStorage.removeItem('gx_camp'); } catch (e) {}
+}
+function campIsDraft_(b) { return String(b.campaign_status || '').trim().toLowerCase() === 'draft'; }
+function campById_(id) {
+  var l = (App._campMeta && App._campMeta.birds) || [];
+  for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(id)) return l[i];
+  return null;
+}
+function campWinOf_(b) {
+  var start = String(b.arrival_date || '').slice(0, 10), end = '9999-12-31';
+  ((App._campMeta && App._campMeta.birds) || []).forEach(function(o) {
+    if (String(o.house_id) !== String(b.house_id) || String(o.id) === String(b.id) || campIsDraft_(o)) return;
+    var s = String(o.arrival_date || '').slice(0, 10);
+    if (s > start && s < end) end = s;
+  });
+  return { start: start, end: end };
+}
+// ¿Este registro pertenece a la campaña elegida? (sin campaña elegida = General: todo pasa)
+function campKeep_(rec, kind) {
+  var cid = campCur_(App.currentModule);
+  if (!cid || !App._campMeta) return true;
+  var b = campById_(cid); if (!b) return true;
+  if (kind === 'bird') return String(rec.bird_id) === String(cid);
+  if (rec.campaign_id) return String(rec.campaign_id) === String(cid);
+  var d = String(rec.date || rec.scheduled_date || rec.completed_date || rec.created_at || '').slice(0, 10);
+  var w = campWinOf_(b);
+  return String(rec.house_id) === String(b.house_id) && d >= w.start && d < w.end;
+}
+// Nombre de la campaña de un registro (por campaign_id, bird_id o, si no, por galpón + fecha)
+function campNameOf_(rec) {
+  var b = rec.campaign_id ? campById_(rec.campaign_id) : null;
+  if (!b && rec.bird_id) b = campById_(rec.bird_id);
+  if (!b && rec.house_id && App._campMeta) {
+    var d = String(rec.date || rec.scheduled_date || rec.created_at || '').slice(0, 10);
+    ((App._campMeta.birds) || []).forEach(function(o) {
+      if (b || campIsDraft_(o) || String(o.house_id) !== String(rec.house_id)) return;
+      var w = campWinOf_(o); if (d >= w.start && d < w.end) b = o;
+    });
+  }
+  return b ? b.batch_number : '';
+}
+// ---- Filtro de campañas por sección (cada tabla recuerda el suyo) ----
+function campCur_(mod) { return String((App._fc && App._fc[mod]) || App.camp || ''); }
+function campFilterHtml_(mod, rerender) {
+  var cur = campCur_(mod);
+  var hMap = {}; ((App._campMeta && App._campMeta.houses) || []).forEach(function(h) { hMap[h.id] = h.name; });
+  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) { return !campIsDraft_(b); })
+    .sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
+  return '<select title="Filtrar por campaña" onchange="App._fc=App._fc||{};App._fc[\'' + mod + '\']=this.value;' + rerender + '">' +
+    '<option value="">Todas las campañas</option>' + list.map(function(b) {
+      return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === cur ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + '</option>';
+    }).join('') + '</select>';
+}
+function campOfHouse_(houseId) {
+  var act = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) {
+    return String(b.house_id) === String(houseId) && !campIsDraft_(b) &&
+      (String(b.campaign_status || '').trim().toLowerCase() === 'started' || (!b.campaign_status && String(b.status).trim().toLowerCase() === 'active'));
+  }).sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
+  return act[0] ? act[0].batch_number : '';
+}
+function campBadge_(name) { return name ? '<span class="badge badge-purple">' + escHtml(name) + '</span>' : '<span style="color:var(--gray-light)">—</span>'; }
+function campMetaLoad_(cb) {
+  if (App._campMeta && (Date.now() - App._campMeta.ts < 60000)) { if (cb) cb(); return; }
+  api('getBirdsModule', {}, function(r) {
+    if (r && r.birds) App._campMeta = { birds: r.birds, houses: r.houses || [], ts: Date.now() };
+    if (cb) cb();
+  });
+}
+// Barra del dashboard (solo admin): muestra con qué campaña de Pesaje está enlazada la campaña elegida.
+// Sin enlace, los kg vendidos, las ventas y la deuda de esa campaña salen en cero (el total «general» sí los suma todos).
+function pzLinkBar_(data) {
+  if (!App.user || App.user.role !== 'admin' || !data || !data.selectedCampaign) return '';
+  var L = data.pzCampanas || []; if (!L.length) return '';
+  var sel = String(data.selectedCampaign);
+  var mine = L.filter(function(c) { return String(c.lote) === sel; });
+  var opts = '<option value="">— Elegir campaña de Pesaje —</option>' + L.map(function(c) {
+    var other = c.lote && String(c.lote) !== sel;
+    return '<option value="' + escHtml(c.campana) + '">' + escHtml(c.label) + ' · vendido ' + fmtMoneyShort(c.vendido || 0) + (other ? ' (hoy enlazada al lote ' + escHtml(c.loteLabel || 'otro') + ')' : '') + '</option>';
+  }).join('');
+  var state = mine.length
+    ? '<span><i class="fas fa-link"></i> Pesaje enlazado: <b>' + mine.map(function(c) { return escHtml(c.label); }).join(', ') + '</b></span>'
+    : '<span style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Esta campaña no tiene Pesaje enlazado: kg vendidos, ventas y deuda salen en cero.</span>';
+  return '<div class="modal-note" style="margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' + state +
+    '<select id="pz-link-sel" style="max-width:100%">' + opts + '</select>' +
+    '<button type="button" class="btn-primary" onclick="pzLinkDash_()"><i class="fas fa-link"></i> ' + (mine.length ? 'Cambiar / añadir' : 'Enlazar') + '</button></div>';
+}
+function pzLinkDash_() {
+  var camp = v('pz-link-sel');
+  if (!camp) { showToast('Elige la campaña de Pesaje', 'error'); return; }
+  if (!App.camp) { showToast('Elige primero una campaña arriba', 'error'); return; }
+  api('pesajeFijarLote', { campana: camp, lote: App.camp }, function(r) {
+    if (r && r.success) { showToast('Pesaje enlazado a esta campaña', 'success'); loadModule('dashboard'); }
+    else showToast((r && r.error) || 'No se pudo enlazar', 'error');
+  });
+}
+
 function loadModule(mod) {
+  campLoadSaved_();
   App.currentModule = mod;
   destroyCharts();
   document.querySelectorAll('.nav-item').forEach(function(el) {
@@ -2727,7 +2916,10 @@ function loadModule(mod) {
     'notifications-admin': renderNotifAdmin, users: renderUsers, payments: renderPayments,
     settings: renderSettings, pesaje: renderPesaje, buyerdebts: renderBuyerDebts, tutorials: renderTutorials, pending: renderPending
   };
-  if (renders[mod]) renders[mod]();
+  if (renders[mod]) {
+    if (CAMP_MODS[mod] && !App._campMeta) campMetaLoad_(function() { renders[mod](); });   // espera los lotes para poder filtrar
+    else { renders[mod](); if (CAMP_MODS[mod]) campMetaLoad_(); }
+  }
   else { document.getElementById('dynamic-content').innerHTML = '<p style="padding:20px;color:var(--gray)">Módulo no encontrado.</p>'; showLoader(false); }
 }
 
@@ -2772,8 +2964,23 @@ function renderPesaje() {
     box.innerHTML = '<p style="padding:20px;color:var(--danger)"><i class="fas fa-lock" style="margin-right:8px"></i>Solo administrador.</p>';
     showLoader(false); return;
   }
-  function mount(html) {
-    box.innerHTML = '<iframe id="pesaje-frame" title="Pesaje y Liquidación" allow="camera; clipboard-write" ' +
+  function pzPrepare_(cb) {
+    if (!App.camp) { cb(null); return; }
+    api('pesajeCampanaDeLote', { lote: App.camp }, function(r) {
+      var cs = (r && r.campanas) || [];
+      if (cs.length) { try { localStorage.setItem('avicola_campana_activa', cs[0]); } catch (e) {} }
+      cb({ camps: cs });
+    });
+  }
+  function pzBar_(info) {
+    if (!info || !App.camp) return '';
+    var b = campById_(App.camp), nm = b ? b.batch_number : 'campaña';
+    return info.camps.length
+      ? '<div class="camp-chip" style="margin:0 0 8px"><i class="fas fa-link"></i> Campaña del sistema: <b>' + escHtml(nm) + '</b> · Pesaje enlazado: <b>' + escHtml(info.camps.map(bdCampLabel).join(', ')) + '</b></div>'
+      : '<div class="camp-chip" style="margin:0 0 8px;border-color:var(--danger);color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> La campaña <b>' + escHtml(nm) + '</b> aún no tiene Pesaje enlazado. Crea la campaña de Pesaje que le corresponde y elige este lote en el selector de Finanzas; lo que ves abajo puede ser de otra campaña.</div>';
+  }
+  function mount(html, info) {
+    box.innerHTML = pzBar_(info) + '<iframe id="pesaje-frame" title="Pesaje y Liquidación" allow="camera; clipboard-write" ' +
       'style="width:100%;height:calc(100vh - var(--header-height) - 48px);height:calc(100dvh - var(--header-height) - 48px);' +
       'border:1px solid var(--border);border-radius:var(--radius);background:#020617;display:block;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;opacity:0;transition:opacity .15s" scrolling="yes"></iframe>';
     var fr = document.getElementById('pesaje-frame');
@@ -2785,16 +2992,17 @@ function renderPesaje() {
     }
     fr.onload = function() { requestAnimationFrame(function() { requestAnimationFrame(reveal); }); };
     setTimeout(reveal, 8000);   // por si algún recurso externo tarda o falla
+    if (info) fr.style.height = 'calc(100dvh - var(--header-height) - 96px)';
     fr.srcdoc = html;
   }
-  if (_pesajeHtmlCache) { mount(_pesajeHtmlCache); return; }
+  if (_pesajeHtmlCache) { pzPrepare_(function(info) { mount(_pesajeHtmlCache, info); }); return; }
   api('pesajeGetPage', {}, function(r) {
     if (!r || !r.success || !r.html) {
       box.innerHTML = '<p style="padding:20px;color:var(--danger)">' + escHtml((r && r.error) || 'No se pudo cargar el módulo de Pesaje.') + '</p>';
       showLoader(false); return;
     }
     _pesajeHtmlCache = r.html;
-    mount(r.html);
+    pzPrepare_(function(info) { mount(r.html, info); });
   });
 }
 
@@ -3066,7 +3274,7 @@ function cardSortRecords(list, mod, maps) {
 // ==================== FIN PAGINACIÓN ====================
 
 function renderDashboard() {
-  api('getDashboard', {}, function(data) {
+  api('getDashboard', { campaign_id: (App._dashCamp != null ? App._dashCamp : (App.camp || '')) }, function(data) {
     if (!data || data.success === false) { showLoader(false); showToast('Error al cargar dashboard', 'error'); return; }
     var kpis = data.kpis || {};
     var bal  = kpis.balance || 0;
@@ -3079,47 +3287,6 @@ function renderDashboard() {
         '<button class="btn-secondary" onclick="loadModule(\'payments\')" style="font-size:12px;padding:6px 12px">Ver todos <i class="fas fa-arrow-right" style="margin-left:4px;font-size:11px"></i></button>' +
       '</div><div class="section-card-body"><div id="dash-payments-body"><p style="color:var(--gray-light);font-size:13px;text-align:center;padding:20px">Cargando...</p></div></div></div>'
       ) : '');
-    var actDay = new Date().toLocaleDateString('en-CA');
-    if (App.user && App.user.role === 'admin' && !gxOff('gx-act', actDay)) {
-      html += '<div class="section-card" id="gx-act" data-k="' + actDay + '"><div class="section-card-header" style="display:flex;align-items:center;justify-content:space-between"><h3>Actividades Recientes</h3><button class="gx-x" onclick="gxClose(\'gx-act\')" title="Quitar por hoy">&times;</button></div><div class="section-card-body"><div class="activities-list">';
-      var actLabels = {
-        SAVE_PRODUCTION:'Producción registrada', SAVE_FEEDING:'Alimentación registrada',
-        SAVE_BIRD:'Lote registrado', SAVE_HOUSE:'Galpón guardado',
-        SAVE_FINANCE:'Movimiento financiero', SAVE_STAFF:'Empleado guardado',
-        SAVE_TASK:'Tarea guardada', SAVE_HEALTH:'Evento de salud', SAVE_MAINTENANCE:'Mantenimiento',
-        SAVE_PAYMENT:'Pago registrado', SAVE_USER:'Usuario guardado', SAVE_ATTENDANCE:'Asistencia marcada',
-        DELETE_BIRD:'Lote eliminado', DELETE_PRODUCTION:'Producción eliminada',
-        DELETE_HOUSE:'Galpón eliminado', DELETE_FINANCE:'Finanza eliminada',
-        DELETE_FEEDING:'Alimentación eliminada', DELETE_STAFF:'Empleado eliminado',
-        DELETE_TASK:'Tarea eliminada', DELETE_HEALTH:'Salud eliminada',
-        DELETE_MAINTENANCE:'Mantenimiento eliminado', DELETE_USER:'Usuario eliminado', DELETE_VOUCHER:'Comprobante eliminado',
-        LOGIN:'Inicio de sesión', LOGOUT:'Cierre de sesión',
-        BROADCAST_NOTIF:'Notificación enviada', UPLOAD_IMAGE:'Imagen subida',
-        SAVE_STAFF_PAYMENT:'Pago / deuda de empleado', DELETE_STAFF_PAYMENT:'Pago / deuda de empleado eliminado',
-        GENERATE_STAFF_SALARIES:'Sueldos del mes generados', SAVE_BUYER_PAYMENT:'Cobro a comprador', DELETE_BUYER_PAYMENT:'Cobro a comprador eliminado'
-      };
-      var actIcons = {
-        SAVE_PRODUCTION:'fa-drumstick-bite', SAVE_FEEDING:'fa-seedling', SAVE_BIRD:'fa-dove',
-        SAVE_HOUSE:'fa-warehouse', SAVE_FINANCE:'fa-coins', SAVE_STAFF:'fa-user',
-        SAVE_TASK:'fa-tasks', SAVE_HEALTH:'fa-heartbeat', SAVE_MAINTENANCE:'fa-tools',
-        SAVE_PAYMENT:'fa-receipt', LOGIN:'fa-sign-in-alt', LOGOUT:'fa-sign-out-alt',
-        DELETE_BIRD:'fa-trash', DELETE_PRODUCTION:'fa-trash', DELETE_HOUSE:'fa-trash',
-        DEFAULT:'fa-history'
-      };
-      (data.recentActivities || []).slice(0, 8).forEach(function(a) {
-        var icon = actIcons[a.action] || actIcons.DEFAULT;
-        var label = actLabels[a.action] || a.action;
-        var detail = a.details ? (' — ' + a.details) : '';
-        html += '<div class="activity-item">' +
-          '<div class="activity-dot" style="width:32px;height:32px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:0"><i class="fas ' + icon + '" style="color:var(--primary);font-size:13px"></i></div>' +
-          '<div style="flex:1;min-width:0"><p style="font-weight:600">' + escHtml(label) + '<span style="font-weight:400;color:var(--gray)"> ' + escHtml(detail) + '</span></p>' +
-          '<small>' + fmtDate(a.timestamp) + '</small></div></div>';
-      });
-      if (!(data.recentActivities || []).length) {
-        html += '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:20px">Sin actividades recientes</p>';
-      }
-      html += '</div></div></div>';
-    }
     document.getElementById('dynamic-content').innerHTML = html;
     showLoader(false);
 
@@ -3172,7 +3339,7 @@ function renderDashboard() {
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtMoney(c.parsed.y); } } } },
-          scales: { y: { grid: { color: '#f3f4f6' }, ticks: { callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false } } }
+          scales: { y: { grid: { color: gxTheme().grid }, ticks: { callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false } } }
         }
       });
     }
@@ -3189,7 +3356,7 @@ function renderDashboard() {
         },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          plugins: { legend: { position: 'bottom', labels: { color: gxTheme().text, boxWidth: 12, font: { size: 11 } } },
                      tooltip: { callbacks: { label: function(c) { return c.label + ': ' + fmtMoney(c.parsed); } } } }
         }
       });
@@ -3217,7 +3384,7 @@ function renderDashboard() {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
           scales: {
-            y: { max: 100, grid: { color: '#f3f4f6' }, ticks: { callback: function(v) { return v + '%'; } } },
+            y: { max: 100, grid: { color: gxTheme().grid }, ticks: { callback: function(v) { return v + '%'; } } },
             x: { grid: { display: false } }
           }
         }
@@ -3318,7 +3485,10 @@ function dashTop(profile, data) {
   var role = (App.user && App.user.role) || 'viewer';
   var head = '<div class="module-header"><div><h1 class="page-title">' + greetingEs_() + ', ' + escHtml((App.user && (App.user.fullName || App.user.username)) || '') + '</h1>' +
     (profile === 'full' ? '<div class="page-subtitle">' + (ROLE_LABELS[role] || role) + ' — ' + ROLE_HINTS[profile] + (!seeAllFE() ? ' &nbsp;<span class="scope-note"><i class="fas fa-user-lock"></i> Solo tus registros</span>' : '') + '</div>' +
-    (ROLE_DUTY[role] ? '<div style="margin-top:4px;font-size:12px;color:var(--gray)"><i class="fas fa-circle-info"></i> ' + ROLE_DUTY[role] + '</div>' : '') : '') + '</div></div>';
+    '</div>' : '') + '</div></div>';
+
+  if (profile === 'full') return head + gxStyle() + dashStyle_() + dashFullHtml_(k, data);
+  // otros roles (operador, veterinario, mantenimiento, visualizador): siguen abajo con sus tarjetas y gráficos propios
 
   var cards, body;
   var hasPz = !!k.hasPesaje;
@@ -3334,39 +3504,39 @@ function dashTop(profile, data) {
       gxTitle('fa-chart-column', 'Comparación de campañas') +
       '<div class="charts-row">' +
         chartCard('fa-chart-column', 'Compara tus campañas', 'camp-chart', campTabs([['mortalityPct','Mortalidad']].concat(hasPz ? [['kgSold','Kg vendidos']] : []).concat([['alive','Aves vivas']]))) +
-        (hasPz ? chartCard('fa-sack-dollar', 'Vendido y cobrado por campaña', 'pz-chart') : '') + '</div>';
+        (hasPz ? chartCard('fa-chart-column', 'Comparación entre Campañas (Kilos Netos vs Tara)', 'pz-chart') : '') + '</div>';
   } else if (profile === 'operator') {
-    cards = gxGrid_([
-      gxCard('fa-dove', 'Aves en campaña', fmtNum2(k.totalBirds || 0), '#22c55e', fmtNum2(k.totalHouses) + ' galpones', '', 'birds'),
-      gxCard('fa-layer-group', 'Campañas activas', fmtNum(k.activeCampaigns || 0), '#3b82f6', 'de ' + fmtNum2(camps.length) + ' registradas'),
-      gxCard('fa-heart-crack', 'Mortalidad', (k.mortalityPct || 0) + '%', mortColor(k.mortalityPct), fmtNum2(k.mortalityTotal) + ' aves'),
-      gxCard('fa-seedling', 'Alimento', fmtNum2(k.feedKg || 0) + ' kg', '#f59e0b', 'campañas activas'),
-      gxCard('fa-tasks', 'Mis tareas pendientes', fmtNum(k.pendingTasks || 0), (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', '', 'tasks')
+    cards = dashRoleCards_([
+      { icon: 'fa-dove', title: 'Aves en campaña', val: fmtNumCard(k.totalBirds || 0), color: '#22c55e', sub: fmtNum2(k.totalHouses) + ' galpones', go: 'birds' },
+      { icon: 'fa-layer-group', title: 'Campañas activas', val: fmtNumCard(k.activeCampaigns || 0), color: '#3b82f6', sub: 'de ' + fmtNum2(camps.length) + ' registradas' },
+      { icon: 'fa-heart-crack', title: 'Mortalidad', val: escHtml((k.mortalityPct || 0) + '%'), color: mortColor(k.mortalityPct), vcolor: mortColor(k.mortalityPct), sub: fmtNum2(k.mortalityTotal) + ' aves' },
+      { icon: 'fa-seedling', title: 'Alimento', val: fmtNumCard(k.feedKg || 0, ' kg'), color: '#f59e0b', sub: 'campañas activas' },
+      { icon: 'fa-tasks', title: 'Mis tareas pendientes', val: fmtNumCard(k.pendingTasks || 0), color: (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), sub: fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', go: 'tasks' }
     ]);
-    body = '<div class="charts-row">' +
+    body = '<div class="dash-2">' +
         chartCard('fa-chart-column', 'Comparativa por campaña', 'camp-chart', campTabs([['mortalityPct','Mortalidad'],['feedKg','Alimento']])) +
         chartCard('fa-warehouse', 'Ocupación por galpón', 'occ-chart') +
         chartCard('fa-list-check', 'Estado de mis tareas', 'task-chart') + '</div>';
   } else if (profile === 'vet') {
-    cards = gxGrid_([
-      gxCard('fa-dove', 'Aves en campaña', fmtNum2(k.totalBirds || 0), '#22c55e', 'campañas activas: ' + fmtNum(k.activeCampaigns || 0)),
-      gxCard('fa-heart-crack', 'Mortalidad', (k.mortalityPct || 0) + '%', mortColor(k.mortalityPct), fmtNum2(k.mortalityTotal) + ' aves'),
-      gxCard('fa-syringe', 'Eventos próximos', fmtNum(k.healthUpcoming || 0), '#f59e0b', 'próximos 7 días', '', 'health'),
-      gxCard('fa-notes-medical', 'Eventos de salud', fmtNum(k.healthCount30d || 0), '#06b6d4', 'últimos 30 días', '', 'health')
+    cards = dashRoleCards_([
+      { icon: 'fa-dove', title: 'Aves en campaña', val: fmtNumCard(k.totalBirds || 0), color: '#22c55e', sub: 'campañas activas: ' + fmtNum(k.activeCampaigns || 0) },
+      { icon: 'fa-heart-crack', title: 'Mortalidad', val: escHtml((k.mortalityPct || 0) + '%'), color: mortColor(k.mortalityPct), vcolor: mortColor(k.mortalityPct), sub: fmtNum2(k.mortalityTotal) + ' aves' },
+      { icon: 'fa-syringe', title: 'Eventos próximos', val: fmtNumCard(k.healthUpcoming || 0), color: '#f59e0b', sub: 'próximos 7 días', go: 'health' },
+      { icon: 'fa-notes-medical', title: 'Eventos de salud', val: fmtNumCard(k.healthCount30d || 0), color: '#06b6d4', sub: 'últimos 30 días', go: 'health' }
     ]);
-    body = '<div class="charts-row">' +
+    body = '<div class="dash-2">' +
         chartCard('fa-chart-column', 'Mortalidad por campaña', 'camp-chart') +
         chartCard('fa-notes-medical', 'Eventos de salud por tipo', 'health-chart') + '</div>';
   } else {
-    cards = gxGrid_([
-      gxCard('fa-hourglass-half', 'Mant. pendientes', fmtNum(k.maintPending || 0), '#f59e0b', '', '', 'maintenance'),
-      gxCard('fa-screwdriver-wrench', 'En progreso', fmtNum(k.maintProgress || 0), '#3b82f6', '', '', 'maintenance'),
-      gxCard('fa-circle-check', 'Completados', fmtNum(k.maintDone || 0), '#22c55e', '', '', 'maintenance'),
-      gxCard('fa-triangle-exclamation', 'Vencidos', fmtNum(k.maintOverdue || 0), '#ef4444', '', '', 'maintenance'),
-      gxCard('fa-tasks', 'Tareas pendientes', fmtNum(k.pendingTasks || 0), (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', '', 'tasks'),
-      gxCard('fa-warehouse', 'Galpones', fmtNum(k.totalHouses || 0), '#06b6d4', '')
+    cards = dashRoleCards_([
+      { icon: 'fa-hourglass-half', title: 'Mant. pendientes', val: fmtNumCard(k.maintPending || 0), color: '#f59e0b', go: 'maintenance' },
+      { icon: 'fa-screwdriver-wrench', title: 'En progreso', val: fmtNumCard(k.maintProgress || 0), color: '#3b82f6', go: 'maintenance' },
+      { icon: 'fa-circle-check', title: 'Completados', val: fmtNumCard(k.maintDone || 0), color: '#22c55e', go: 'maintenance' },
+      { icon: 'fa-triangle-exclamation', title: 'Vencidos', val: fmtNumCard(k.maintOverdue || 0), color: '#ef4444', go: 'maintenance' },
+      { icon: 'fa-tasks', title: 'Tareas pendientes', val: fmtNumCard(k.pendingTasks || 0), color: (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), sub: fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', go: 'tasks' },
+      { icon: 'fa-warehouse', title: 'Galpones', val: fmtNumCard(k.totalHouses || 0), color: '#06b6d4' }
     ]);
-    body = '<div class="charts-row">' +
+    body = '<div class="dash-2">' +
         chartCard('fa-screwdriver-wrench', 'Estado del mantenimiento', 'maint-chart') +
         chartCard('fa-list-check', 'Estado de mis tareas', 'task-chart') +
         chartCard('fa-warehouse', 'Ocupación por galpón', 'occ-chart') + '</div>';
@@ -3374,8 +3544,78 @@ function dashTop(profile, data) {
   if (profile === 'full') {
     return head + gxStyle() + gxAlertBox(data.alerts) + cards + body;
   }
-  return head + gxStyle() + cards + body;
+  return head + gxStyle() + dashStyle_() + dashFilterBar_(data) + cards + body;
 }
+// Filtro de campaña para los demás roles (misma lógica y mismo diseño que el del administrador)
+function dashFilterBar_(data) {
+  var camps = data.campaigns || [], sel = String(data.selectedCampaign || '');
+  if (!camps.length) return '';
+  var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
+    return String(b.start).localeCompare(String(a.start));
+  }).map(function(c) {
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+  }).join('');
+  return '<div class="filters-bar dash-filter"><label><i class="fas fa-layer-group"></i> Campaña</label>' +
+    '<select title="Filtrar por campaña" onchange="dashCampPick(this.value)">' + opts + '</select></div>';
+}
+// Tarjetas con el diseño del administrador: icono, título, número abreviado (K / M) y nota.
+function dashRoleCards_(list) {
+  return '<div class="finance-summary dash-cards">' + list.map(function(c) {
+    return '<div class="summary-card"' + (c.go ? ' tabindex="0" onclick="loadModule(\'' + c.go + '\')"' : '') + '>' +
+      '<div class="summary-icon custom" style="--ic:' + c.color + '"><i class="fas ' + c.icon + '"></i></div>' +
+      '<div><h3>' + escHtml(c.title) + '</h3><p' + (c.vcolor ? ' style="color:' + c.vcolor + '"' : '') + '>' + c.val + '</p>' +
+      (c.sub ? '<small>' + escHtml(c.sub) + '</small>' : '') + '</div></div>';
+  }).join('') + '</div>';
+}
+// ==================== DASHBOARD: tarjetas de Finanzas + filtro de campaña + 2 gráficos ====================
+function dashStyle_() {
+  return '<style>' +
+    '.dash-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}' +
+    '.dash-2 .chart-card{min-width:0}.dash-2 .chart-wrapper{height:260px}' +
+    '@media(max-width:760px){.dash-2{grid-template-columns:1fr}.dash-2 .chart-wrapper{height:210px}}' +
+    '.dash-filter select{max-width:100%}' +
+    '.dash-cards.finance-summary{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}' +
+    '.dash-cards .summary-card{min-width:0;padding:11px 13px;gap:10px}' +
+    '.dash-cards .summary-icon{width:34px;height:34px;border-radius:10px}.dash-cards .summary-icon i{font-size:15px}' +
+    '.dash-cards .summary-card h3{font-size:10px;margin-bottom:2px}' +
+    '.dash-cards .summary-card small{font-size:11px!important}' +
+    '.dash-cards .summary-card{min-width:0}.dash-cards .summary-card>div:last-child{min-width:0;flex:1}' +
+    '.dash-cards .summary-card>div:last-child{container-type:inline-size}.dash-cards .summary-card p{font-size:clamp(12px,12.5cqw,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.dash-cards .summary-card small{display:block;font-size:12px;line-height:1.3;color:var(--gray)}' +
+    '@media(max-width:600px){.dash-cards .summary-card{padding:9px 10px;gap:8px}.dash-cards .summary-icon{width:30px;height:30px}.dash-cards .summary-icon i{font-size:13px}.dash-cards .summary-card h3{font-size:10px}.dash-cards .summary-card:last-child:nth-child(odd){grid-column:1/-1}}' +
+    '.dash-2>:last-child:nth-child(odd){grid-column:1/-1}' +
+    '</style>';
+}
+
+function dashFullHtml_(k, data) {
+  var camps = data.campaigns || [], sel = String(data.selectedCampaign || '');
+  var egr = k.egresosTotal || 0, rest = (k.totalCapital || 0) - egr, ok = rest >= 0;
+  // Filtro de campaña: «Todas» envía 'all' (el servidor lo toma como General); el resto envía el id del lote
+  var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
+    return String(b.start).localeCompare(String(a.start));
+  }).map(function(c) {
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+  }).join('');
+  var card = function(cls, icon, ic, title, val, sub, extra) {
+    return '<div class="summary-card ' + cls + '"' + (extra || '') + '><div class="summary-icon ' + ic + '"><i class="fas ' + icon + '"></i></div><div><h3>' + title + '</h3><p title="' + escHtml(fmtMoney(val)) + '">' + fmtMoneyShort(val, 10000) + '</p>' + (sub ? '<small>' + sub + '</small>' : '') + '</div></div>';
+  };
+  return '<div class="filters-bar dash-filter"><label><i class="fas fa-layer-group"></i> Campaña</label>' +
+      '<select title="Filtrar por campaña" onchange="dashCampPick(this.value)">' + opts + '</select></div>' +
+    '<div class="finance-summary dash-cards">' +
+      card('', 'fa-piggy-bank', 'balance', 'Capital recibido', (k.totalCapital || 0), 'Con lo que empezó') +
+      card('', 'fa-arrow-down', 'expense', 'Egresos', egr) +
+      card(ok ? 'positive' : 'negative', 'fa-scale-balanced', ok ? 'income' : 'expense', 'Capital − Egresos', rest, ok ? 'Capital que te queda' : 'Egresos superan el capital') +
+      card('positive', 'fa-wallet', 'income', 'Dinero que ya cobré', (k.totalIncome || 0)) +
+      (k.hasPesaje ? card('', 'fa-hand-holding-dollar', 'expense', 'Me deben los compradores', (k.receivableTotal || 0), 'Vendido sin cobrar', ' style="cursor:pointer" onclick="loadModule(\'buyerdebts\')" title="Ver Deuda de compradores"') : '') +
+    '</div>' +
+    '<div class="dash-2">' +
+      (k.hasPesaje ? chartCard('fa-chart-column', '📊 Comparación entre Campañas (Kilos Netos vs Tara)', 'pz-chart') : '') +
+      chartCard('fa-chart-column', 'Comparación entre Campañas', 'camp-chart', campTabs([['mortalityPct', 'Mortalidad'], ['alive', 'Aves vivas'], ['feedKg', 'Alimento']].concat(k.hasPesaje ? [['kgSold', 'Kg vendidos'], ['profitReal', 'Utilidad']] : [['profit', 'Utilidad']]))) +
+    '</div>';
+}
+
+function dashCampPick(id) { App._dashCamp = id || 'all'; showLoader(true); renderDashboard(); }
+
 function gxGrid_(list) { return '<div class="gx-grid" style="margin-top:6px;margin-bottom:18px">' + list.join('') + '</div>'; }
 
 // ===== Dashboard del gerente: solo tarjetas y gráficos =====
@@ -3500,10 +3740,10 @@ function drawPzCharts(data) {
   var c1 = document.getElementById('pz-chart');
   if (!c1) return;
   App.charts.pz = new Chart(c1, { type: 'bar', data: { labels: L.map(function(c) { return c.label; }), datasets: [
-    { label: 'Vendido', data: L.map(function(c) { return c.vendido; }), backgroundColor: 'rgba(34,197,94,0.8)', borderRadius: 6 },
-    { label: 'Cobrado', data: L.map(function(c) { return c.cobrado; }), backgroundColor: 'rgba(59,130,246,0.8)', borderRadius: 6 }
+    { label: 'Carne Neta (kg)', data: L.map(function(c) { return c.kg || 0; }), backgroundColor: 'rgba(52,211,153,0.85)', borderRadius: 6 },
+    { label: 'Tara Usada (kg)', data: L.map(function(c) { return c.tara || 0; }), backgroundColor: 'rgba(251,191,36,0.85)', borderRadius: 6 }
   ] }, options: { responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { labels: { color: th.text, boxWidth: 12 } }, tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtMoney(c.parsed.y); } } } },
+    plugins: { legend: { labels: { color: th.text, boxWidth: 12 } }, tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtNum2(c.parsed.y) + ' kg'; } } } },
     scales: { y: { grid: { color: th.grid }, ticks: { color: th.text, callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false }, ticks: { color: th.text } } } } });
 }
 
@@ -3577,7 +3817,7 @@ function renderHouses() {
   var sEl = document.getElementById('houses-search'); if (sEl) searchVal = sEl.value;
   apiGet('getHouses', {}, function(houses) {
     App._cache.houses = houses;
-    var filtered = filterTable(houses, searchVal, ['name', 'status']); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
+    var filtered = filterTable(houses, searchVal, ['name', 'status']); (function() { var cb = campCur_('houses') ? campById_(campCur_('houses')) : null; if (cb) filtered = filtered.filter(function(h) { return String(h.id) === String(cb.house_id); }); })(); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
     var allRows = filtered.map(function(h) {
       var p = pct(parseInt(h.current_population) || 0, parseInt(h.capacity) || 1);
       return '<tr>' +
@@ -3596,7 +3836,7 @@ function renderHouses() {
         '<div><h1 class="page-title">Galpones</h1><div class="page-subtitle">' + houses.length + ' galpones registrados' + (canEdit ? '' : ' · <span class="scope-note"><i class="fas fa-eye"></i> Solo consulta</span>') + '</div></div>' +
         (canEdit ? '<button class="btn-primary" onclick="showHouseModal()"><i class="fas fa-plus"></i> Nuevo Galpón</button>' : '') +
       '</div>' +
-      '<div class="filters-bar"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="houses-search" placeholder="Buscar galpón..." value="' + escHtml(searchVal) + '" oninput="renderHouses()"></div></div>' +
+      '<div class="filters-bar"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="houses-search" placeholder="Buscar galpón..." value="' + escHtml(searchVal) + '" oninput="renderHouses()"></div>' + campFilterHtml_('houses', 'renderHouses()') + '</div>' +
       tblBuild('houses', allRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 6 : 5) + '"><i class="fas fa-warehouse" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border)"></i>No se encontraron galpones</td></tr>',
         '<tr><th>Nombre</th><th>Capacidad</th><th>Población</th><th>Ocupación</th><th>Estado</th>' + (canEdit ? '<th>Acciones</th>' : '') + '</tr>') +
       (canEdit ? houseModalHtml() : '');
@@ -3665,6 +3905,7 @@ function renderBirds() {
     App._cache.birds  = birds;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
     var filtered = filterHouse ? birds.filter(function(b) { return b.house_id === filterHouse; }) : birds;
+    if (campCur_('birds')) filtered = filtered.filter(function(b) { return String(b.id) === campCur_('birds'); });
     filtered = filterTable(filtered, searchVal, ['batch_number', 'species', 'status']); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
     var birdRows = filtered.map(function(b) {
       return '<tr>' +
@@ -3684,7 +3925,7 @@ function renderBirds() {
         (canEdit ? '<button class="btn-primary" onclick="showBirdModal()"><i class="fas fa-plus"></i> Nuevo Lote</button>' : '') +
       '</div>' +
       '<div class="filters-bar">' +
-        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="birds-search" placeholder="Buscar lote, especie..." value="' + escHtml(searchVal) + '" oninput="renderBirds()"></div>' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="birds-search" placeholder="Buscar lote, especie..." value="' + escHtml(searchVal) + '" oninput="renderBirds()"></div>' + campFilterHtml_('birds', 'renderBirds()') +
         '<select id="birds-filter-house" onchange="renderBirds()">' + hOpts + '</select>' +
       '</div>' +
       tblBuild('birds', birdRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 7 : 6) + '">No se encontraron lotes de aves</td></tr>',
@@ -3710,7 +3951,11 @@ function renderBirds() {
 function startCampaignUI(id) {
   confirmDialog('¿Iniciar esta campaña? Desde ahora se activan tareas, registros, vencimientos y archivos.', function() {
     api('startCampaign', { id: id }, function(r) {
-      if (r && r.success) { showToast('Campaña iniciada', 'success'); App._cache.birds = null; renderBirds(); }
+      if (r && r.success) {
+        showToast('Campaña iniciada: todas las secciones empiezan en cero', 'success');
+        App.camp = ''; App._taskCamp = String(id); App._campMeta = null;
+        App._cache.birds = null; campMetaLoad_(function() { renderBirds(); });
+      }
       else showToast((r && r.error) || 'No se pudo iniciar la campaña', 'error');
     });
   }, { okText: 'Iniciar campaña', icon: 'fa-play' });
@@ -3743,7 +3988,7 @@ function saveBirdForm(e) {
     arrival_date: v('b-arrival'), status: v('b-status')
   }, function(r) {
     if (btn) btn.disabled = false;
-    if (r && r.success) { closeModal('bird-modal'); showToast('Lote guardado', 'success'); App._cache.birds = null; renderBirds(); }
+    if (r && r.success) { closeModal('bird-modal'); showToast(r.reopened ? 'Campaña reabierta' : 'Lote guardado', 'success'); App._cache.birds = null; renderBirds(); }
     else showToast((r && r.error) || 'Error al guardar', 'error');
   });
 }
@@ -3767,6 +4012,7 @@ function renderProduction() {
         var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
         var bMap = {}; birds.forEach(function(b) { bMap[b.id] = b; });
         var filtered = production.filter(function(p) {
+          if (!campKeep_(p, 'bird')) return false;
           if (filterHouse && p.house_id !== filterHouse) return false;
           if (startDate  && String(p.date).slice(0,10) < startDate) return false;
           if (endDate    && String(p.date).slice(0,10) > endDate)   return false;
@@ -3784,7 +4030,7 @@ function renderProduction() {
           return '<tr>' +
             '<td>' + fmtDate(p.date) + '</td>' +
             '<td>' + escHtml(hMap[p.house_id] || '—') + '</td>' +
-            '<td>' + escHtml(brd ? brd.batch_number : '—') + '</td>' +
+            '<td>' + campBadge_(brd ? brd.batch_number : '') + '</td>' +
             (canExits ? '<td><strong>' + fmtNum(parseInt(p.eggs_count) || 0) + '</strong></td>' : '') +
             (canExits ? '<td><span style="color:var(--warning);font-weight:600">' + fmtNum(parseInt(p.damaged) || 0) + '</span></td>' : '') +
             '<td><span style="color:var(--danger);font-weight:600">'  + fmtNum(parseInt(p.mortality) || 0) + '</span></td>' +
@@ -3801,11 +4047,12 @@ function renderProduction() {
           '<div class="filters-bar">' +
             '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="prod-search" placeholder="Buscar galpón, lote..." value="' + escHtml(searchVal) + '" oninput="renderProduction()"></div>' +
             '<select id="prod-filter-house" onchange="renderProduction()">' + hOpts + '</select>' +
+            campFilterHtml_('production', 'renderProduction()') +
             '<input type="date" id="prod-start" value="' + startDate + '" onchange="renderProduction()">' +
             '<input type="date" id="prod-end"   value="' + endDate   + '" onchange="renderProduction()">' +
           '</div>' +
           tblBuild('production', prodRows, '<tr class="empty-row"><td colspan="' + (canExits ? 8 : 6) + '">No se encontraron registros de producción</td></tr>',
-            '<tr><th>Fecha</th><th>Galpón</th><th>Lote</th>' + (canExits ? '<th>Pollos Vendidos</th><th>Descartados</th>' : '') + '<th>Mort.</th><th>Notas</th><th></th></tr>') +
+            '<tr><th>Fecha</th><th>Galpón</th><th>Campaña</th>' + (canExits ? '<th>Pollos Vendidos</th><th>Descartados</th>' : '') + '<th>Mort.</th><th>Notas</th><th></th></tr>') +
           '<div id="prod-modal" class="modal" style="display:none"><div class="modal-content">' +
             '<div class="modal-header"><h3 id="prod-modal-title">Nuevo Registro</h3><button class="close-modal" onclick="closeModal(\'prod-modal\')">&times;</button></div>' +
             '<form id="prod-form"><input type="hidden" id="pr-id" value="new">' +
@@ -3844,8 +4091,9 @@ function showProductionModal(p) {
   p = p || {};
   document.getElementById('prod-modal-title').textContent = p.id ? 'Editar Registro' : (seeAllFE() ? 'Registrar salida de pollos' : 'Registrar del día');
   document.getElementById('pr-id').value       = p.id         || 'new';
-  document.getElementById('pr-house').value    = p.house_id   || '';
-  loadBirdsForProd(p.bird_id);
+  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && campStatusFE(b) === 'started'; })[0] : null;
+  document.getElementById('pr-house').value    = p.house_id   || (defB ? defB.house_id : '');
+  loadBirdsForProd(p.bird_id || (defB ? defB.id : ''));
   document.getElementById('pr-date').value     = p.date       || today();
   if (document.getElementById('pr-eggs')) document.getElementById('pr-eggs').value = p.eggs_count || '';
   if (document.getElementById('pr-damaged')) document.getElementById('pr-damaged').value = p.damaged || '';
@@ -3880,7 +4128,12 @@ function saveProductionForm(e) {
     damaged: document.getElementById('pr-damaged') ? v('pr-damaged') : '', mortality: v('pr-mortality'), mortality_cause: v('pr-cause'), notes: v('pr-notes')
   }, function(r) {
     if (btn) btn.disabled = false;
-    if (r && r.success) { closeModal('prod-modal'); showToast('Registro guardado' + (r.alive != null ? ' · Quedan ' + fmtNum2(r.alive) + ' aves vivas en el lote' : ''), 'success'); renderProduction(); }
+    if (r && r.success) {
+      closeModal('prod-modal');
+      if (r.warning) showToast('Registro guardado. ' + r.warning, 'warning');
+      else showToast('Registro guardado', 'success');
+      renderProduction();
+    }
     else showToast((r && r.error) || 'Error al guardar', 'error');
   });
 }
@@ -3957,7 +4210,7 @@ function renderFeeding() {
     App._cache.feedCamps = fCamps;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
     var cMap = {}; fCamps.forEach(function(c) { cMap[c.id] = c; });
-    var filtered = filterTable(feeding, searchVal, ['feed_type', 'notes', 'supplier']);
+    var filtered = filterTable(feeding.filter(function(f) { return campKeep_(f); }), searchVal, ['feed_type', 'notes', 'supplier']);
     var movBadge = { purchase: '<span class="badge badge-success"><i class="fas fa-cart-shopping"></i> Compra</span>',
                      consumption: '<span class="badge badge-info"><i class="fas fa-utensils"></i> Consumo</span>' };
     var feedRows = filtered.map(function(f) {
@@ -3973,6 +4226,7 @@ function renderFeeding() {
           : fmtMoney(f.cost) + ' <small style="color:var(--gray-light)">histórico</small>';
       return '<tr>' +
         '<td>' + fmtDate(f.date) + '</td>' +
+        '<td>' + (mv === 'purchase' ? (cMap[f.campaign_id] ? campBadge_(cMap[f.campaign_id].batch_number) : '<span class="badge badge-gray">Stock general</span>') : campBadge_(campNameOf_(f))) + '</td>' +
         '<td>' + (movBadge[mv] || '<span class="badge badge-gray">Histórico</span>') + '</td>' +
         '<td>' + (mv === 'purchase'
           ? '<span style="color:var(--gray-light)">' + escHtml(f.supplier || '—') + '</span><div style="margin-top:3px">' +
@@ -3997,17 +4251,18 @@ function renderFeeding() {
         '</div>' +
       '</div>' +
       '<div class="stock-grid">' +
-        '<div class="stock-card"><div class="lbl"><i class="fas fa-warehouse"></i> STOCK ACTUAL</div><div class="val" style="color:' + (stockKg < 0 ? 'var(--danger)' : 'var(--dark)') + '">' + fmtNum2(stockKg) + ' kg</div><div class="sub">≈ ' + fmtNum2(Math.round(bagsAprox * 10) / 10) + ' sacos de 50 kg</div></div>' +
-        '<div class="stock-card"><div class="lbl"><i class="fas fa-coins"></i> COSTO PROMEDIO</div><div class="val">' + fmtMoney(stock.avg_cost_kg || 0) + '</div><div class="sub">por kg (compras acumuladas)</div></div>' +
-        '<div class="stock-card"><div class="lbl"><i class="fas fa-cart-shopping"></i> COMPRADO</div><div class="val">' + fmtNum2(stock.purchased_kg || 0) + ' kg</div><div class="sub">' + fmtMoney(stock.purchased_cost || 0) + ' → egreso en Finanzas</div></div>' +
-        '<div class="stock-card"><div class="lbl"><i class="fas fa-utensils"></i> CONSUMIDO</div><div class="val">' + fmtNum2(stock.consumed_kg || 0) + ' kg</div><div class="sub">valor en stock ' + fmtMoney(stock.stock_value || 0) + '</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-warehouse"></i> STOCK ACTUAL</div><div class="val" style="color:' + (stockKg < 0 ? 'var(--danger)' : 'var(--dark)') + '">' + fmtNumCard(stockKg, ' kg') + '</div><div class="sub">≈ ' + fmtNum2(Math.round(bagsAprox * 10) / 10) + ' sacos de 50 kg</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-coins"></i> COSTO PROMEDIO</div><div class="val">' + fmtMoneyCard(stock.avg_cost_kg || 0) + '</div><div class="sub">por kg (compras acumuladas)</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-cart-shopping"></i> COMPRADO</div><div class="val">' + fmtNumCard(stock.purchased_kg || 0, ' kg') + '</div><div class="sub">' + fmtMoneyCard(stock.purchased_cost || 0) + ' → egreso en Finanzas</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-utensils"></i> CONSUMIDO</div><div class="val">' + fmtNumCard(stock.consumed_kg || 0, ' kg') + '</div><div class="sub">valor en stock ' + fmtMoneyCard(stock.stock_value || 0) + '</div></div>' +
       '</div>' +
       '<div class="filters-bar">' +
         '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="feed-search" placeholder="Buscar tipo, proveedor, notas..." value="' + escHtml(searchVal) + '" oninput="renderFeeding()"></div>' +
         '<select id="feed-filter-house" onchange="renderFeeding()">' + hOpts + '</select>' +
+        campFilterHtml_('feeding', 'renderFeeding()') +
       '</div>' +
-      tblBuild('feeding', feedRows, '<tr class="empty-row"><td colspan="8">Aún no hay movimientos de alimentación</td></tr>',
-        '<tr><th>Fecha</th><th>Movimiento</th><th>Galpón / Proveedor</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Notas</th><th></th></tr>') +
+      tblBuild('feeding', feedRows, '<tr class="empty-row"><td colspan="9">Aún no hay movimientos de alimentación</td></tr>',
+        '<tr><th>Fecha</th><th>Campaña</th><th>Movimiento</th><th>Galpón / Proveedor</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Notas</th><th></th></tr>') +
       '<div id="feed-modal" class="modal" style="display:none"><div class="modal-content">' +
         '<div class="modal-header"><h3 id="feed-modal-title">Registrar consumo</h3><button class="close-modal" onclick="closeModal(\'feed-modal\')">&times;</button></div>' +
         '<form id="feed-form"><input type="hidden" id="fe-id" value="new"><input type="hidden" id="fe-mov" value="consumption">' +
@@ -4083,7 +4338,7 @@ function showFeedingModal(f, movement) {
     (App._cache.houses || []).forEach(function(h) { hm[h.id] = h.name; });
     var cur = (isP && f.campaign_id) ? f.campaign_id : '';
     var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur; });
-    var pick = cur || ((!f.id && list.length === 1) ? list[0].id : '');
+    var pick = cur || ((!f.id && App.camp && list.some(function(c) { return String(c.id) === String(App.camp); })) ? String(App.camp) : '') || ((!f.id && list.length === 1) ? list[0].id : '');
     document.getElementById('fe-camp').innerHTML = '<option value="">Stock general (varias campañas)</option>' + list.map(function(c) {
       return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + '</option>';
     }).join('');
@@ -4164,6 +4419,7 @@ function renderFinance(fromCache) {
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
     var bMap = {}; birds.forEach(function(b) { bMap[b.id] = b; });
     var filtered = finances.filter(function(f) {
+      if (!campKeep_(f)) return false;
       if (filterType && f.type !== filterType) return false;
       if (startDate  && String(f.date).slice(0,10) < startDate) return false;
       if (endDate    && String(f.date).slice(0,10) > endDate)   return false;
@@ -4182,7 +4438,7 @@ function renderFinance(fromCache) {
     // Deudas de compradores: filas "Por cobrar" fijas arriba de la MISMA tabla (no suman a Ingresos/Egresos)
     var debtRows = [], totalDebe = 0;
     if (canIncome && deuda && deuda.success !== false) {
-      var deb = (deuda.rows || []).filter(function(x) { return x.saldo > 0.005; }).sort(function(a, b) { return b.saldo - a.saldo; });
+      var deb = (deuda.rows || []).filter(function(x) { return x.saldo > 0.005 && (!campCur_('finance') || String(x.lote || '') === campCur_('finance')); }).sort(function(a, b) { return b.saldo - a.saldo; });
       deb.forEach(function(x) { totalDebe += x.saldo; });
       var debShow = (filterType === '' || filterType === 'debt') ? deb : [];
       debShow = filterTable(debShow.map(function(x) {
@@ -4233,16 +4489,17 @@ function renderFinance(fromCache) {
         '<button class="btn-primary" onclick="showFinanceModal()"><i class="fas fa-plus"></i> Nuevo Movimiento</button>' +
       '</div>' +
       '<div class="finance-summary" id="fin-summary">' +
-        '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-piggy-bank"></i></div><div><h3>Capital recibido</h3><p>' + fmtMoney(totalCap) + '</p><small>Con lo que empezó</small></div></div>' +
-        '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-arrow-down"></i></div><div><h3>Egresos</h3><p>' + fmtMoney(totalExp + totalOut) + '</p></div></div>' +
+        '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-piggy-bank"></i></div><div><h3>Capital recibido</h3><p>' + fmtMoneyCard(totalCap) + '</p><small>Con lo que empezó</small></div></div>' +
+        '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-arrow-down"></i></div><div><h3>Egresos</h3><p>' + fmtMoneyCard(totalExp + totalOut) + '</p></div></div>' +
         (function() { var rest = totalCap - (totalExp + totalOut), ok = rest >= 0;
-          return '<div class="summary-card ' + (ok ? 'positive' : 'negative') + '"><div class="summary-icon ' + (ok ? 'income' : 'expense') + '"><i class="fas fa-scale-balanced"></i></div><div><h3>Capital − Egresos</h3><p>' + fmtMoney(rest) + '</p><small>' + (ok ? 'Capital que te queda' : 'Egresos superan el capital') + '</small></div></div>'; })() +
-        '<div class="summary-card positive"><div class="summary-icon income"><i class="fas fa-wallet"></i></div><div><h3>Dinero que ya cobré</h3><p>' + fmtMoney(totalInc) + '</p></div></div>' +
+          return '<div class="summary-card ' + (ok ? 'positive' : 'negative') + '"><div class="summary-icon ' + (ok ? 'income' : 'expense') + '"><i class="fas fa-scale-balanced"></i></div><div><h3>Capital − Egresos</h3><p>' + fmtMoneyCard(rest) + '</p><small>' + (ok ? 'Capital que te queda' : 'Egresos superan el capital') + '</small></div></div>'; })() +
+        '<div class="summary-card positive"><div class="summary-icon income"><i class="fas fa-wallet"></i></div><div><h3>Dinero que ya cobré</h3><p>' + fmtMoneyCard(totalInc) + '</p></div></div>' +
         (canIncome ? '<div class="summary-card" style="cursor:pointer" onclick="loadModule(\'buyerdebts\')" title="Ver Deuda de compradores"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Me deben los compradores</h3><p id="fin-porcobrar">Calculando…</p><small>Vendido sin cobrar</small></div></div>' : '') +
       '</div>' +
       '<div class="filters-bar">' +
         '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="fin-search" placeholder="Buscar descripción, categoría..." value="' + escHtml(searchVal) + '" oninput="finFilter()"></div>' +
         '<select id="fin-type-filter" onchange="finFilter()"><option value="">Todos</option><option value="income"' + (filterType === 'income' ? ' selected' : '') + '>Ingresos</option><option value="expense"' + (filterType === 'expense' ? ' selected' : '') + '>Egresos</option>' + (canIncome ? '<option value="debt"' + (filterType === 'debt' ? ' selected' : '') + '>Por cobrar (deudas)</option>' : '') + '</select>' +
+        campFilterHtml_('finance', 'finFilter()') +
         '<input type="date" id="fin-start" value="' + startDate + '" onchange="finFilter()">' +
         '<input type="date" id="fin-end"   value="' + endDate   + '" onchange="finFilter()">' +
       '</div>' +
@@ -4278,7 +4535,7 @@ function renderFinance(fromCache) {
       showLoader(false);
     }
     var pc = document.getElementById('fin-porcobrar');
-    if (pc && deuda) pc.textContent = (deuda.success !== false) ? fmtMoney(totalDebe) : '—';
+    if (pc && deuda) { pc.textContent = (deuda.success !== false) ? fmtMoneyShort(totalDebe, 10000) : '—'; pc.title = (deuda.success !== false) ? fmtMoney(totalDebe) : ''; }
   };
   // Filtros: usan lo ya cargado (instantáneo)
   if (fromCache && App._cache.finData) { buildFinance(App._cache.finData, App._cache.finDeuda || null, true); return; }
@@ -4348,7 +4605,7 @@ function showFinanceModal(f) {
   document.getElementById('fi-id').value     = f.id          || 'new';
   document.getElementById('fi-type').value   = f.type        || 'expense';
   if (document.getElementById('fi-type').value !== (f.type || 'expense')) document.getElementById('fi-type').selectedIndex = 0;
-  document.getElementById('fi-camp').value   = f.campaign_id || '';
+  document.getElementById('fi-camp').value   = f.campaign_id || (f.id ? '' : (App.camp || ''));
   updateFinCats(f.category);
   document.getElementById('fi-date').value   = f.date ? String(f.date).slice(0, 10) : today();
   document.getElementById('fi-desc').value   = f.description || '';
@@ -4418,6 +4675,7 @@ function renderStaffMain() {
     App._cache.staffPay = { entries: (r && r.entries) || [], summary: (r && r.summary) || {} };
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
       var filtered = filterStatus ? staff.filter(function(s) { return s.status === filterStatus; }) : staff;
+      (function() { var cb = campCur_('staff') ? campById_(campCur_('staff')) : null; if (cb) filtered = filtered.filter(function(x) { return String(x.house_id) === String(cb.house_id); }); })();
       filtered = filterTable(filtered, searchVal, ['name', 'position', 'email', 'phone']);
       var uMapSt = {}; (App._cache.staffUsers || []).forEach(function(u) { uMapSt[u.id] = u.username || u.full_name || ''; });
       var staffRows = filtered.map(function(s) {
@@ -4452,7 +4710,7 @@ function renderStaffMain() {
         staffPaySummaryHtml(staff) +
         '<div class="filters-bar">' +
           '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="staff-search" placeholder="Buscar nombre, cargo..." value="' + escHtml(searchVal) + '" oninput="renderStaff()"></div>' +
-          '<select id="staff-status-filter" onchange="renderStaff()"><option value="">Todos</option><option value="active"' + (filterStatus === 'active' ? ' selected' : '') + '>Activos</option><option value="inactive"' + (filterStatus === 'inactive' ? ' selected' : '') + '>Inactivos</option></select>' +
+          '<select id="staff-status-filter" onchange="renderStaff()"><option value="">Todos</option><option value="active"' + (filterStatus === 'active' ? ' selected' : '') + '>Activos</option><option value="inactive"' + (filterStatus === 'inactive' ? ' selected' : '') + '>Inactivos</option></select>' + campFilterHtml_('staff', 'renderStaff()') +
         '</div>' +
         tblBuild('staff', staffRows, '<tr class="empty-row"><td colspan="9">No se encontró personal registrado</td></tr>',
           '<tr><th>Nombre</th><th>Cargo</th><th>Galpón</th><th>Teléfono</th><th>Salario</th><th>Saldo</th><th>Ingreso</th><th>Estado</th><th>Acciones</th></tr>') +
@@ -4533,8 +4791,8 @@ function staffPaySummaryHtml(staff) {
     if ((parseFloat(x.balance) || 0) > 0.005) { owed += parseFloat(x.balance); nOwed++; }
   });
   return '<div class="finance-summary">' +
-    '<div class="summary-card ' + (owed > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Deuda con empleados</h3><p>' + fmtMoney(owed) + '</p><small>' + nOwed + ' empleado' + (nOwed === 1 ? '' : 's') + ' con deuda</small></div></div>' +
-    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado a empleados</h3><p>' + fmtMoney(paid) + '</p><small>Total registrado</small></div></div>' +
+    '<div class="summary-card ' + (owed > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Deuda con empleados</h3><p>' + fmtMoneyCard(owed) + '</p><small>' + nOwed + ' empleado' + (nOwed === 1 ? '' : 's') + ' con deuda</small></div></div>' +
+    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado a empleados</h3><p>' + fmtMoneyCard(paid) + '</p><small>Total registrado</small></div></div>' +
   '</div>';
 }
 
@@ -4547,8 +4805,8 @@ function spBalance(id) { var s = spSum(id); return s ? (parseFloat(s.balance) ||
 
 function staffBalanceBadge(sum) {
   var b = sum ? (parseFloat(sum.balance) || 0) : 0;
-  if (b > 0.005)  return '<span class="badge badge-danger" title="Deuda pendiente con el empleado">Se le debe ' + fmtMoney(b) + '</span>';
-  if (b < -0.005) return '<span class="badge badge-warning" title="Se le pagó más de lo adeudado (adelanto)">Adelanto ' + fmtMoney(-b) + '</span>';
+  if (b > 0.005)  return '<span class="badge badge-danger" title="Deuda pendiente con el empleado: ' + fmtMoney(b) + '">Se le debe ' + fmtMoneyShort(b, 10000) + '</span>';
+  if (b < -0.005) return '<span class="badge badge-warning" title="Se le pagó más de lo adeudado (adelanto): ' + fmtMoney(-b) + '">Adelanto ' + fmtMoneyShort(-b, 10000) + '</span>';
   return '<span class="badge badge-success">Al día</span>';
 }
 
@@ -4644,8 +4902,8 @@ function showStaffPayHistory(id) {
   document.getElementById('shist-title').textContent = 'Pagos y deudas — ' + (s.name || '');
   document.getElementById('shist-body').innerHTML =
     '<div class="finance-summary" style="margin-bottom:12px">' +
-      '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-file-invoice-dollar"></i></div><div><h3>Deuda registrada</h3><p>' + fmtMoney(sum.debt) + '</p></div></div>' +
-      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado</h3><p>' + fmtMoney(sum.paid) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-file-invoice-dollar"></i></div><div><h3>Deuda registrada</h3><p>' + fmtMoneyCard(sum.debt) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado</h3><p>' + fmtMoneyCard(sum.paid) + '</p></div></div>' +
       '<div class="summary-card ' + (sum.balance > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon balance"><i class="fas fa-scale-balanced"></i></div><div><h3>Saldo</h3><p>' + staffBalanceBadge(sum) + '</p></div></div>' +
     '</div>' +
     (list.length
@@ -4692,8 +4950,8 @@ var _bdReopen = null;
 function bdCampLabel(c) { return String(c || '').replace(/_/g, ' '); }
 
 function bdBadge(r) {
-  if (r.saldo > 0.005)  return '<span class="badge badge-danger">Debe ' + fmtMoney(r.saldo) + '</span>';
-  if (r.saldo < -0.005) return '<span class="badge badge-warning">A favor ' + fmtMoney(-r.saldo) + '</span>';
+  if (r.saldo > 0.005)  return '<span class="badge badge-danger" title="' + escHtml(fmtMoney(r.saldo)) + '">Debe ' + fmtMoneyShort(r.saldo, 10000) + '</span>';
+  if (r.saldo < -0.005) return '<span class="badge badge-warning" title="' + escHtml(fmtMoney(-r.saldo)) + '">A favor ' + fmtMoneyShort(-r.saldo, 10000) + '</span>';
   if (r.vendido > 0)    return '<span class="badge badge-success">Pagado</span>';
   return '<span class="badge badge-gray">Sin ventas</span>';
 }
@@ -4712,8 +4970,8 @@ function renderBuyerDebts() {
     }
     var rows = (r.rows || []).slice();
     rows.sort(function(a, b) { return (b.saldo - a.saldo) || String(a.comprador).localeCompare(String(b.comprador)); });
-    App._cache.buyerDebts = { rows: rows, cobros: r.cobros || [], lotes: r.lotes || [] };
-    var camps = [];
+    App._cache.buyerDebts = { rows: rows, cobros: r.cobros || [], lotes: r.lotes || [], overrides: r.overrides || {} };
+    var camps = (r.campanas || []).slice();
     rows.forEach(function(x) { if (camps.indexOf(x.campana) < 0) camps.push(x.campana); });
     camps.sort();
     var campOpts = '<option value="">Todas las campañas</option>' + camps.map(function(c) {
@@ -4728,6 +4986,7 @@ function renderBuyerDebts() {
         '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="bd-search" placeholder="Buscar comprador..." value="' + escHtml(prevQ) + '" oninput="drawBuyerDebts()"></div>' +
         '<label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" id="bd-only" onchange="drawBuyerDebts()"' + (prevOnly ? ' checked' : '') + '> Solo con deuda</label>' +
       '</div>' +
+      '<div id="bd-camp-state"></div>' +
       '<div id="bd-table"></div>' +
       '<div id="bpay-modal" class="modal" style="display:none"><div class="modal-content">' +
         '<div class="modal-header"><h3>Registrar cobro</h3><button class="close-modal" onclick="closeModal(\'bpay-modal\')">&times;</button></div>' +
@@ -4774,18 +5033,42 @@ function drawBuyerDebts() {
       '<td>' + bdBadge(x) + '</td>' +
       '<td>' + (x.ultimo_cobro ? fmtDate(x.ultimo_cobro) : '—') + '</td>' +
       '<td class="actions">' +
-        (orphan ? '' : '<button class="btn-icon" onclick="showBuyerPayModal(' + idx + ')" title="Registrar cobro"><i class="fas fa-hand-holding-dollar"></i></button>') +
-        '<button class="btn-icon" onclick="showBuyerHistory(' + idx + ')" title="Ver cobros"><i class="fas fa-list-ul"></i></button>' +
+        ((orphan || x.manual) ? '' : '<button class="btn-icon" onclick="showBuyerPayModal(' + idx + ')" title="Registrar cobro"><i class="fas fa-hand-holding-dollar"></i></button>') +
+        (x.manual ? '' : '<button class="btn-icon" onclick="showBuyerHistory(' + idx + ')" title="Ver cobros"><i class="fas fa-list-ul"></i></button>') +
       '</td></tr>');
   });
   var sum = document.getElementById('bd-summary');
   if (sum) sum.innerHTML =
-    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Total vendido</h3><p>' + fmtMoney(tv) + '</p></div></div>' +
-    '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Total cobrado</h3><p>' + fmtMoney(tc) + '</p></div></div>' +
-    '<div class="summary-card ' + (ts > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Por cobrar</h3><p>' + fmtMoney(ts) + '</p><small>' + nDeb + ' comprador' + (nDeb === 1 ? '' : 'es') + ' con deuda</small></div></div>';
+    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Total vendido</h3><p>' + fmtMoneyCard(tv) + '</p></div></div>' +
+    '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Total cobrado</h3><p>' + fmtMoneyCard(tc) + '</p></div></div>' +
+    '<div class="summary-card ' + (ts > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Por cobrar</h3><p>' + fmtMoneyCard(ts) + '</p><small>' + nDeb + ' comprador' + (nDeb === 1 ? '' : 'es') + ' con deuda</small></div></div>';
+  var stBox = document.getElementById('bd-camp-state');
+  if (stBox) {
+    if (!camp) stBox.innerHTML = '<div style="margin:8px 0;font-size:12px;color:var(--gray)">Elige una campaña para marcarla como <b>saldada</b> o registrar una <b>deuda manual</b>.</div>';
+    else {
+      var ov = (d.overrides || {})[camp] || { modo: 'auto', monto: 0 };
+      stBox.innerHTML = '<div class="modal-note" style="margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+        '<span>Estado de cobro de <b>' + escHtml(bdCampLabel(camp)) + '</b>:</span>' +
+        '<select id="bd-modo" onchange="document.getElementById(\'bd-monto\').style.display=this.value===\'manual\'?\'\':\'none\'">' +
+          '<option value="auto"' + (ov.modo === 'auto' ? ' selected' : '') + '>Automático (vendido − cobros registrados)</option>' +
+          '<option value="saldada"' + (ov.modo === 'saldada' ? ' selected' : '') + '>Saldada (no debe nada)</option>' +
+          '<option value="manual"' + (ov.modo === 'manual' ? ' selected' : '') + '>Deuda manual (monto conocido)</option></select>' +
+        '<input type="number" step="any" min="0" id="bd-monto" placeholder="Monto S/" value="' + (ov.modo === 'manual' ? ov.monto : '') + '" style="width:110px;' + (ov.modo === 'manual' ? '' : 'display:none') + '">' +
+        '<button type="button" class="btn-primary" onclick="bdSaveSaldo(\'' + escHtml(camp) + '\')"><i class="fas fa-save"></i> Guardar</button></div>';
+    }
+  }
   var tb = document.getElementById('bd-table');
   if (tb) tb.innerHTML = tblBuild('bdebts', htmlRows, '<tr class="empty-row"><td colspan="8">No hay compradores para mostrar</td></tr>',
     '<tr><th>Campaña</th><th>Comprador</th><th>Entregas</th><th>Vendido</th><th>Cobrado</th><th>Saldo</th><th>Último cobro</th><th>Acciones</th></tr>');
+}
+
+function bdSaveSaldo(camp) {
+  var modo = v('bd-modo'), monto = parseFloat(v('bd-monto')) || 0;
+  if (modo === 'manual' && monto <= 0) { showToast('Indica el monto de la deuda', 'error'); return; }
+  api('pesajeFijarSaldo', { campana: camp, modo: modo, monto: monto }, function(r) {
+    if (r && r.success) { showToast('Estado de cobro guardado', 'success'); renderBuyerDebts(); }
+    else showToast((r && r.error) || 'No se pudo guardar', 'error');
+  });
 }
 
 function showBuyerPayModal(idx) {
@@ -4850,8 +5133,8 @@ function showBuyerHistory(idx) {
   document.getElementById('bhist-title').textContent = 'Cobros — ' + row.comprador + ' · ' + bdCampLabel(row.campana);
   document.getElementById('bhist-body').innerHTML =
     '<div class="finance-summary" style="margin-bottom:12px">' +
-      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Vendido</h3><p>' + fmtMoney(row.vendido) + '</p></div></div>' +
-      '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Cobrado</h3><p>' + fmtMoney(row.cobrado) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Vendido</h3><p>' + fmtMoneyCard(row.vendido) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Cobrado</h3><p>' + fmtMoneyCard(row.cobrado) + '</p></div></div>' +
       '<div class="summary-card ' + (row.saldo > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Saldo</h3><p>' + bdBadge(row) + '</p></div></div>' +
     '</div>' +
     (list.length
@@ -4952,18 +5235,21 @@ function renderTasks() {
     var uMap = {}; tUsers.forEach(function(u) { uMap[u.id] = u; });
     var shown   = camps.filter(function(c) { return c.campaign_status !== 'draft'; });
     var started = camps.filter(function(c) { return c.campaign_status === 'started'; });
-    if (!App._taskCamp || !shown.some(function(c) { return c.id === App._taskCamp; })) App._taskCamp = started.length ? started[0].id : (shown[0] ? shown[0].id : '');
-    var campId = App._taskCamp, cur = camps.filter(function(c) { return c.id === campId; })[0];
-    // Solo se muestran las tareas de la campaña elegida: nunca se mezclan campañas.
-    var inCamp = tasks.filter(function(t) { return String(t.campaign_id) === String(campId); });
-    var legacy = tasks.filter(function(t) { return !t.campaign_id; }).length;
-    var serList = ((r && r.series) || []).filter(function(sr) { return String(sr.campaign_id) === String(campId); });
+    var cMapT = {}; camps.forEach(function(c) { cMapT[c.id] = c.batch_number; });
+    var inCamp = tasks;
+    var serList = (r && r.series) || [];
     var tdy = today();
     // Las tareas diarias ya cerradas de días anteriores salen del tablero (su evidencia queda en Comprobantes)
     var filtered = filterTable(inCamp, searchVal, ['title', 'description', 'area']).filter(function(t) {
       return !(t.series_id && (t.status === 'done' || t.status === 'cancelled') && String(t.start_at || '').slice(0, 10) < tdy);
     });
-    var canCreate = isMgrFE() && cur && cur.campaign_status === 'started';
+    var canCreate = isMgrFE() && started.length > 0;
+    var TK_COL = { pending: '#3b82f6', in_progress: '#f59e0b', done: '#22c55e', overdue: '#ef4444', cancelled: '#9ca3af' };
+    var TK_ICO = { pending: 'fa-hourglass-half', in_progress: 'fa-spinner', done: 'fa-circle-check', overdue: 'fa-triangle-exclamation', cancelled: 'fa-ban' };
+    var statsHtml = '<div class="tk-stats">' + ['pending', 'in_progress', 'done', 'overdue', 'cancelled'].map(function(st) {
+      var n = filtered.filter(function(t) { return t.status === st; }).length;
+      return '<div class="tk-stat" style="--kc:' + TK_COL[st] + '"><div class="ic"><i class="fas ' + TK_ICO[st] + '"></i></div><div><b>' + n + '</b><small>' + TASK_ST[st] + '</small></div></div>';
+    }).join('') + '</div>';
     var cols = ['pending', 'in_progress', 'done', 'overdue', 'cancelled'].map(function(st) {
       var stTasks = filtered.filter(function(t) { return t.status === st; }).sort(function(a, b) { return String(taskDueFE(a) || '9999').localeCompare(String(taskDueFE(b) || '9999')); });
       var cards = stTasks.map(function(t) {
@@ -4974,10 +5260,10 @@ function renderTasks() {
           areaBigHtml(t.area, true) +
           (t.series_id ? ' <span class="chip-daily"><i class="fas fa-rotate"></i> Diaria</span>' : '') +
           (t.description ? '<p>' + escHtml(t.description) + '</p>' : '') +
-          '<div class="task-meta"><span class="badge ' + TASK_ST_CLS[t.status] + '" style="font-size:10px">' + (TASK_ST[t.status] || t.status) + '</span>' +
-            (due ? '<span style="font-size:11px;color:var(--gray-light)"><i class="fas fa-clock" style="margin-right:3px"></i>' + fmtDateTime(taskDueFE(t)) + '</span>' : '') + '</div>' +
+          '<div class="task-meta">' + (cMapT[t.campaign_id] ? '<span class="badge badge-purple" style="font-size:10px">' + escHtml(cMapT[t.campaign_id]) + '</span>' : '') + '<span class="badge ' + TASK_ST_CLS[t.status] + '" style="font-size:10px">' + (TASK_ST[t.status] || t.status) + '</span></div>' +
           (taskTimeChip(t) ? '<div style="margin-top:6px">' + taskTimeChip(t) + '</div>' : '') +
-          (u ? '<div style="font-size:11px;color:var(--gray);margin-top:6px"><i class="fas fa-user" style="margin-right:4px"></i>' + escHtml(u.full_name) + (t.role ? ' · ' + escHtml(t.role) : '') + '</div>' : '') +
+          '<div class="tk-foot"><div class="tk-user">' + (u ? '<span class="av">' + escHtml(String(u.full_name || '?').charAt(0).toUpperCase()) + '</span><span class="nm">' + escHtml(u.full_name) + (t.role ? ' · ' + escHtml(t.role) : '') + '</span>' : '<span class="nm">Sin asignar</span>') + '</div>' +
+            (due ? '<span class="tk-due"><i class="fas fa-clock" style="margin-right:4px"></i>' + fmtDateTime(taskDueFE(t)) + '</span>' : '') + '</div>' +
           (t.status === 'done' && t.completed_at ? '<div style="font-size:11px;color:var(--success);margin-top:4px">Finalizada ' + fmtDateTime(t.completed_at) + (uMap[t.completed_by] ? ' por ' + escHtml(uMap[t.completed_by].full_name) : '') + (t.completed_late === 'yes' ? ' (fuera de plazo)' : '') + '</div>' : '') +
           (t.status === 'done' && parseInt(t.proof_count, 10) > 0 ? '<div style="font-size:11px;color:var(--success);margin-top:4px"><i class="fas fa-camera"></i> ' + t.proof_count + ' foto(s) de evidencia</div>' : '') +
           (t.status === 'overdue' && t.overdue_detected_at ? '<div style="font-size:11px;color:var(--danger);margin-top:4px">Detectada ' + fmtDateTime(t.overdue_detected_at) + '</div>' : '') +
@@ -4989,23 +5275,18 @@ function renderTasks() {
           (mine && (t.status === 'pending' || t.status === 'in_progress' || t.status === 'overdue') ? taskActionsHtml(t) : '') +
           '</div>';
       }).join('');
-      return '<div class="kanban-col"><div class="kanban-col-header">' + TASK_ST[st] + '<span class="badge badge-gray">' + stTasks.length + '</span></div>' +
-        '<div class="kanban-col-body">' + (cards || '<p style="color:var(--gray-light);font-size:12px;text-align:center;padding:10px">Sin tareas</p>') + '</div></div>';
-    }).join('');
-    var campOpts = shown.map(function(c) {
-      return '<option value="' + c.id + '"' + (c.id === campId ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hMap[c.house_id] || '—') + (c.campaign_status === 'closed' ? ' (cerrada)' : '') + '</option>';
+      return '<div class="kanban-col" style="--kc:' + TK_COL[st] + '"><div class="kanban-col-header"><span class="kc-title"><i class="kc-dot"></i>' + TASK_ST[st] + '</span><span class="kc-count">' + stTasks.length + '</span></div>' +
+        '<div class="kanban-col-body">' + (cards || '<div class="kc-empty"><i class="fas ' + TK_ICO[st] + '"></i>Sin tareas</div>') + '</div></div>';
     }).join('');
     var titles = {}; tasks.forEach(function(t) { if (t.title) titles[t.title] = 1; });
     var html =
-      '<div class="module-header"><div><h1 class="page-title">Tareas</h1><div class="page-subtitle">' + scopeTag() + inCamp.length + ' tareas en esta campaña</div></div>' +
+      '<div class="module-header"><div><h1 class="page-title">Tareas</h1><div class="page-subtitle">' + scopeTag() + inCamp.length + ' tareas</div></div>' +
         (canCreate ? '<button class="btn-primary" onclick="showTaskModal()"><i class="fas fa-plus"></i> Nueva Tarea</button>' : '') + '</div>' +
       '<div class="filters-bar">' +
-        '<select id="task-camp" onchange="App._taskCamp=this.value;renderTasks()">' + (campOpts || '<option value="">Sin campañas</option>') + '</select>' +
         '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="task-search" placeholder="Buscar tarea..." value="' + escHtml(searchVal) + '" oninput="renderTasks()"></div></div>' +
       (!started.length ? '<div class="card" style="padding:12px;margin-bottom:12px">No hay campañas iniciadas. El administrador debe presionar «Iniciar campaña» en Aves para activar las tareas.</div>' : '') +
-      (legacy && isMgrFE() ? '<div class="sug-hint" style="margin-bottom:8px">' + legacy + ' tarea(s) antiguas no tienen campaña y no se muestran: ábrelas desde el historial o asígnalas a una campaña.</div>' : '') +
       seriesPanelHtml(serList, uMap) +
-      '<div class="tasks-kanban" style="grid-template-columns:repeat(5,minmax(200px,1fr));overflow-x:auto">' + cols + '</div>' +
+      '<div class="tasks-kanban tk-3" style="margin-top:12px">' + cols + '</div>' +
       '<datalist id="tk-title-list">' + Object.keys(titles).map(function(t) { return '<option value="' + escHtml(t) + '">'; }).join('') + '</datalist>' +
       '<datalist id="tk-user-list">' + tUsers.map(function(u) { return '<option value="' + escHtml(u.full_name) + '" label="' + escHtml(u.role || '') + '">'; }).join('') + '</datalist>' +
       '<div id="task-modal" class="modal" style="display:none"><div class="modal-content">' +
@@ -5471,7 +5752,7 @@ function taskProofSend(id, file, noteArg, onDone) {
 // Barra permanente: mientras haya tareas vencidas o por vencer, el usuario no puede ignorarlas.
 function pollTaskAlerts() {
   if (!App.user || App.user.role === 'viewer' || !App.token) return;
-  api('getTaskAlert', {}, function(r) {
+  api('getTaskAlert', { campaign_id: App.camp || '' }, function(r) {
     if (!r || r.success === false) return;
     renderTaskAlertBar(r);
   });
@@ -5595,6 +5876,7 @@ function renderHealth() {
     App._cache.health = events;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
       var filtered = filterHouse ? events.filter(function(e) { return e.house_id === filterHouse; }) : events;
+      filtered = filtered.filter(function(e) { return campKeep_(e); });
       filtered = cardSortRecords(filtered, 'health', { house_id: hMap });
       var typeIcons = { vaccine: 'fa-syringe', disease: 'fa-virus', treatment: 'fa-pills', checkup: 'fa-stethoscope' };
       var typeLabels = { vaccine: 'Vacuna', disease: 'Enfermedad', treatment: 'Tratamiento', checkup: 'Revisión' };
@@ -5675,6 +5957,7 @@ function renderMaintenance() {
     App._cache.maintenance = records;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
       var filtered = filterStatus ? records.filter(function(r) { return r.status === filterStatus; }) : records;
+      filtered = filtered.filter(function(r) { return campKeep_(r); });
       filtered = cardSortRecords(filtered, 'maintenance', { house_id: hMap });
       var statusLabels = { pending: 'Pendiente', in_progress: 'En Progreso', done: 'Completado' };
       var statusBadges = { pending: 'badge-warning', in_progress: 'badge-info', done: 'badge-success' };
