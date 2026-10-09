@@ -1185,6 +1185,35 @@ button, .btn-primary, .btn-secondary, .btn-success,
 .data-table .cell-more:hover{opacity:.8}
 .table-card-mode .data-table .cell-text{max-width:none}
 
+/* ===== TABLAS: diseño mejorado (solo estilo; la lógica de orden, paginación y tarjetas no cambia) ===== */
+.table-card{border-radius:16px;overflow:hidden}
+.data-table{border-collapse:separate;border-spacing:0}
+.data-table thead th{background:var(--light);color:var(--gray);font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;border-bottom:2px solid var(--border);padding:12px 14px;white-space:nowrap}
+.data-table tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;font-variant-numeric:tabular-nums;transition:background .15s}
+.data-table tbody tr:last-child td{border-bottom:0}
+.data-table th:first-child,.data-table td:first-child{padding-left:18px}
+.data-table th:last-child,.data-table td:last-child{padding-right:18px}
+.data-table tbody tr:nth-child(even):not(.empty-row) td{background:color-mix(in srgb,var(--light) 38%,var(--white))}
+.data-table tbody tr:not(.empty-row):hover td{background:color-mix(in srgb,var(--primary) 7%,var(--white))}
+.data-table tbody tr:not(.empty-row):hover td:first-child{box-shadow:inset 3px 0 0 var(--primary)}
+.data-table td.actions .btn-icon{width:30px;height:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
+.data-table .badge{font-size:11.5px}
+.data-table .empty-row,.data-table .empty-row td{padding:32px 16px;text-align:center;color:var(--gray)}
+.tbl-sortbar,.tbl-pagination{background:var(--light)}
+.data-table td.c-wrap{min-width:200px;max-width:380px}
+.data-table .cell-text{max-width:380px;color:var(--dark-2)}
+.data-table .cell-text a{white-space:nowrap}
+.data-table .cell-more{padding:2px 9px;border-radius:999px;background:var(--primary-light);color:var(--primary);text-decoration:none;font-size:11px}
+.data-table .cell-more:hover{background:var(--primary);color:#fff;opacity:1}
+.table-card-mode .data-table tbody tr:nth-child(even):not(.empty-row) td{background:var(--white)}
+.table-card-mode .data-table tbody tr:not(.empty-row):hover td{background:var(--white)}
+.table-card-mode .data-table tbody tr:not(.empty-row):hover td:first-child{box-shadow:none}
+.table-card-mode .data-table .cell-text{max-width:none}
+html[data-theme="dark"] .data-table tbody tr:nth-child(even):not(.empty-row) td{background:#1b2028}
+html[data-theme="dark"] .data-table tbody tr:not(.empty-row):hover td{background:#252a33}
+html[data-theme="pesaje"] .data-table tbody tr:nth-child(even):not(.empty-row) td{background:#0b1324}
+html[data-theme="pesaje"] .data-table tbody tr:not(.empty-row):hover td{background:#1e293b}
+
 /* KEYBOARD / TV NAVIGATION */
 :focus-visible {
   outline: 3px solid var(--primary) !important;
@@ -7797,6 +7826,7 @@ function sizeTableColumns_(card) {
     if (!label || label === 'acciones' || actions) return 'act';
     if (!n) return 'fit';
     if (max <= 18) return 'fit';
+    if (max > 28 && /descrip|nota|observ|detalle|comentario/.test(label)) return 'wrap';
     if (max > 60 || sum / n > 40) return 'wrap';
     return '';
   });
@@ -7816,7 +7846,7 @@ function sizeTableColumns_(card) {
 }
 /** Texto largo: se muestra en máx. 3 líneas con botón «ver más / ver menos» (solo si no cabe) */
 function wrapLongCell_(td) {
-  if (td.querySelector('button,a,input,select,textarea,.badge')) return;
+  if (td.querySelector('button,input,select,textarea')) return;
   var box = td.firstElementChild;
   if (!box || !box.classList.contains('cell-text')) {
     var txt = (td.textContent || '').trim();
