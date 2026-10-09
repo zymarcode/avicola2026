@@ -2197,6 +2197,14 @@ var _proxyFalloHasta = 0;        // si el proxy falló por red, se evita probarl
 var _gasCbSeq = 0;               // contador para que cada llamada JSONP tenga un callback único
 var GAS_JSONP_MAX_URL = 7000;    // largo máximo seguro de URL en navegadores móviles
 
+// Administrador con una campaña CERRADA elegida arriba: los guardados por galpón se registran en esa campaña
+function adminClosedCamp_(action, p) {
+  if (!App.user || App.user.role !== 'admin' || !App.camp || p.campaign_id) return '';
+  if (action !== 'saveHealthEvent' && action !== 'saveMaintenance' && !(action === 'saveFeeding' && p.movement === 'consumption')) return '';
+  var b = null, l = (App._campMeta && App._campMeta.birds) || [];
+  for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(App.camp)) { b = l[i]; break; }
+  return (b && campStatusFE(b) === 'closed') ? String(App.camp) : '';
+}
 function _apiRaw(action, params, cb) {
   var cb0 = cb;
   cb = function(r) { if (r && r.tasks_done) showToast('✅ Se marcó como cumplida tu tarea', 'success'); if (cb0) cb0(r); };
@@ -2204,6 +2212,7 @@ function _apiRaw(action, params, cb) {
   p.action = action;
   if (App.token) p.token = App.token;
   if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;   // aislamiento por campaña
+  var _acc = adminClosedCamp_(action, p); if (_acc) p.campaign_id = _acc;
 
   var isSilent = (action === 'getTaskAlert' || action === 'updateOnlineStatus' || action === 'getNotifications' || action === 'getChatMessages' || action === 'getOnlineUsers');
 
@@ -2282,6 +2291,7 @@ function api(action, params, cb) {
   }
   var p = Object.assign({}, params || {});
   if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;
+  var _acc2 = adminClosedCamp_(action, p); if (_acc2) p.campaign_id = _acc2;
   var k = _swrClave(action, p);
   var previo = _swrLeer(k);
   var servido = null;
@@ -4274,9 +4284,9 @@ function loadBirdsForProd(selectedBirdId) {
   var sel = document.getElementById('pr-bird');
   if (!sel) return;
   if (!houseId) { sel.innerHTML = '<option value="">— Selecciona galpón primero —</option>'; return; }
-  var birds = (App._cache.birds || []).filter(function(b) { return b.house_id === houseId && b.status === 'active' && campStatusFE(b) === 'started'; });
+  var birds = (App._cache.birds || []).filter(function(b) { return b.house_id === houseId && ((b.status === 'active' && campStatusFE(b) === 'started') || (isAdminFE() && campStatusFE(b) === 'closed')); });
   sel.innerHTML = '<option value="">Seleccionar lote</option>' + birds.map(function(b) {
-    return '<option value="' + b.id + '"' + (selectedBirdId === b.id ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' (' + fmtNum(parseInt(b.quantity) || 0) + ' aves)</option>';
+    return '<option value="' + b.id + '"' + (selectedBirdId === b.id ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' (' + fmtNum(parseInt(b.quantity) || 0) + ' aves)' + (campStatusFE(b) === 'closed' ? ' · cerrada' : '') + '</option>';
   }).join('');
 }
 
@@ -4284,7 +4294,7 @@ function showProductionModal(p) {
   p = p || {};
   document.getElementById('prod-modal-title').textContent = p.id ? 'Editar Registro' : (seeAllFE() ? 'Registrar salida de pollos' : 'Registrar del día');
   document.getElementById('pr-id').value       = p.id         || 'new';
-  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && campStatusFE(b) === 'started'; })[0] : null;
+  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && (campStatusFE(b) === 'started' || (isAdminFE() && campStatusFE(b) === 'closed')); })[0] : null;
   document.getElementById('pr-house').value    = p.house_id   || (defB ? defB.house_id : '');
   loadBirdsForProd(p.bird_id || (defB ? defB.id : ''));
   document.getElementById('pr-date').value     = p.date       || today();
@@ -4530,10 +4540,10 @@ function showFeedingModal(f, movement) {
     var camps = App._cache.feedCamps || [], hm = {};
     (App._cache.houses || []).forEach(function(h) { hm[h.id] = h.name; });
     var cur = (isP && f.campaign_id) ? f.campaign_id : '';
-    var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur; });
+    var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur || (isAdminFE() && c.campaign_status === 'closed'); });
     var pick = cur || ((!f.id && App.camp && list.some(function(c) { return String(c.id) === String(App.camp); })) ? String(App.camp) : '') || ((!f.id && list.length === 1) ? list[0].id : '');
     document.getElementById('fe-camp').innerHTML = '<option value="">Stock general (varias campañas)</option>' + list.map(function(c) {
-      return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + '</option>';
+      return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + (c.campaign_status === 'closed' ? ' (cerrada)' : '') + '</option>';
     }).join('');
   })();
   document.getElementById('fe-notes').value    = f.notes    || '';
@@ -5628,7 +5638,7 @@ function showTaskModal(t) {
   t = t || {};
   var mgr = isMgrFE(), isNew = !t.id;
   var camps = App._cache.campaigns || [], houses = {}; (App._cache.houses || []).forEach(function(h) { houses[h.id] = h.name; });
-  var campList = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === t.campaign_id; });
+  var campList = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === t.campaign_id || (isAdminFE() && c.campaign_status === 'closed'); });
   document.getElementById('tk-camp').innerHTML = '<option value="">Seleccionar campaña</option>' + campList.map(function(c) {
     return '<option value="' + c.id + '">' + escHtml(c.batch_number) + ' · ' + escHtml(houses[c.house_id] || '—') + (c.campaign_status !== 'started' ? ' (' + (c.campaign_status === 'closed' ? 'cerrada' : 'sin iniciar') + ')' : '') + '</option>';
   }).join('');
