@@ -6636,6 +6636,7 @@ function voucherUpload(prefix, cb) {
     fr.onerror = function() { cb('No se pudo leer el archivo'); };
     fr.onload = function(ev) {
       api('uploadImage', {
+        folder_campaign_id: (function() { var e = document.getElementById(prefix + '-camp'); return (e && e.value) || App.camp || ''; })(),
         base64: ev.target.result,
         mimeType: f.type || 'image/jpeg',
         ref: voucherRef(prefix),
