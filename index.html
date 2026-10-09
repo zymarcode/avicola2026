@@ -1209,34 +1209,25 @@ button, .btn-primary, .btn-secondary, .btn-success,
 .table-card-mode .data-table tbody tr:not(.empty-row):hover td{background:var(--white)}
 .table-card-mode .data-table tbody tr:not(.empty-row):hover td:first-child{box-shadow:none}
 .table-card-mode .data-table .cell-text{max-width:none}
+/* ===== TABLAS v2: textos largos (boleta de venta, guía de remisión, concepto, notas) ===== */
+.table-scroll{max-width:100%}
+.data-table td.c-wrap,.data-table th.c-wrap{min-width:220px;max-width:420px;width:28%}
+.data-table .cell-body{min-width:0;flex:1 1 auto}
+.data-table .cell-text{-webkit-line-clamp:3;line-clamp:3;max-width:420px;line-height:1.5;hyphens:auto}
+.data-table .cell-text.open{max-width:420px}
+.data-table .doc-tag{font-weight:700;color:var(--primary);background:var(--primary-light);padding:0 6px;border-radius:6px;white-space:nowrap}
+.data-table td.c-wrap[title]{cursor:help}
+.data-table td.c-wrap:not([title]){cursor:default}
+.table-card-mode .data-table td .cell-body{flex:1 1 0;min-width:0}
+.table-card-mode .data-table td.c-wrap[title]{cursor:default}
+.table-card-mode .data-table .cell-text{max-width:none}
+html[data-theme="dark"] .data-table .doc-tag,html[data-theme="pesaje"] .data-table .doc-tag{background:rgba(99,102,241,.18);color:#c7d2fe}
+.form-group textarea.fld-desc{min-height:64px;line-height:1.45;resize:vertical}
+.form-group .desc-count{display:block;text-align:right;font-size:11px;color:var(--gray);margin-top:3px}
 html[data-theme="dark"] .data-table tbody tr:nth-child(even):not(.empty-row) td{background:#1b2028}
 html[data-theme="dark"] .data-table tbody tr:not(.empty-row):hover td{background:#252a33}
 html[data-theme="pesaje"] .data-table tbody tr:nth-child(even):not(.empty-row) td{background:#0b1324}
 html[data-theme="pesaje"] .data-table tbody tr:not(.empty-row):hover td{background:#1e293b}
-
-/* ===== Vista previa del registro (estilo boleta) — se abre desde la descripción ===== */
-.rv-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:2500;padding:16px;animation:fadeIn .2s ease}
-.rv-sheet{background:var(--white);color:var(--dark);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;animation:slideInUp .25s ease}
-.rv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:2px dashed var(--border)}
-.rv-head .rv-kicker{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--primary)}
-.rv-head .rv-title{font-size:17px;font-weight:800;margin-top:2px;overflow-wrap:anywhere}
-.rv-close{flex:none;background:var(--light);border:0;width:30px;height:30px;border-radius:50%;cursor:pointer;color:var(--gray);font-size:15px}
-.rv-close:hover{background:var(--border);color:var(--dark)}
-.rv-body{overflow-y:auto;padding:16px 22px}
-.rv-desc{background:var(--light);border-left:4px solid var(--primary);border-radius:10px;padding:12px 14px;margin-bottom:14px}
-.rv-desc .rv-label{font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--gray);margin-bottom:6px}
-.rv-desc .rv-text{font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
-.rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
-.rv-row{padding:9px 0;border-bottom:1px dashed var(--border);min-width:0}
-.rv-row .rv-label{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--gray);margin-bottom:3px}
-.rv-row .rv-val{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.rv-foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:12px 22px;border-top:2px dashed var(--border);background:var(--light)}
-.rv-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--dark);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.rv-btn:hover{border-color:var(--primary);color:var(--primary)}
-.rv-btn.rv-primary{background:var(--primary);border-color:var(--primary);color:#fff}
-.rv-btn.rv-primary:hover{opacity:.9;color:#fff}
-.data-table td.c-wrap .cell-text{cursor:pointer}
-@media(max-width:600px){.rv-grid{grid-template-columns:1fr}.rv-sheet{max-height:94vh}}
 
 /* KEYBOARD / TV NAVIGATION */
 :focus-visible {
@@ -2130,6 +2121,10 @@ function v(id) {
   return el ? el.value : '';
 }
 
+function descCount_(el) {
+  var c = document.getElementById(el.id + '-count');
+  if (c) c.textContent = String(el.value.length) + ' / ' + (el.maxLength > 0 ? el.maxLength : 300);
+}
 function fGroup(label, type, id, val, req, ph, hint) {
   val = (val == null) ? '' : val;
   var r = req ? ' required' : '';
@@ -4686,7 +4681,10 @@ function renderFinance(fromCache) {
         '<div class="form-group"><label>Categoría *</label><select id="fi-cat" required onchange="finCatChanged()"></select></div>' +
         '<div class="form-group"><label id="fi-camp-label">Campaña (lote)</label><select id="fi-camp" onchange="finCatChanged()">' + campaignOpts(birds, houses, '') + '</select></div>' +
         fGroup('Fecha', 'date', 'fi-date', today(), 'required') +
-        fGroup('Descripción', 'text', 'fi-desc', '', 'required', 'Ej: Pago de luz — septiembre') +
+        '<div class="form-group"><label>Descripción *</label>' +
+          '<textarea id="fi-desc" class="fld-desc" rows="2" maxlength="300" required placeholder="Ej: Pago de luz — septiembre" oninput="descCount_(this)"></textarea>' +
+          '<small class="field-hint">Puedes anotar el documento: «Boleta de venta B001-000123», «Guía de remisión T001-000456», «Factura F001-0089»…</small>' +
+          '<span class="desc-count" id="fi-desc-count">0 / 300</span></div>' +
         fGroup('Monto (S/)', 'number', 'fi-amount', '', 'required', 'Ej: 250.00') +
         voucherFieldHtml('fi', 'Boleta / comprobante (obligatorio en egresos, salvo administrador)') +
         '<div class="form-group" id="fi-house-group"><label>Galpón (opcional)</label><select id="fi-house"><option value="">— Sin galpón —</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('') + '</select></div>' +
@@ -4781,6 +4779,7 @@ function showFinanceModal(f) {
   updateFinCats(f.category);
   document.getElementById('fi-date').value   = f.date ? String(f.date).slice(0, 10) : today();
   document.getElementById('fi-desc').value   = f.description || '';
+  try { descCount_(document.getElementById('fi-desc')); } catch (e) {}
   document.getElementById('fi-amount').value = f.amount      || '';
   document.getElementById('fi-house').value  = f.house_id    || '';
   document.getElementById('fi-close').checked = false;
@@ -4801,7 +4800,7 @@ function saveFinanceForm(e) {
     if (err) { if (btn) btn.disabled = false; showToast(err, 'error'); return; }
     var finPayload = {
       id: v('fi-id'), type: v('fi-type'), category: v('fi-cat'),
-      date: v('fi-date'), description: v('fi-desc'),
+      date: v('fi-date'), description: v('fi-desc').replace(/\s*[\r\n]+\s*/g, ' '),
       amount: v('fi-amount'), house_id: v('fi-house'), campaign_id: v('fi-camp'),
       voucher_url: vUrl,
       close_campaign: !!(document.getElementById('fi-close') && document.getElementById('fi-close').checked)
@@ -5086,6 +5085,7 @@ function showStaffPayHistory(id) {
       '<button type="button" class="btn-primary" onclick="spFromHist(\'' + id + '\',\'payment\')"><i class="fas fa-money-bill-wave"></i> Registrar pago</button>' +
     '</div>';
   openModal('shist-modal');
+  try { initResponsiveTables(); } catch (e) {}
 }
 
 function spFromHist(id, kind) { closeModal('shist-modal'); showStaffPayModal(id, kind); }
@@ -7824,6 +7824,9 @@ function labelCardCells(card) {
 /** Ajusta el ancho de cada columna según su contenido:
  *  c-fit  = poca información (fecha, estado, cantidad, acciones) → ancho mínimo
  *  c-wrap = texto largo (descripción, notas) → ancho limitado, baja de línea */
+/* Columnas cuyo ENCABEZADO suele llevar texto largo, y textos que parecen documentos (boleta, guía, factura…) */
+var TBL_TXT_LABEL_ = /descrip|nota|observ|detalle|comentario|concepto|motivo|referencia|document|comprobante|origen|asunto|glosa|mensaje|t[ií]tulo|proveedor/;
+var TBL_DOC_RE_ = /boleta|factura|gu[ií]a|remisi[oó]n|recibo|comprobante|ticket|proforma|n[°º]\s?\d|\b[A-Z]{1,4}\d{0,3}-\d{3,}/i;
 function sizeTableColumns_(card) {
   var table = card.querySelector('table.data-table') || card.querySelector('table');
   if (!table) return;
@@ -7832,34 +7835,39 @@ function sizeTableColumns_(card) {
   Array.prototype.forEach.call(table.querySelectorAll('.c-fit,.c-wrap,.c-act'), function(el) {
     el.classList.remove('c-fit', 'c-wrap', 'c-act');
   });
-  if (window.innerWidth <= 600) return;
-  var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr')).filter(function(tr) {
+  var mobile = window.innerWidth <= 600;
+  var allRows = Array.prototype.slice.call(table.querySelectorAll('tbody tr')).filter(function(tr) {
     return !tr.querySelector('.empty-row') && !tr.querySelector('td[colspan]');
-  }).slice(0, 30);
+  });
+  var rows = allRows.slice(0, 40);   // solo se mide una muestra; las clases se aplican a TODAS las filas
   var kinds = Array.prototype.map.call(ths, function(th, i) {
     var label = (th.textContent || '').trim().toLowerCase();
-    var max = 0, sum = 0, n = 0, actions = false;
+    var max = 0, sum = 0, n = 0, actions = false, docs = 0;
     rows.forEach(function(tr) {
       var td = tr.children[i];
       if (!td) return;
       if (td.classList.contains('actions')) actions = true;
-      var len = (td.textContent || '').replace(/\s+/g, ' ').trim().length;
+      var txt = (td.textContent || '').replace(/\s+/g, ' ').trim();
+      var len = txt.length;
       if (len > max) max = len;
+      if (TBL_DOC_RE_.test(txt)) docs++;
       sum += len; n++;
     });
     if (!label || label === 'acciones' || actions) return 'act';
     if (!n) return 'fit';
     if (max <= 18) return 'fit';
-    if (max > 28 && /descrip|nota|observ|detalle|comentario/.test(label)) return 'wrap';
-    if (max > 60 || sum / n > 40) return 'wrap';
+    if (TBL_TXT_LABEL_.test(label) && max > 28) return 'wrap';
+    if (docs && max > 24) return 'wrap';          // «Boleta de venta B001-000123 / Guía de remisión…»
+    if (max > 45 || sum / n > 30) return 'wrap';
     return '';
   });
   kinds.forEach(function(k, i) {
     if (!k) return;
+    if (mobile && k !== 'wrap') return;           // en el celular (modo tarjeta) solo se recorta el texto largo
     var cls = k === 'act' ? 'c-fit' : 'c-' + k;
     ths[i].classList.add(cls);
     if (k === 'act') ths[i].classList.add('c-act');
-    rows.forEach(function(tr) {
+    allRows.forEach(function(tr) {
       var td = tr.children[i];
       if (td && td.tagName === 'TD') {
         td.classList.add(cls);
@@ -7868,118 +7876,44 @@ function sizeTableColumns_(card) {
     });
   });
 }
-/** Texto largo: se muestra en máx. 3 líneas con botón «ver más / ver menos» (solo si no cabe) */
+/** Resalta (solo en texto simple) el tipo de documento: Boleta de venta, Guía de remisión, Factura… */
+function tagDocsInText_(box) {
+  if (box.children.length || box.querySelector('a')) return;
+  var raw = box.textContent || '';
+  if (!TBL_DOC_RE_.test(raw)) return;
+  var html = escHtml(raw).replace(/(boleta(?: de venta| electr[oó]nica)?|factura(?: electr[oó]nica)?|gu[ií]a(?: de remisi[oó]n| de revisi[oó]n| de transporte)?|recibo(?: por honorarios)?|proforma|ticket)/gi,
+    '<b class="doc-tag">$1</b>');
+  if (html.indexOf('doc-tag') > -1) box.innerHTML = html;
+}
+/** Texto largo: máx. 3 líneas con «ver más / ver menos» (solo aparece si el texto no cabe) */
 function wrapLongCell_(td) {
   if (td.querySelector('button,input,select,textarea')) return;
-  var box = td.firstElementChild;
-  if (!box || !box.classList.contains('cell-text')) {
-    var txt = (td.textContent || '').trim();
-    if (!txt) return;
-    box = document.createElement('div');
-    box.className = 'cell-text';
-    while (td.firstChild) box.appendChild(td.firstChild);
-    td.appendChild(box);
-    td.setAttribute('title', txt);
-  }
-  if (td.querySelector('.cell-more')) return;
+  if (td.querySelector('.cell-body')) return;
+  var txt = (td.textContent || '').replace(/\s+/g, ' ').trim();
+  if (!txt) return;
+  var body = document.createElement('div');
+  body.className = 'cell-body';
+  var box = document.createElement('div');
+  box.className = 'cell-text';
+  while (td.firstChild) box.appendChild(td.firstChild);
+  tagDocsInText_(box);
+  body.appendChild(box);
+  td.appendChild(body);
+  td.setAttribute('title', txt);
   var more = document.createElement('button');
   more.type = 'button';
   more.className = 'cell-more';
-  more.innerHTML = '<i class="fas fa-file-lines"></i> ver detalle';
+  more.textContent = 'ver más';
   more.style.display = 'none';
-  more.addEventListener('click', function(ev) { ev.stopPropagation(); openRowPreview_(td); });
-  box.addEventListener('click', function(ev) {
-    if (ev.target.closest('a,button')) return;
-    openRowPreview_(td);
+  more.addEventListener('click', function(ev) {
+    ev.stopPropagation();
+    var open = box.classList.toggle('open');
+    more.textContent = open ? 'ver menos' : 'ver más';
+    if (open) td.removeAttribute('title'); else td.setAttribute('title', txt);
   });
-  td.appendChild(more);
-  var check = function() { more.style.display = (box.scrollHeight > box.clientHeight + 1) ? '' : 'none'; };
-  (window.requestAnimationFrame || setTimeout)(check);
-}
-/** Vista previa tipo boleta: muestra el registro completo (descripción destacada + demás campos) */
-function openRowPreview_(td) {
-  var tr = td.closest('tr'), table = td.closest('table');
-  if (!tr || !table) return;
-  var ths = table.querySelectorAll('thead th');
-  var idx = Array.prototype.indexOf.call(tr.children, td);
-  var descLabel = ths[idx] ? (ths[idx].textContent || '').replace(/[▲▼]/g, '').trim() : 'Descripción';
-  var descBox = td.querySelector('.cell-text') || td;
-  var descText = (descBox.textContent || '').trim();
-  var fields = [], title = '';
-  Array.prototype.forEach.call(tr.children, function(c, i) {
-    if (c === td || c.tagName !== 'TD' || c.hasAttribute('colspan') || c.classList.contains('actions')) return;
-    var label = ths[i] ? (ths[i].textContent || '').replace(/[▲▼]/g, '').trim() : '';
-    if (!label || label.toLowerCase() === 'acciones') return;
-    var clone = c.cloneNode(true);
-    Array.prototype.forEach.call(clone.querySelectorAll('.cell-more,button,input,select,textarea'), function(x) { x.remove(); });
-    var txt = (clone.textContent || '').trim();
-    if (!txt) return;
-    if (!title) title = txt;
-    fields.push({ label: label, node: clone });
-  });
-  closeRowPreview_();
-  var ov = document.createElement('div');
-  ov.className = 'rv-overlay';
-  ov.id = 'rvOverlay';
-  var sheet = document.createElement('div');
-  sheet.className = 'rv-sheet';
-  sheet.setAttribute('role', 'dialog');
-  sheet.setAttribute('aria-modal', 'true');
-  var head = document.createElement('div');
-  head.className = 'rv-head';
-  var hl = document.createElement('div');
-  var k = document.createElement('div'); k.className = 'rv-kicker'; k.textContent = 'Vista previa del registro';
-  var t = document.createElement('div'); t.className = 'rv-title'; t.textContent = title || descLabel;
-  hl.appendChild(k); hl.appendChild(t);
-  var x = document.createElement('button'); x.type = 'button'; x.className = 'rv-close'; x.setAttribute('aria-label', 'Cerrar'); x.innerHTML = '&times;';
-  x.addEventListener('click', closeRowPreview_);
-  head.appendChild(hl); head.appendChild(x);
-  var body = document.createElement('div');
-  body.className = 'rv-body';
-  var d = document.createElement('div'); d.className = 'rv-desc';
-  var dl = document.createElement('div'); dl.className = 'rv-label'; dl.textContent = descLabel;
-  var dt = document.createElement('div'); dt.className = 'rv-text'; dt.textContent = descText;
-  d.appendChild(dl); d.appendChild(dt); body.appendChild(d);
-  var grid = document.createElement('div'); grid.className = 'rv-grid';
-  fields.forEach(function(f) {
-    var r = document.createElement('div'); r.className = 'rv-row';
-    var l = document.createElement('div'); l.className = 'rv-label'; l.textContent = f.label;
-    var v = document.createElement('div'); v.className = 'rv-val';
-    while (f.node.firstChild) v.appendChild(f.node.firstChild);
-    r.appendChild(l); r.appendChild(v); grid.appendChild(r);
-  });
-  body.appendChild(grid);
-  var foot = document.createElement('div');
-  foot.className = 'rv-foot';
-  var bCopy = document.createElement('button'); bCopy.type = 'button'; bCopy.className = 'rv-btn'; bCopy.innerHTML = '<i class="fas fa-copy"></i> Copiar texto';
-  bCopy.addEventListener('click', function() {
-    var done = function() { bCopy.innerHTML = '<i class="fas fa-check"></i> Copiado'; };
-    try { navigator.clipboard.writeText(descText).then(done, function() {}); } catch (e) {}
-  });
-  var bPrint = document.createElement('button'); bPrint.type = 'button'; bPrint.className = 'rv-btn'; bPrint.innerHTML = '<i class="fas fa-print"></i> Imprimir';
-  bPrint.addEventListener('click', function() {
-    var w = window.open('', '_blank');
-    if (!w) return;
-    w.document.write('<!doctype html><meta charset="utf-8"><title>' + escHtml(title || descLabel) + '</title><style>body{font-family:Arial,sans-serif;color:#111;margin:24px}h2{margin:0 0 12px}.d{border-left:4px solid #444;background:#f3f3f3;padding:10px 12px;white-space:pre-wrap;margin-bottom:14px}.r{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed #aaa}.r b{min-width:140px;font-size:12px;text-transform:uppercase;color:#555}</style>');
-    w.document.write('<h2>' + escHtml(title || descLabel) + '</h2><div class="d"><b>' + escHtml(descLabel) + '</b><br>' + escHtml(descText) + '</div>');
-    fields.forEach(function(f) { w.document.write('<div class="r"><b>' + escHtml(f.label) + '</b><span>' + escHtml((f.node.textContent || '').trim()) + '</span></div>'); });
-    w.document.close(); w.focus(); w.print();
-  });
-  var bClose = document.createElement('button'); bClose.type = 'button'; bClose.className = 'rv-btn rv-primary'; bClose.textContent = 'Cerrar';
-  bClose.addEventListener('click', closeRowPreview_);
-  foot.appendChild(bCopy); foot.appendChild(bPrint); foot.appendChild(bClose);
-  sheet.appendChild(head); sheet.appendChild(body); sheet.appendChild(foot);
-  ov.appendChild(sheet);
-  ov.addEventListener('click', function(ev) { if (ev.target === ov) closeRowPreview_(); });
-  document.body.appendChild(ov);
-  document.addEventListener('keydown', rvKey_);
-  try { bClose.focus(); } catch (e) {}
-}
-function rvKey_(ev) { if (ev.key === 'Escape') closeRowPreview_(); }
-function closeRowPreview_() {
-  var o = document.getElementById('rvOverlay');
-  if (o) o.remove();
-  document.removeEventListener('keydown', rvKey_);
+  body.appendChild(more);
+  var check = function() { more.style.display = (box.classList.contains('open') || box.scrollHeight > box.clientHeight + 1) ? '' : 'none'; };
+  (window.requestAnimationFrame || setTimeout)(function() { check(); setTimeout(check, 250); });
 }
 function applyCardMode(card) {
   if (!card) return;
