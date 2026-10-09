@@ -2130,7 +2130,8 @@ function _apiRaw(action, params, cb) {
 
   // ── Modo 2: Vercel / cualquier servidor con proxy ──────────────────
   // Intenta /api/gas primero; si falla, cae al modo 3
-  if (Date.now() < _proxyFalloHasta) { _gasGetJsonp(GAS_DIRECT_URL, p, cb); return; }
+  var _grande = false; try { _grande = JSON.stringify(p).length > 3000; } catch (e) {}
+  if (Date.now() < _proxyFalloHasta && !_grande) { _gasGetJsonp(GAS_DIRECT_URL, p, cb); return; }
   _fetchPost('/api/gas', p, function(err, data) {
     if (!err) { if (cb) cb(data); return; }
     console.warn('Proxy failed [' + action + ']:', err.message);
@@ -2243,6 +2244,33 @@ function _fetchPost(url, payload, cb, intento) {
   });
 }
 
+// POST directo a Apps Script (text/plain evita el preflight CORS). Se usa solo cuando el proxy no responde y la solicitud es grande.
+function _gasPostDirect(url, payload, cb, silent) {
+  var ctrl = new AbortController();
+  var tid = setTimeout(function() { ctrl.abort(); }, 60000);
+  function fallo(msg) {
+    if (!silent) showToast(msg, 'error');
+    if (cb) cb({ success: false, error: msg, network: true });
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow',
+    signal: ctrl.signal
+  })
+  .then(function(res) { return res.text(); })
+  .then(function(txt) {
+    clearTimeout(tid);
+    var d; try { d = JSON.parse(txt); } catch (e) { fallo('El servidor no devolvió una respuesta válida. Intenta de nuevo.'); return; }
+    if (cb) cb(d || {});
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    fallo(e && e.name === 'AbortError' ? 'Error: el servidor tardó demasiado en responder' : 'Error de conexión con el servidor');
+  });
+}
+
 // Llamada directa a GAS vía GET con callback JSONP en URL
 function _gasGetJsonp(baseUrl, payload, cb) {
   var isSilent = (payload && (payload.action === 'getTaskAlert' || payload.action === 'updateOnlineStatus' || payload.action === 'getNotifications' || payload.action === 'getChatMessages' || payload.action === 'getOnlineUsers'));
@@ -2262,9 +2290,7 @@ function _gasGetJsonp(baseUrl, payload, cb) {
   var src = baseUrl + '?data=' + encoded + '&callback=' + cbName + '&_=' + Date.now();
   if (src.length > GAS_JSONP_MAX_URL) {
     limpiar();
-    console.error('GAS JSONP: solicitud demasiado grande (' + src.length + ' caracteres)');
-    if (!isSilent) showToast('Error de conexión: la solicitud es demasiado grande para el modo directo. Verifica el servidor (/api/gas).', 'error');
-    if (cb) cb({ success: false, error: 'Solicitud demasiado grande', network: true });
+    _gasPostDirect(baseUrl, payload, cb, isSilent);   // archivos/PDF grandes: POST directo (sin límite de URL)
     return;
   }
   tid = setTimeout(function() {
