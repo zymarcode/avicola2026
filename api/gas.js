@@ -1,50 +1,7805 @@
-// Proxy Vercel → Google Apps Script (Galponix)
-// Ruta: /api/gas   |   Variable opcional en Vercel: GAS_URL (URL del Web App /exec)
-const GAS_URL = process.env.GAS_URL ||
-  'https://script.google.com/macros/s/AKfycbx6raorZG8zueSQW7X3OZtI8cdC9kS-AhQkf8p5PGwAU4Hm93sF3Tu-Q8lIS34TDzCT6g/exec';
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Gestión Avícola</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#000000">
+<meta name="application-name" content="Gestión Avícola">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Gestión Avícola">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Chakra+Petch:wght@600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
+<script>try{if(localStorage.getItem('gs_token'))document.documentElement.classList.add('has-session');}catch(e){}</script>
+<style>
+html.has-session .login-container { display: none !important; }
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --primary:#e8531a;--primary-dark:#c94010;--primary-light:rgba(232,83,26,0.1);
+  --secondary:#2dd4bf;--success:#22c55e;--warning:#f59e0b;--danger:#ef4444;
+  --dark:#1a1d23;--dark-2:#252931;--gray:#6b7280;--gray-light:#9ca3af;
+  --light:#f3f4f6;--border:#e5e7eb;--white:#ffffff;
+  --sidebar-width:260px;--header-height:64px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.08);--shadow:0 4px 12px rgba(0,0,0,0.1);
+  --shadow-lg:0 8px 24px rgba(0,0,0,0.14);
+  --radius:14px;--radius-sm:8px;--radius-xs:6px;--transition:0.2s ease
+}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:#f0f2f5;color:var(--dark);overflow-x:clip;font-size:14px}
 
-function responder(res, status, obj) {
-  res.status(status);
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.send(JSON.stringify(obj));
+/* ===== LOGIN INSTITUCIONAL ===== */
+.login-container{min-height:100vh;min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:16px;position:relative;overflow:hidden;background:#0d1117}
+/* Capa de imagen de fondo (se rellena desde JS) */
+.login-bg-img{
+  position:absolute;inset:0;
+  background-size:cover;
+  background-position:center center;
+  background-repeat:no-repeat;
+  opacity:0;
+  transition:opacity 0.8s ease;
+  z-index:0;
+  transform:scale(1.05);
+  filter:blur(6px) brightness(0.38) saturate(1.2)
+}
+.login-bg-img.loaded{opacity:1}
+/* Fondo con capas de gradiente (sobre la foto) */
+.login-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 80%,rgba(232,83,26,0.22) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 10%,rgba(45,212,191,0.06) 0%,transparent 55%),
+    linear-gradient(180deg,rgba(0,0,0,0.55) 0%,rgba(13,17,23,0.45) 50%,rgba(13,17,23,0.8) 100%);
+  pointer-events:none;
+  z-index:1
+}
+.login-bg-no-img{
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 80%,rgba(232,83,26,0.18) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 10%,rgba(45,212,191,0.08) 0%,transparent 55%),
+    radial-gradient(ellipse 100% 80% at 50% 50%,#1a1d23 0%,#0d1117 100%)
+}
+/* Patrón hexagonal sutil */
+.login-bg::after{
+  content:'';
+  position:absolute;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg width='60' height='52' viewBox='0 0 60 52' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0L60 17.3V34.7L30 52L0 34.7V17.3Z' fill='none' stroke='rgba(255,255,255,0.02)' stroke-width='1'/%3E%3C/svg%3E");
+  background-size:60px 52px;
+  pointer-events:none
+}
+/* Viñeta en las esquinas */
+.login-container::after{
+  content:'';
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse 90% 90% at 50% 50%,transparent 40%,rgba(0,0,0,0.6) 100%);
+  pointer-events:none;
+  z-index:1
 }
 
-module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return responder(res, 405, { success: false, error: 'Método no permitido' });
+/* Línea luminosa superior */
+.login-container::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--primary),rgba(45,212,191,0.8),var(--primary),transparent);
+  z-index:1
+}
+/* Card institucional */
+.login-card{
+  background:#ffffff; /* Fondo completamente blanco y resplandeciente */
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:40px 36px 28px;
+  width:100%;max-width:420px;
+  box-shadow:0 24px 80px rgba(0,0,0,0.8);
+  animation:fadeInUp 0.5s cubic-bezier(0.22,1,0.36,1);
+  position:relative;overflow:visible;
+  z-index:2;
+  margin-top:40px; /* Espacio para el logo sobresaliente */
+  /* La tarjeta es siempre blanca: colores propios para que el tema oscuro no deje el texto casi invisible */
+  color-scheme:light;
+  --dark:#111827;--dark-2:#374151;--gray:#4b5563;--gray-light:#6b7280;--border:#d1d5db;--white:#ffffff
+}
+/* Borde superior brillante de la card */
+.login-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(232,83,26,0.8),rgba(255,200,100,0.6),rgba(232,83,26,0.8),transparent)
+}
+/* Escudo / logo institucional */
+.login-logo{
+  width:96px;height:96px;
+  background:linear-gradient(145deg,var(--primary) 0%,#c94010 100%);
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  margin:-70px auto 20px;
+  box-shadow:0 12px 32px rgba(232,83,26,0.45),0 0 0 6px rgba(255,255,255,0.85);
+  position:relative;
+  z-index:10;
+  transition:transform 0.3s ease, box-shadow 0.3s ease;
+}
+.login-logo:hover{
+  transform: translateY(-4px) scale(1.05);
+  box-shadow:0 16px 40px rgba(232,83,26,0.6),0 0 0 8px rgba(255,255,255,0.95);
+}
+.login-logo.has-image{
+  background:#ffffff;
+  box-shadow:0 10px 28px rgba(0,0,0,0.12),0 0 0 6px rgba(255,255,255,0.9);
+}
+.login-logo.has-image:hover{
+  box-shadow:0 14px 34px rgba(0,0,0,0.18),0 0 0 8px #ffffff;
+}
+.login-logo.has-image::after{
+  display:none;
+}
+.login-logo::after{
+  content:'';
+  position:absolute;inset:0;
+  border-radius:50%;
+  background:linear-gradient(145deg,rgba(255,255,255,0.25) 0%,transparent 60%);
+  pointer-events:none;
+}
+.login-logo i{font-size:42px;color:white;position:relative;z-index:1}
+/* Header del login */
+.login-header{text-align:center;margin-bottom:28px}
+.login-header h1{
+  font-size:24px;font-weight:800;
+  color:var(--dark);margin-bottom:4px;
+  letter-spacing:-0.3px;
+  text-shadow:none
+}
+.login-header p{color:var(--gray);font-size:12.5px;letter-spacing:0.5px;text-transform:uppercase;font-weight:600}
+/* Línea decorativa bajo el subtítulo */
+.login-divider{
+  display:flex;align-items:center;gap:12px;
+  margin:0 0 22px;
+}
+.login-divider::before,.login-divider::after{
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,0,0,0.15))
+}
+.login-divider::after{background:linear-gradient(90deg,rgba(0,0,0,0.15),transparent)}
+.login-divider span{font-size:10px;color:var(--gray);white-space:nowrap;letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
+/* Inputs mejorados */
+.input-group{position:relative;margin-bottom:14px}
+.input-group i.input-icon{
+  position:absolute;left:15px;top:50%;transform:translateY(-50%);
+  color:var(--gray-light);font-size:14px;pointer-events:none;transition:color 0.2s
+}
+.input-group input{
+  width:100%;
+  padding:13px 14px 13px 44px;
+  background:#f9fafb; /* gris súper claro para inputs */
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:14px;color:var(--dark);
+  font-family:inherit;
+  transition:all 0.2s ease;
+  -webkit-appearance:none
+}
+.input-group input::placeholder{color:#6b7280}
+.input-group input:focus{
+  outline:none;
+  border-color:var(--primary);
+  background:#ffffff;
+  box-shadow:0 0 0 3px rgba(232,83,26,0.15),0 2px 8px rgba(0,0,0,0.05)
+}
+.input-group input:focus + i,.input-group:focus-within i.input-icon{color:var(--primary)}
+/* Botón de login */
+.btn-login{
+  width:100%;padding:14px;
+  background:linear-gradient(135deg,var(--primary) 0%,#d44a15 100%);
+  color:white;border:none;
+  border-radius:10px;
+  font-size:15px;font-weight:700;
+  cursor:pointer;
+  transition:all 0.2s ease;
+  margin-top:10px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:inherit;
+  letter-spacing:0.3px;
+  box-shadow:0 4px 16px rgba(232,83,26,0.35)
+}
+.btn-login:hover{
+  background:linear-gradient(135deg,#f06030 0%,var(--primary) 100%);
+  transform:translateY(-1px);
+  box-shadow:0 8px 24px rgba(232,83,26,0.5)
+}
+.btn-login:active{transform:translateY(0);box-shadow:0 2px 8px rgba(232,83,26,0.3)}
+.btn-login:disabled{opacity:0.55;cursor:not-allowed;transform:none;box-shadow:none}
+/* Error */
+.error-message{
+  color:#b91c1c;text-align:center;font-weight:600;
+  margin-top:12px;font-size:12.5px;
+  background:#fef2f2;
+  padding:10px 14px;
+  border-radius:8px;
+  border:1px solid #fecaca;
+  display:none;
+  line-height:1.4
+}
+.error-message.show{display:block}
+/* Insignias de seguridad bajo el form */
+.login-features{
+  display:flex;justify-content:center;gap:18px;
+  margin-top:20px;padding-top:16px;
+  border-top:1px solid var(--border)
+}
+.login-feature{
+  display:flex;align-items:center;gap:5px;
+  color:var(--gray);font-size:10.5px;font-weight:600
+}
+.login-feature i{font-size:11px;color:rgba(232,83,26,0.8)}
+/* Pie de card */
+.login-footer-card{
+  text-align:center;
+  margin-top:16px;
+  color:#6b7280;
+  font-size:10.5px;
+  letter-spacing:0.3px
+}
+.login-hint{text-align:center;margin-top:14px;color:var(--gray);font-size:11.5px}
+.login-hint span{color:var(--dark);font-weight:700}
+
+/* ===== ANIMACIONES DEL LOGIN ===== */
+/* Logo flotando suave + aro que pulsa */
+@keyframes logoFloat{0%,100%{translate:0 0}50%{translate:0 -6px}}
+@keyframes logoRing{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.45);opacity:0}}
+.login-logo{animation:logoFloat 4s ease-in-out infinite}
+.login-logo::before{content:'';position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(232,83,26,0.55);animation:logoRing 2.6s ease-out infinite;pointer-events:none;z-index:-1}
+/* Campos y botón entran uno tras otro */
+.login-card .login-divider,.login-card .input-group,.login-card .btn-login,.login-card .login-features,.login-card .login-footer-card{animation:fadeInUp .55s cubic-bezier(0.22,1,0.36,1) both}
+.login-card .login-divider{animation-delay:.12s}
+.login-card .login-divider + .input-group{animation-delay:.2s}
+.login-card .input-group + .input-group{animation-delay:.28s}
+.login-card .btn-login{animation-delay:.36s}
+.login-card .login-features{animation-delay:.44s}
+.login-card .login-footer-card{animation-delay:.5s}
+/* Brillo que cruza el botón cada pocos segundos */
+@keyframes btnShine{0%,70%{transform:translateX(-120%) skewX(-20deg)}100%{transform:translateX(320%) skewX(-20deg)}}
+.btn-login{position:relative;overflow:hidden}
+.btn-login::after{content:'';position:absolute;top:0;bottom:0;left:0;width:35%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);animation:btnShine 3.6s ease-in-out infinite;pointer-events:none}
+.btn-login:disabled::after{display:none}
+/* El mensaje de error vibra al aparecer */
+@keyframes errShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.error-message.show{animation:errShake .45s ease}
+@media (prefers-reduced-motion:reduce){
+  .login-logo,.login-logo::before,.login-card .login-divider,.login-card .input-group,.login-card .btn-login,.login-card .login-features,.login-card .login-footer-card,.btn-login::after,.error-message.show{animation:none!important}
+}
+
+/* LAYOUT */
+#dashboard-container{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-width);background:var(--dark);display:flex;flex-direction:column;position:fixed;height:100vh;height:100dvh;overflow-y:auto;transition:transform var(--transition);z-index:1000}
+.sidebar-header{padding:22px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.06)}
+.sidebar-logo{width:40px;height:40px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sidebar-logo i{font-size:18px;color:white}
+.sidebar-header h2{font-size:16px;font-weight:700;color:white;letter-spacing:-0.3px}
+.sidebar-header small{display:block;color:rgba(255,255,255,0.35);font-size:11px;margin-top:1px}
+.sidebar-nav{flex:1;padding:16px 12px}
+.nav-section-title{font-size:10px;font-weight:600;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:1px;padding:0 10px;margin:16px 0 8px}
+.nav-item{display:flex;align-items:center;padding:10px 12px;color:rgba(255,255,255,0.55);text-decoration:none;transition:all var(--transition);position:relative;cursor:pointer;border-radius:var(--radius-sm);margin-bottom:2px;gap:10px}
+.nav-item i{width:20px;text-align:center;font-size:16px;flex-shrink:0}
+.nav-item span.nav-label{font-size:13.5px;font-weight:500}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85)}
+.nav-item.active{background:var(--primary);color:white}
+.nav-item.active:hover{background:var(--primary-dark)}
+.nav-badge{margin-left:auto;background:rgba(255,255,255,0.25);color:white;padding:1px 7px;border-radius:20px;font-size:11px;font-weight:600}
+.nav-item.active .nav-badge{background:rgba(255,255,255,0.3)}
+.sidebar-footer{padding:16px 12px;border-top:1px solid rgba(255,255,255,0.06)}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px;background:rgba(255,255,255,0.05);border-radius:var(--radius-sm);margin-bottom:10px}
+.user-avatar{width:36px;height:36px;background:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.user-avatar i{color:white;font-size:16px}
+.user-card span{font-size:13px;font-weight:600;color:white;display:block}
+.user-card small{font-size:11px;color:rgba(255,255,255,0.4);display:block}
+.btn-logout{width:100%;padding:9px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);color:#fca5a5;cursor:pointer;transition:all var(--transition);display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:500;font-family:inherit}
+.btn-logout:hover{background:rgba(239,68,68,0.2);color:white}
+
+/* MAIN */
+.main-content{flex:1;margin-left:var(--sidebar-width);min-height:100vh;display:flex;flex-direction:column}
+.top-bar{height:var(--header-height);background:var(--white);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:999}
+.menu-toggle{display:none;background:none;border:none;font-size:20px;cursor:pointer;color:var(--dark);padding:6px}
+.top-bar-title{font-size:15px;font-weight:600;color:var(--dark)}
+.top-bar-right{display:flex;align-items:center;gap:8px}
+.camp-chip{display:inline-flex;align-items:center;gap:6px;margin:6px 0 2px;padding:5px 12px;border-radius:999px;background:rgba(232,83,26,.1);color:var(--primary);font-size:12.5px}
+.camp-chip a{color:var(--primary);text-decoration:underline;margin-left:6px}
+.tb-btn{width:38px;height:38px;border-radius:var(--radius-sm);background:var(--light);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--gray);font-size:16px;transition:all var(--transition);position:relative}
+.tb-btn:hover{background:var(--primary-light);color:var(--primary)}
+.tb-btn .badge{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--primary);border-radius:50%;border:2px solid white;display:none}
+.tb-btn .badge.show{display:block}
+.online-pill{display:flex;align-items:center;gap:6px;padding:6px 12px;background:rgba(34,197,94,0.1);border-radius:20px;font-size:12px;font-weight:600;color:var(--success)}
+.online-dot{width:7px;height:7px;background:var(--success);border-radius:50%;animation:pulse 2s infinite}
+
+/* MODULE */
+.module-content{flex:1;padding:24px}
+.module-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-size:22px;font-weight:700;color:var(--dark);letter-spacing:-0.5px}
+.page-subtitle{font-size:13px;color:var(--gray);margin-top:2px}
+
+/* BUTTONS */
+.btn-primary{background:var(--primary);color:white;border:none;padding:10px 18px;border-radius:var(--radius-sm);cursor:pointer;font-size:13.5px;font-weight:600;transition:all var(--transition);display:inline-flex;align-items:center;gap:7px;font-family:inherit}
+.btn-primary:hover{background:var(--primary-dark);transform:translateY(-1px);box-shadow:0 4px 12px rgba(232,83,26,0.3)}
+.btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.btn-secondary{background:var(--light);color:var(--dark);border:1px solid var(--border);padding:10px 18px;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition);font-size:13.5px;font-family:inherit;font-weight:500}
+.btn-secondary:hover{background:var(--border)}
+.btn-success{background:var(--success);color:white;border:none;padding:10px 18px;border-radius:var(--radius-sm);cursor:pointer;font-size:13.5px;font-weight:600;transition:all var(--transition);display:inline-flex;align-items:center;gap:7px;font-family:inherit}
+.btn-success:hover{background:#16a34a}
+.btn-icon{background:none;border:none;cursor:pointer;font-size:14px;color:var(--gray-light);padding:6px 8px;border-radius:var(--radius-xs);transition:all var(--transition)}
+.btn-icon:hover{color:var(--primary);background:var(--primary-light)}
+.btn-icon.danger:hover{color:var(--danger);background:rgba(239,68,68,0.1)}
+
+/* SEARCH */
+.search-box{position:relative;flex:1;min-width:200px;max-width:320px}
+.search-box input{width:100%;padding:8px 12px 8px 36px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--white);color:var(--dark);font-family:inherit;transition:border-color var(--transition)}
+.search-box input:focus{outline:none;border-color:var(--primary)}
+.search-box i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--gray-light);font-size:13px;pointer-events:none}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:24px}
+.kpi-card{background:var(--white);border-radius:var(--radius);padding:20px;display:flex;align-items:flex-start;gap:14px;box-shadow:var(--shadow-sm);border:1px solid var(--border);transition:all var(--transition);position:relative;overflow:hidden}
+.kpi-card::after{content:'';position:absolute;right:-20px;top:-20px;width:80px;height:80px;background:var(--kpi-color,var(--primary));opacity:0.06;border-radius:50%}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.kpi-icon{width:48px;height:48px;background:color-mix(in srgb,var(--kpi-color,var(--primary)) 12%,transparent);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-icon i{font-size:22px;color:var(--kpi-color,var(--primary))}
+.kpi-content{flex:1;min-width:0}
+.kpi-label{font-size:12px;color:var(--gray);font-weight:500;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-value{font-size:clamp(14px, 3.5vw, 20px);font-weight:700;color:var(--dark);letter-spacing:-0.1px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi-value.positive{color:var(--success)}
+.kpi-value.negative{color:var(--danger)}
+.kpi-sub{font-size:11px;color:var(--gray);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.camp-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.camp-tab{border:1px solid var(--border);background:var(--white);color:var(--gray);font-size:12px;font-weight:600;padding:5px 11px;border-radius:20px;cursor:pointer;font-family:inherit}
+.camp-tab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.dash-alert{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;font-size:13px;margin-bottom:6px}
+.dash-alert.danger{background:rgba(239,68,68,0.08);color:var(--danger)}
+.dash-alert.warning{background:rgba(245,158,11,0.1);color:#b45309}
+.dash-alert.ok{background:rgba(34,197,94,0.1);color:var(--success)}
+.num-r{text-align:right;white-space:nowrap}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:24px}
+.chart-card{background:var(--white);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--border)}
+.chart-card h3{font-size:14px;font-weight:600;color:var(--dark);margin-bottom:16px}
+.chart-wrapper{position:relative;height:220px}
+
+/* TABLES */
+.table-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--border);overflow:hidden;position:relative}
+.table-scroll{overflow:visible}
+.data-table{width:100%;border-collapse:collapse;table-layout:auto}
+.data-table thead tr{position:relative;z-index:1}
+.data-table th{padding:12px 16px;text-align:left;background:#f9fafb;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:0.6px;border-bottom:2px solid var(--border);white-space:nowrap}
+.data-table td{padding:12px 16px;border-bottom:1px solid #f3f4f6;font-size:13px;vertical-align:middle;background:var(--white);transition:background 0.15s}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tbody tr:hover td{background:#f8f9ff}
+.actions{display:flex;gap:4px;align-items:center}
+.data-table td.actions{display:table-cell;white-space:nowrap}
+.data-table td.actions>*{vertical-align:middle;margin-right:4px}
+.data-table td.actions>*:last-child{margin-right:0}
+.empty-row td{text-align:center;padding:40px!important;color:var(--gray-light);font-size:13px}
+/* ── Paginación ── */
+.tbl-pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--border);background:#fafbfc;flex-wrap:wrap;gap:8px}
+.tbl-pagination-info{font-size:12.5px;color:var(--gray);font-weight:500}
+.tbl-pagination-info strong{color:var(--dark)}
+.tbl-pages{display:flex;gap:4px;align-items:center}
+.tbl-pg-btn{min-width:32px;height:32px;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--white);color:var(--dark);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0 6px;font-family:inherit}
+.tbl-pg-btn:hover:not(:disabled){background:var(--primary-light);border-color:var(--primary);color:var(--primary)}
+.tbl-pg-btn.active{background:var(--primary);border-color:var(--primary);color:white}
+.tbl-pg-btn:disabled{opacity:0.35;cursor:not-allowed}
+.tbl-pg-dots{font-size:13px;color:var(--gray-light);padding:0 2px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.badge-success{background:rgba(34,197,94,0.1);color:#16a34a}
+.badge-warning{background:rgba(245,158,11,0.1);color:#d97706}
+.badge-danger{background:rgba(239,68,68,0.1);color:#dc2626}
+.badge-info{background:rgba(59,130,246,0.1);color:#2563eb}
+.badge-gray{background:rgba(107,114,128,0.1);color:#6b7280}
+.badge-purple{background:rgba(139,92,246,0.1);color:#7c3aed}
+
+/* PROGRESS */
+.progress-bar{width:100%;height:6px;background:var(--light);border-radius:3px;overflow:hidden;margin:6px 0}
+.progress-fill{height:100%;background:var(--primary);border-radius:3px;transition:width 0.5s ease}
+.progress-bar.success .progress-fill{background:var(--success)}
+.progress-bar.warning .progress-fill{background:var(--warning)}
+.progress-bar.danger .progress-fill{background:var(--danger)}
+.progress-inline{display:flex;align-items:center;gap:8px}
+.progress-inline .progress-bar{flex:1;margin:0}
+.progress-pct{font-size:12px;font-weight:600;color:var(--gray);min-width:36px;text-align:right}
+
+/* FILTERS */
+.filters-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;align-items:center}
+.filters-bar select,.filters-bar input[type="date"]{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--white);color:var(--dark);font-family:inherit;cursor:pointer}
+.filters-bar select:focus,.filters-bar input:focus{outline:none;border-color:var(--primary)}
+/* Ordenar tablas (clic en encabezado) y selector «Ordenar por» */
+.tbl-sortbar{margin:0;padding:10px 16px;border-bottom:1px solid var(--border);gap:8px}
+.tbl-sortbar label{font-size:12px;font-weight:600;color:var(--gray)}
+.tbl-sortable th{cursor:pointer;user-select:none}
+.tbl-sortable th:empty{cursor:default}
+.tbl-sortable th:not(:empty):hover{color:var(--primary)}
+.tbl-sortable th[data-sort="asc"]::after{content:" \25B2";font-size:9px;color:var(--primary)}
+.tbl-sortable th[data-sort="desc"]::after{content:" \25BC";font-size:9px;color:var(--primary)}
+
+/* MODAL */
+.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:2000;animation:fadeIn 0.2s ease;padding:20px}
+.modal-content{background:var(--white);border-radius:var(--radius);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:slideInUp 0.25s ease}
+.modal-content.modal-lg{max-width:640px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border);position:sticky;top:0;background:white;z-index:1}
+.modal-header h3{font-size:17px;font-weight:700}
+.close-modal{background:var(--light);border:none;width:30px;height:30px;border-radius:50%;cursor:pointer;color:var(--gray);font-size:16px;display:flex;align-items:center;justify-content:center;transition:all var(--transition)}
+.close-modal:hover{background:var(--border);color:var(--dark)}
+.form-group{padding:14px 22px 0}
+.form-group label{display:block;margin-bottom:6px;font-size:13px;font-weight:600;color:var(--dark)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13.5px;font-family:inherit;color:var(--dark);transition:border-color var(--transition);background:white}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-light)}
+.form-group textarea{resize:vertical;min-height:80px}
+.chk-grid{display:flex;flex-wrap:wrap;gap:8px}
+.form-group .chk-opt{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:13.5px;font-weight:500;margin:0;background:#fff;user-select:none}
+.form-group .chk-opt input{width:18px;height:18px;padding:0;margin:0;accent-color:var(--primary);cursor:pointer}
+.form-group .chk-opt:has(input:checked){border-color:var(--primary);background:var(--primary-light)}
+.form-group .chk-opt:has(input:disabled){opacity:.6;cursor:not-allowed}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.form-row.one-col{grid-template-columns:minmax(0,1fr)}
+.form-row>.form-group{min-width:0}
+.form-actions{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--border);justify-content:flex-end;margin-top:14px;position:sticky;bottom:0;background:white}
+.modal-note{padding:14px var(--form-pad,22px) 0;line-height:1.5;overflow-wrap:anywhere;min-width:0}
+.modal-note .mn-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px;font-size:12.5px;color:var(--gray)}
+#bhist-body,#shist-body{padding:14px var(--form-pad,22px);min-width:0}
+#bhist-body .form-actions,#shist-body .form-actions{margin:14px calc(-1 * var(--form-pad,22px)) -14px}
+#bhist-body .finance-summary,#shist-body .finance-summary{margin-bottom:12px}
+.modal-content .rep-box{margin:12px var(--form-pad,22px)}
+.modal-content .rep-box .form-group{padding-left:0;padding-right:0}
+.foot-social{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-top:10px}
+.foot-social a{width:38px;height:38px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border);color:var(--gray);font-size:17px;text-decoration:none;background:var(--white);transition:color .15s,border-color .15s,transform .15s}
+.foot-social a:hover,.foot-social a:focus-visible{transform:translateY(-2px);color:var(--primary);border-color:var(--primary)}
+.foot-social a[data-soc="whatsapp"]:hover{color:#25d366;border-color:#25d366}
+.foot-social a[data-soc="facebook"]:hover{color:#1877f2;border-color:#1877f2}
+.foot-social a[data-soc="instagram"]:hover{color:#e1306c;border-color:#e1306c}
+.foot-social a[data-soc="youtube"]:hover{color:#ff0000;border-color:#ff0000}
+.foot-social a[data-soc="telegram"]:hover{color:#229ed9;border-color:#229ed9}
+@media (pointer:coarse){.foot-social a{width:42px;height:42px}}
+/* Footer del sistema */
+.app-footer{text-align:center;margin-top:auto;padding:20px 20px calc(22px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--border);font-size:12px;color:var(--gray);background:linear-gradient(to bottom,transparent,rgba(128,128,128,.06))}
+.app-footer-link{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border-radius:999px;font-size:13px;font-weight:600;letter-spacing:.2px;text-decoration:none;background:color-mix(in srgb,currentColor 9%,transparent);border:1px solid color-mix(in srgb,currentColor 20%,transparent);transition:background .15s,transform .15s}
+.app-footer-link i{font-size:10px;opacity:.7}
+.app-footer-link[href="#"] i{display:none}
+.app-footer-link:hover,.app-footer-link:focus-visible{background:color-mix(in srgb,currentColor 17%,transparent);transform:translateY(-1px)}
+.app-footer .foot-social{margin-top:14px;gap:10px}
+.app-footer .foot-social a{width:36px;height:36px;font-size:15px;background:transparent}
+@media (max-width:600px){.app-footer{padding-top:16px}.app-footer-link{font-size:12px;padding:6px 14px}}
+@media (max-width:480px){.modal-note .mn-sub{font-size:12px}.modal-content input,.modal-content select,.modal-content textarea{font-size:16px}}
+
+/* FINANCE */
+.finance-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
+.summary-card{background:var(--white);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow-sm);border:1px solid var(--border);display:flex;align-items:center;gap:14px}
+.summary-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.summary-icon.income{background:rgba(34,197,94,0.1)}
+.summary-icon.income i{color:var(--success);font-size:20px}
+.summary-icon.expense{background:rgba(239,68,68,0.1)}
+.summary-icon.expense i{color:var(--danger);font-size:20px}
+.summary-icon.balance{background:rgba(232,83,26,0.1)}
+.summary-icon.balance i{color:var(--primary);font-size:20px}
+.summary-card h3{font-size:11px;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.summary-card p{font-size:20px;font-weight:700;color:var(--dark);letter-spacing:-0.5px}
+.summary-card.positive p{color:var(--success)}
+.summary-card.negative p{color:var(--danger)}
+/* Números grandes: una sola línea y la letra se achica sola (fitNums_) para verse completos */
+.summary-card{min-width:0}.summary-card>div:last-child{min-width:0;flex:1}
+.summary-card p,.stock-card .val{white-space:nowrap;line-height:1.2}
+.summary-card small,.stock-card .sub{overflow-wrap:anywhere}
+.summary-icon.custom{background:rgba(128,128,128,.14);background:color-mix(in srgb,var(--ic,#888) 14%,transparent)}
+.summary-icon.custom i{color:var(--ic,var(--primary));font-size:20px}
+.summary-card[onclick]{cursor:pointer}
+.text-success{color:var(--success);font-weight:600}
+.text-danger{color:var(--danger);font-weight:600}
+
+/* CHAT — WhatsApp Style */
+.chat-container{border-radius:var(--radius);height:calc(100vh - var(--header-height) - 48px);height:calc(100dvh - var(--header-height) - 48px);display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid var(--border)}
+.chat-header{padding:10px 16px;background:#008069;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;gap:12px}
+.chat-header-left{display:flex;align-items:center;gap:12px}
+.chat-group-avatar{width:40px;height:40px;background:#aebac1;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.chat-group-avatar i{color:white;font-size:17px}
+.chat-header-info h3{font-size:16px;font-weight:600;color:white;margin:0}
+.chat-header-info p{font-size:12.5px;color:rgba(255,255,255,0.8);margin:1px 0 0}
+.chat-online-avatars{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.chat-online-avatar-sm{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white;border:2px solid rgba(255,255,255,0.3);flex-shrink:0}
+.chat-messages{flex:1;overflow-y:auto;padding:12px 5%;display:flex;flex-direction:column;gap:0;background-color:#efeae2;background-image:url("data:image/svg+xml,%3Csvg width='120' height='120' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='rgba(11,20,26,0.055)' stroke-width='1.4' stroke-linecap='round'%3E%3Ccircle cx='20' cy='22' r='6'/%3E%3Cpath d='M78 14l8 8M86 14l-8 8'/%3E%3Cpath d='M52 62q6-8 12 0t12 0'/%3E%3Crect x='14' y='76' width='12' height='12' rx='3'/%3E%3Cpath d='M92 84l6 10h-12z'/%3E%3Ccircle cx='60' cy='100' r='3'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat}
+.chat-msg-row{display:flex;margin-bottom:2px}
+.chat-msg-row.first{margin-top:8px}
+.chat-msg-row.own{justify-content:flex-end}
+.chat-msg-row.system-msg{justify-content:center;margin:8px 0}
+.chat-date-row{display:flex;justify-content:center;margin:10px 0 6px}
+.chat-date-chip{background:#ffffff;color:#54656f;font-size:12.5px;padding:5px 12px;border-radius:8px;box-shadow:0 1px 0.5px rgba(11,20,26,0.13)}
+.chat-msg-col{display:flex;flex-direction:column;max-width:65%;min-width:0}
+.chat-msg-name{font-size:12.8px;font-weight:600;line-height:1.3;margin-bottom:2px}
+.msg-bubble{--bub:#ffffff;position:relative;display:flow-root;padding:6px 8px 6px 9px;border-radius:8px;word-wrap:break-word;overflow-wrap:anywhere;font-size:14.2px;line-height:1.4;background:var(--bub);color:#111b21;box-shadow:0 1px 0.5px rgba(11,20,26,0.13)}
+.msg-bubble.own{--bub:#d9fdd3}
+.msg-bubble.other{--bub:#ffffff}
+.msg-bubble.tail.own{border-top-right-radius:0}
+.msg-bubble.tail.other{border-top-left-radius:0}
+.msg-bubble.tail::before{content:'';position:absolute;top:0;width:8px;height:13px;background:var(--bub)}
+.msg-bubble.tail.own::before{right:-8px;clip-path:polygon(0 0,100% 0,0 100%)}
+.msg-bubble.tail.other::before{left:-8px;clip-path:polygon(0 0,100% 0,100% 100%)}
+.msg-text{white-space:pre-wrap}
+.system-msg .msg-bubble{background:rgba(255,255,255,0.92);color:#54656f;border-radius:8px;font-size:12.5px;text-align:center;padding:6px 14px}
+.msg-footer{float:right;display:flex;align-items:center;gap:3px;height:15px;margin:6px 0 -3px 12px}
+.msg-time{font-size:11px;color:#667781;white-space:nowrap}
+.msg-ticks{font-size:12px;color:#53bdeb}
+.chat-input-bar{padding:8px 12px;background:#f0f2f5;display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+.chat-input-inner{flex:1;background:white;border-radius:22px;display:flex;align-items:flex-end;padding:9px 14px;gap:8px;border:none}
+.chat-input-inner textarea{flex:1;border:none;outline:none;resize:none;font-family:inherit;font-size:14.5px;max-height:120px;color:var(--dark);background:transparent;line-height:1.4;padding:0}
+.chat-input-inner textarea::placeholder{color:#667781}
+.chat-send-btn{width:44px;height:44px;background:#00a884;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.2s}
+.chat-send-btn:hover{background:#008f72}
+.chat-send-btn i{color:white;font-size:16px}
+.chat-empty{text-align:center;padding:60px 20px;color:#667781}
+.chat-empty i{font-size:48px;color:#cdd3d8;margin-bottom:14px;display:block}
+.chat-empty p{font-size:14px}
+/* WhatsApp-style notification toast */
+.wa-toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:white;border-radius:12px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.18);z-index:4000;animation:slideInUp 0.3s ease;max-width:320px;border-left:4px solid #25d366;cursor:pointer}
+.wa-toast-avatar{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0}
+.wa-toast-content h5{font-size:13px;font-weight:700;margin:0 0 2px;color:var(--dark)}
+.wa-toast-content p{font-size:12px;color:var(--gray);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px}
+.wa-toast.fade-out{animation:fadeOut 0.3s ease forwards}
+/* Chat Callout — estilo Messenger (desktop: junto al ícono de Chat · móvil: banner arriba) */
+.chat-callout{position:fixed;left:calc(var(--sidebar-width) + 14px);top:var(--callout-top,180px);width:min(350px,calc(100vw - 28px));display:flex;align-items:center;gap:12px;padding:10px 10px 10px 10px;background:#fff;border-radius:24px;box-shadow:0 10px 32px rgba(0,0,0,.22),0 0 0 1px rgba(0,0,0,.05);z-index:1200;cursor:pointer;animation:calloutIn .3s cubic-bezier(.2,.9,.3,1.15) forwards;-webkit-tap-highlight-color:transparent;touch-action:pan-y}
+.chat-callout-avatar{position:relative;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.chat-callout-avatar::after{content:'';position:absolute;right:-1px;bottom:-1px;width:13px;height:13px;border-radius:50%;background:#31a24c;border:2.5px solid #fff;box-sizing:border-box}
+.chat-callout-body{flex:1;min-width:0}
+.chat-callout-top{display:flex;align-items:baseline;gap:6px;margin-bottom:1px}
+.chat-callout-name{font-size:14.5px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.chat-callout-time{font-size:12px;color:#0084ff;font-weight:600;flex-shrink:0}
+.chat-callout-msg{font-size:13.5px;font-weight:600;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-callout-close{width:28px;height:28px;border-radius:50%;border:none;background:rgba(0,0,0,.06);color:#65676b;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:12px;padding:0}
+.chat-callout-close:hover{background:rgba(0,0,0,.12)}
+.chat-callout.fade-out{animation:calloutOut .3s ease forwards}
+/* Contador del menú: rojo tipo Messenger */
+#chat-badge{background:#fa3e3e;color:#fff;min-width:20px;justify-content:center;padding:1px 6px;animation:chatBadgePop .3s ease}
+@keyframes chatBadgePop{0%{transform:scale(.4)}60%{transform:scale(1.25)}100%{transform:scale(1)}}
+@media(max-width:768px){
+  .chat-callout{left:10px;right:10px;top:calc(var(--header-height) + env(safe-area-inset-top,0px) + 8px);bottom:auto;width:auto;max-width:440px;margin:0 auto;animation-name:calloutInTop}
+  .chat-callout.fade-out{animation-name:calloutOutTop}
+}
+@media (prefers-reduced-motion:reduce){.chat-callout,.chat-callout.fade-out,#chat-badge{animation-duration:.01s!important}}
+
+/* NOTIFICATIONS PANEL */
+.notifications-panel{position:fixed;top:calc(var(--header-height) + 6px);right:16px;width:min(390px,calc(100vw - 32px));max-height:min(580px,calc(100dvh - var(--header-height) - 24px));background:var(--white);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,0.18);z-index:1001;display:flex;flex-direction:column;overflow:hidden;animation:slideInRight 0.2s ease;border:1px solid var(--border)}
+.notifications-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.notifications-header h3{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px}
+.notif-count{background:var(--primary);color:#fff;font-size:11px;font-weight:700;line-height:1;padding:4px 8px;border-radius:20px}
+.notifications-list{flex:1;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.notif-group{position:sticky;top:0;z-index:1;padding:8px 18px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--gray-light);background:var(--light);border-bottom:1px solid var(--border)}
+.notification-item{padding:13px 18px 13px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;cursor:pointer;transition:background var(--transition);position:relative}
+.notification-item:last-child{border-bottom:none}
+.notification-item:hover{background:var(--light)}
+.notification-item.unread{background:rgba(232,83,26,0.05)}
+.notification-item.unread::before{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--primary);border-radius:0 2px 2px 0}
+.notif-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:19px;line-height:1}
+.notif-icon i{font-size:16px}
+.notification-item:not(.unread) .notif-icon{opacity:0.8}
+.notif-icon.success{background:rgba(34,197,94,0.12);color:var(--success)}
+.notif-icon.warning{background:rgba(245,158,11,0.14);color:var(--warning)}
+.notif-icon.error{background:rgba(239,68,68,0.12);color:var(--danger)}
+.notif-icon.info{background:rgba(59,130,246,0.12);color:#3b82f6}
+.notif-content{flex:1;min-width:0}
+.notif-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
+.notif-content h4{font-size:13.5px;font-weight:600;line-height:1.35;margin:0;word-break:break-word}
+.notification-item.unread .notif-content h4{font-weight:700}
+.notif-time{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:11px;color:var(--gray-light);line-height:1.6;white-space:nowrap}
+.notif-new{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.notif-content p{font-size:12.5px;color:var(--gray);margin:0;line-height:1.45;word-break:break-word;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.notif-chips{display:flex;flex-wrap:wrap;gap:5px}
+.notif-chip{background:var(--light);border:1px solid var(--border);border-radius:20px;padding:2px 9px;font-size:11.5px;font-weight:500;color:var(--dark-2);line-height:1.5}
+.no-notifications{text-align:center;padding:40px 30px;color:var(--gray);font-size:13px}
+
+/* NOTIF COMPOSE */
+.notif-compose{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:22px;margin-bottom:20px}
+.notif-compose h3{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.notif-compose h3 i{color:var(--primary)}
+.notif-type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.notif-type-btn{padding:8px 6px;border:2px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;text-align:center;font-size:12px;font-weight:600;transition:all var(--transition);background:var(--white);font-family:inherit}
+.notif-type-btn.selected-info{border-color:#3b82f6;background:rgba(59,130,246,0.08);color:#2563eb}
+.notif-type-btn.selected-success{border-color:var(--success);background:rgba(34,197,94,0.08);color:#16a34a}
+.notif-type-btn.selected-warning{border-color:var(--warning);background:rgba(245,158,11,0.08);color:#d97706}
+.notif-type-btn.selected-error{border-color:var(--danger);background:rgba(239,68,68,0.08);color:#dc2626}
+
+/* PAYMENTS */
+.payments-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+.payment-card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;transition:all var(--transition);display:flex;flex-direction:column}
+.payment-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.pay-img{width:100%;height:150px;overflow:hidden;background:var(--light);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.pay-img img{width:100%;height:100%;object-fit:cover;transition:transform 0.3s ease}
+.pay-img img:hover{transform:scale(1.05)}
+.pay-img-placeholder{width:100%;height:150px;background:var(--light);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--gray-light);font-size:12px;cursor:pointer;border-bottom:1px solid var(--border);transition:background var(--transition);flex-shrink:0}
+.pay-img-placeholder:hover{background:var(--border)}
+.pay-img-placeholder i{font-size:28px}
+.pay-info{padding:14px;flex:1;display:flex;flex-direction:column;gap:2px}
+.pay-info h4{font-size:13px;font-weight:700;margin-bottom:2px;color:var(--dark)}
+.pay-info .pay-amount{font-size:20px;font-weight:800;color:var(--success);letter-spacing:-0.5px}
+.pay-info .pay-date{font-size:11.5px;color:var(--gray);margin-bottom:6px}
+.pay-desc-notebook{margin-top:8px;background:#fffef7;border:1px solid #e8e4d0;border-radius:6px;padding:10px 12px 10px 28px;position:relative;overflow:hidden}
+.pay-desc-notebook::before{content:'';position:absolute;left:18px;top:0;bottom:0;width:1px;background:#fbbf24;opacity:0.5}
+.pay-desc-notebook::after{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--primary-dark));border-radius:0 2px 2px 0}
+.pay-desc-label{font-size:10px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;display:block}
+.pay-desc-lines{font-size:12px;color:#555;line-height:22px;background-image:repeating-linear-gradient(transparent,transparent 21px,#dde0e8 21px,#dde0e8 22px);background-size:100% 22px;min-height:44px;word-break:break-word;white-space:pre-wrap}
+.upload-area{border:2px dashed var(--border);border-radius:var(--radius-sm);padding:28px;text-align:center;cursor:pointer;transition:all var(--transition);background:var(--light)}
+.upload-area:hover,.upload-area.drag-over{border-color:var(--primary);background:var(--primary-light)}
+.upload-area i{font-size:32px;color:var(--gray-light);margin-bottom:10px;display:block}
+.upload-area p{color:var(--gray);font-size:13px}
+.upload-area span{color:var(--primary);font-weight:600}
+.img-preview{width:100%;max-height:200px;border-radius:var(--radius-sm);object-fit:contain;margin-top:10px;border:1px solid var(--border)}
+.scan-panel{margin:22px 0 18px;padding:18px;background:var(--white);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.scan-head{display:flex;gap:12px;align-items:center;margin-bottom:16px}
+.scan-ico{width:42px;height:42px;border-radius:10px;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.scan-title{font-weight:700;font-size:14px;color:var(--dark)}
+.scan-sub{font-size:12px;color:var(--gray);margin-top:2px;line-height:1.4}
+.scan-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.scan-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:14px 8px;background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;text-align:center;font-family:inherit;transition:all var(--transition)}
+.scan-tile:hover{border-color:var(--primary);background:var(--primary-light);transform:translateY(-1px)}
+.scan-tile i{font-size:20px;color:var(--primary)}
+.scan-tile b{font-size:12px;color:var(--dark)}
+.scan-tile small{font-size:11px;color:var(--gray);line-height:1.3}
+.scan-row{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+.scan-row label{font-size:12px;font-weight:600;color:var(--gray);margin:0}
+.scan-row select{flex:1;min-width:170px;padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:13px;background:var(--white);font-family:inherit}
+.scan-go{width:100%;margin-top:14px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px}
+.scan-status{margin-top:16px;padding:14px 16px;border-radius:var(--radius-sm);background:var(--light);border:1px solid var(--border);font-size:13px;line-height:1.55;color:var(--dark)}
+.scan-status ul{margin:8px 0 0 18px;padding:0}
+.scan-status li{margin-bottom:3px}
+.scan-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.scan-btns .btn-secondary,.scan-btns .btn-primary{font-size:12px;padding:8px 12px}
+.scan-chip{display:inline-block;padding:3px 10px;border-radius:99px;font-weight:700;font-size:11px;color:#fff}
+.scan-chip.ok{background:var(--success)}.scan-chip.warn{background:var(--warning)}.scan-chip.bad{background:var(--danger)}
+@media(max-width:560px){.scan-tiles{grid-template-columns:1fr}.scan-panel{padding:14px}}
+body[data-role="viewer"] .scan-panel{display:none}
+.cam-ov{position:fixed;inset:0;z-index:10050;background:#000;display:none;flex-direction:column}
+.cam-ov.show{display:flex}
+.cam-stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.cam-stage video{width:100%;height:100%;object-fit:contain;background:#000}
+.cam-guide{position:absolute;inset:8% 10%;border:3px dashed rgba(255,255,255,.85);border-radius:12px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.35)}
+.cam-hint{position:absolute;top:calc(env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,.65);color:#fff;font-size:13px;padding:6px 14px;border-radius:99px;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.cam-hint.good{background:rgba(34,197,94,.9)}.cam-hint.bad{background:rgba(239,68,68,.9)}
+.cam-bar{display:flex;align-items:center;justify-content:space-around;gap:10px;padding:14px 12px calc(env(safe-area-inset-bottom,0px) + 14px);background:#111}
+.cam-btn{width:48px;height:48px;border-radius:50%;border:0;background:#333;color:#fff;font-size:18px;cursor:pointer}
+.cam-btn:disabled{opacity:.35}
+.cam-shot{width:72px;height:72px;border-radius:50%;border:4px solid #fff;background:var(--primary);color:#fff;font-size:24px;cursor:pointer}
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:9000;padding:20px;animation:fadeIn 0.2s ease}
+.lightbox img{max-width:90vw;max-height:88vh;border-radius:var(--radius-sm);box-shadow:0 20px 60px rgba(0,0,0,0.6)}
+.lightbox-close{position:absolute;top:20px;right:24px;background:rgba(255,255,255,0.15);border:none;color:white;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:background var(--transition)}
+.lightbox-close:hover{background:rgba(255,255,255,0.3)}
+
+/* USERS */
+.user-role-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.role-admin{background:rgba(232,83,26,0.1);color:var(--primary)}
+.role-manager{background:rgba(59,130,246,0.1);color:#2563eb}
+.role-operator{background:rgba(34,197,94,0.1);color:#16a34a}
+.role-viewer{background:rgba(107,114,128,0.1);color:var(--gray)}
+.role-vet{background:rgba(45,212,191,0.1);color:#0d9488}
+.role-maintenance{background:rgba(245,158,11,0.1);color:#d97706}
+
+/* ATTENDANCE */
+.attendance-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-top:16px}
+.attendance-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px;display:flex;align-items:flex-start;gap:14px;transition:all var(--transition)}
+.attendance-card:hover{box-shadow:var(--shadow-sm)}
+.att-avatar{width:44px;height:44px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:white;flex-shrink:0}
+.att-info{flex:1}
+.att-info h4{font-size:13px;font-weight:700;margin-bottom:2px}
+.att-info p{font-size:12px;color:var(--gray)}
+.att-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.att-btn{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:2px solid transparent;cursor:pointer;transition:all var(--transition);font-family:inherit}
+.att-btn.present{background:rgba(34,197,94,0.1);color:#16a34a;border-color:rgba(34,197,94,0.2)}
+.att-btn.present.active,.att-btn.present:hover{background:var(--success);color:white;border-color:var(--success)}
+.att-btn.late{background:rgba(245,158,11,0.1);color:#d97706;border-color:rgba(245,158,11,0.2)}
+.att-btn.late.active,.att-btn.late:hover{background:var(--warning);color:white;border-color:var(--warning)}
+.att-btn.absent{background:rgba(239,68,68,0.1);color:#dc2626;border-color:rgba(239,68,68,0.2)}
+.att-btn.absent.active,.att-btn.absent:hover{background:var(--danger);color:white;border-color:var(--danger)}
+
+/* TASKS */
+.tasks-kanban{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px}
+.kanban-col{background:#f9fafb;border-radius:var(--radius-sm);border:1px solid var(--border);overflow:hidden}
+.kanban-col-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;background:white}
+.kanban-col-body{padding:12px;display:flex;flex-direction:column;gap:10px;min-height:120px}
+.task-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:14px;transition:all var(--transition);border-left:3px solid transparent}
+.task-card:hover{box-shadow:var(--shadow-sm);transform:translateY(-1px)}
+.task-card h4{font-size:13px;font-weight:600;margin-bottom:6px}
+.task-card p{font-size:12px;color:var(--gray);margin-bottom:8px;line-height:1.4}
+.task-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* ===== TAREAS: tablero mejorado ===== */
+.tk-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:4px 0 16px}
+.tk-stat{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow-sm);min-width:0}
+.tk-stat .ic{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;color:var(--kc);background:color-mix(in srgb,var(--kc) 14%,transparent)}
+.tk-stat b{display:block;font-size:20px;font-weight:800;line-height:1.1;color:var(--dark)}
+.tk-stat small{font-size:11.5px;color:var(--gray);font-weight:600}
+.tasks-kanban .kanban-col{border-radius:var(--radius);border:1px solid var(--border);border-top:3px solid var(--kc,var(--border));background:var(--light);display:flex;flex-direction:column;min-width:0}
+.tasks-kanban .kanban-col-header{background:transparent;border-bottom:0;padding:14px 14px 6px}
+.kc-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}
+.kc-dot{width:9px;height:9px;border-radius:50%;background:var(--kc)}
+.kc-count{min-width:26px;height:24px;padding:0 8px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--kc);background:color-mix(in srgb,var(--kc) 15%,transparent)}
+.tasks-kanban .kanban-col-body{padding:8px 10px 12px;gap:10px;flex:1}
+.kc-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:28px 8px;color:var(--gray-light);font-size:12.5px;border:1.5px dashed var(--border);border-radius:var(--radius-sm)}
+.kc-empty i{font-size:20px;opacity:.7}
+.tasks-kanban .task-card{border-radius:12px;padding:13px 14px;box-shadow:var(--shadow-sm);border-left-width:4px;border-left-color:var(--kc,transparent)}
+.tasks-kanban .task-card.priority-high{border-left-color:var(--danger)}
+.tasks-kanban .task-card h4{font-size:14px;font-weight:700;line-height:1.3;margin-bottom:8px}
+.tasks-kanban .task-card p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:8px 0}
+.tk-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:11.5px;color:var(--gray)}
+.tk-user{display:flex;align-items:center;gap:7px;min-width:0}
+.tk-user span.av{width:24px;height:24px;border-radius:50%;background:var(--primary-light);color:var(--primary);font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tk-user span.nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tk-due{white-space:nowrap;font-weight:600}
+.tasks-kanban .task-card .actions{border-top:1px solid var(--border);padding-top:8px;margin-top:10px!important}
+@media(max-width:900px){.tk-stats{grid-template-columns:repeat(2,1fr)}.tk-stats .tk-stat:last-child{grid-column:1/-1}}
+@media(max-width:700px){.tasks-kanban{grid-auto-flow:column;grid-auto-columns:86%;grid-template-columns:none!important;scroll-snap-type:x mandatory;gap:12px}.tasks-kanban .kanban-col{scroll-snap-align:start}}
+.tasks-kanban.tk-3{grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}
+@media(max-width:900px){.tasks-kanban.tk-3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.tasks-kanban.tk-3{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:1fr!important;scroll-snap-type:none}}
+.priority-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.priority-high .priority-dot{background:var(--danger)}
+.priority-high{border-left-color:var(--danger)}
+.priority-normal .priority-dot{background:var(--warning)}
+.priority-normal{border-left-color:var(--warning)}
+.priority-low .priority-dot{background:var(--success)}
+.priority-low{border-left-color:var(--success)}
+
+/* HEALTH */
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:16px}
+.health-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px;transition:all var(--transition)}
+.health-card:hover{box-shadow:var(--shadow)}
+.health-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.health-type-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.health-type-vaccine{background:rgba(34,197,94,0.1);color:var(--success)}
+.health-type-disease{background:rgba(239,68,68,0.1);color:var(--danger)}
+.health-type-treatment{background:rgba(59,130,246,0.1);color:#2563eb}
+
+/* MAINTENANCE */
+.maint-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;margin-top:16px}
+.maint-card{background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border);padding:16px;transition:all var(--transition);border-top:4px solid transparent}
+.maint-card:hover{box-shadow:var(--shadow)}
+.maint-pending{border-top-color:var(--warning)}
+.maint-in_progress{border-top-color:#3b82f6}
+.maint-done{border-top-color:var(--success)}
+
+/* SECTION CARDS */
+.section-card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow-sm)}
+.section-card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.section-card-header h3{font-size:14px;font-weight:600}
+.section-card-body{padding:16px 20px}
+
+/* ACTIVITIES */
+.activities-list{display:flex;flex-direction:column;gap:8px}
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:var(--white);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--primary);margin-top:5px;flex-shrink:0}
+.activity-item p{font-size:13px;color:var(--dark);margin-bottom:2px}
+.activity-item small{font-size:11px;color:var(--gray-light)}
+
+/* HOUSES GRID */
+.houses-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.house-mini-card{background:var(--light);border-radius:var(--radius-sm);padding:16px;border:1px solid var(--border)}
+.house-mini-card h4{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.house-mini-card p{font-size:12px;color:var(--gray);margin-top:6px}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:3000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:12px 18px;background:var(--dark);color:white;border-radius:var(--radius-sm);display:flex;align-items:center;gap:10px;animation:slideInRight 0.3s ease;box-shadow:var(--shadow-lg);font-size:13.5px;max-width:340px;pointer-events:all}
+.toast-success{background:#16a34a}
+.toast-error{background:#dc2626}
+.toast-warning{background:#d97706}
+.toast-info{background:#2563eb}
+.toast.fade-out{animation:fadeOut 0.3s ease forwards}
+
+/* DIÁLOGOS PERSONALIZADOS (reemplazan confirm/alert del navegador) */
+.dlg-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:5000;animation:fadeIn 0.15s ease}
+.dlg-box{background:var(--white);border-radius:var(--radius);width:100%;max-width:400px;padding:26px 24px 20px;text-align:center;box-shadow:var(--shadow-lg);animation:dlgPop 0.2s cubic-bezier(0.22,1,0.36,1)}
+.dlg-icon{width:56px;height:56px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:22px;background:var(--primary-light);color:var(--primary)}
+.dlg-icon.danger{background:rgba(239,68,68,0.1);color:var(--danger)}
+.dlg-icon.info{background:rgba(59,130,246,0.1);color:#2563eb}
+.dlg-title{font-size:17px;font-weight:700;color:var(--dark);line-height:1.3;margin:0}
+.dlg-msg{margin:8px 0 0;font-size:13.5px;color:var(--gray);line-height:1.5;word-break:break-word}
+.dlg-actions{display:flex;gap:10px;margin-top:22px}
+.dlg-actions button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:42px;font-family:inherit;font-size:13.5px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;transition:all var(--transition)}
+.dlg-cancel{background:var(--light);color:var(--dark);border:1px solid var(--border)}
+.dlg-cancel:hover{background:var(--border)}
+.dlg-ok{border:none;color:#fff;background:var(--primary)}
+.dlg-ok:hover{background:var(--primary-dark)}
+.dlg-ok.danger{background:var(--danger)}
+.dlg-ok.danger:hover{background:#dc2626}
+@keyframes dlgPop{from{opacity:0;transform:scale(0.94) translateY(8px)}to{opacity:1;transform:none}}
+@media (max-width:480px){.dlg-actions{flex-direction:column-reverse}.dlg-actions button{min-height:46px}}
+
+/* LOADER */
+.loader-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;z-index:3000}
+.loader-box{background:white;border-radius:var(--radius);padding:28px 36px;display:flex;flex-direction:column;align-items:center;gap:14px;box-shadow:var(--shadow-lg)}
+.loader{width:40px;height:40px;border:3px solid var(--light);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite}
+.loader-box p{font-size:13px;color:var(--gray);font-weight:500}
+.chick-loader{width:72px;height:72px;display:block;overflow:visible}
+.chick-loader .ck-hop{transform-box:fill-box;transform-origin:50% 100%;animation:ck-hop .75s cubic-bezier(.3,.1,.4,1) infinite}
+.chick-loader .ck-shadow{transform-box:fill-box;transform-origin:50% 50%;animation:ck-shadow .75s cubic-bezier(.3,.1,.4,1) infinite}
+.chick-loader .ck-wing{transform-box:fill-box;transform-origin:20% 30%;animation:ck-wing .75s ease-in-out infinite}
+.chick-loader .ck-eye{transform-box:fill-box;transform-origin:50% 50%;animation:ck-blink 3s infinite}
+.chick-loader.mini{width:30px;height:30px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+.chick-loader.mini .ck-hop{animation-name:ck-hop-mini}
+@keyframes ck-hop-mini{0%,100%{transform:translateY(0) scale(1.06,.92)}50%{transform:translateY(-4px) scale(1,1)}}
+@keyframes ck-hop{0%,100%{transform:translateY(0) scale(1.08,.9)}18%{transform:translateY(0) scale(.96,1.06)}50%{transform:translateY(-15px) scale(1,1)}82%{transform:translateY(0) scale(.96,1.06)}}
+@keyframes ck-shadow{0%,100%{transform:scale(1);opacity:.28}50%{transform:scale(.6);opacity:.14}}
+@keyframes ck-wing{0%,100%{transform:rotate(0)}50%{transform:rotate(-22deg)}}
+@keyframes ck-blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+
+/* ANIMATIONS */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes fadeOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(30px)}}
+@keyframes calloutIn{from{opacity:0;transform:translateY(-50%) translateX(20px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}
+@keyframes calloutOut{from{opacity:1;transform:translateY(-50%) translateX(0)}to{opacity:0;transform:translateY(-50%) translateX(20px)}}
+@keyframes calloutInTop{from{opacity:0;transform:translateY(-24px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes calloutOutTop{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-24px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* SIDEBAR OVERLAY */
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000}
+.sidebar-overlay.show{display:block}
+@media (min-width: 769px){.sidebar-overlay,.sidebar-overlay.show{display:none !important}}
+.admin-only{display:none}
+.manager-only{display:none}
+
+/* ONLINE INDICATOR */
+.online-indicator{position:absolute;bottom:-2px;right:-2px;width:11px;height:11px;border-radius:50%;border:2px solid white}
+.online-indicator.online{background:var(--success)}
+.online-indicator.offline{background:var(--gray-light)}
+
+/* ================================================================
+   RESPONSIVE — JJL Avicola  v3.0  (UN SOLO BLOQUE, SIN DUPLICADOS)
+   Orden: base global → 1024 → 768 → 480 → 360
+   ================================================================ */
+
+/* ── Contención global: nada puede desbordarse hacia la derecha ── */
+html { overflow-x: hidden; }
+html, body { max-width: 100%; }
+body { overflow-x: clip; }
+.main-content { min-width: 0; overflow-x: hidden; overflow-x: clip; }
+.module-content { overflow-x: hidden; }
+#dynamic-content { max-width: 100%; overflow-x: hidden; }
+
+/* ── Touch targets mínimos 44×44px ── */
+button, .btn-primary, .btn-secondary, .btn-success,
+.tbl-pg-btn, .att-btn, .tb-btn, .nav-item {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-item { min-height: 44px; }
+@media (pointer: coarse) {
+  .btn-primary, .btn-secondary, .btn-success, .btn-logout, .att-btn { min-height: 44px; }
+  .tb-btn { min-width: 44px; min-height: 44px; }
+  .tbl-pg-btn { min-height: 38px; }
+  .btn-icon, .close-modal { min-height: 36px; min-width: 36px; }
+}
+
+/* ── Scroll horizontal en tablas (siempre) ── */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* ── Modo card para tablas en móvil (activado por JS con .table-card-mode) ── */
+.table-card-mode .data-table,
+.table-card-mode .data-table tbody,
+.table-card-mode .data-table tr,
+.table-card-mode .data-table td { display: block; width: 100%; }
+.table-card-mode .data-table thead { display: none; }
+.table-card-mode .data-table tr {
+  background: var(--white); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); margin-bottom: 10px;
+  padding: 4px 0; box-shadow: var(--shadow-sm);
+}
+.table-card-mode .data-table td {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 14px; border-bottom: 1px solid #f3f4f6;
+  font-size: 13px; word-break: break-word;
+}
+.table-card-mode .data-table td:last-child { border-bottom: none; }
+.table-card-mode .data-table td::before {
+  content: attr(data-label); font-weight: 700; font-size: 10px;
+  color: var(--gray); text-transform: uppercase; letter-spacing: 0.4px;
+  white-space: nowrap; flex-shrink: 0; min-width: 90px; padding-top: 2px;
+}
+.table-card-mode .data-table td.td-actions::before,
+.table-card-mode .data-table td.actions::before { display: none; }
+.table-card-mode .data-table td.td-actions,
+.table-card-mode .data-table td.actions {
+  justify-content: flex-end; background: #fafbfc;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.table-card-mode .empty-row td::before { display: none; }
+.table-card-mode .empty-row td { justify-content: center; }
+
+/* ── Hint de scroll horizontal ── */
+.table-scroll-hint {
+  display: none; font-size: 11px; color: var(--gray-light);
+  padding: 4px 12px; text-align: right;
+}
+
+/* ── KPI: ellipsis para textos largos en cualquier pantalla ── */
+.kpi-content { flex: 1; min-width: 0; overflow: hidden; }
+.kpi-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kpi-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Hamburguesa: oculta en desktop ── */
+.menu-toggle {
+  display: none; background: none; border: none; font-size: 20px;
+  cursor: pointer; color: var(--dark); padding: 8px 10px;
+  min-width: 44px; min-height: 44px; border-radius: var(--radius-xs);
+  transition: background var(--transition); -webkit-tap-highlight-color: transparent;
+  align-items: center; justify-content: center;
+}
+.menu-toggle:hover { background: var(--light); }
+
+/* ── Text overflow helpers ── */
+.top-bar-title, .chat-callout-name, .chat-callout-msg,
+.wa-toast-content p {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ================================================================
+   TABLET: ≤ 1024px
+   ================================================================ */
+@media (max-width: 1024px) {
+  :root { --sidebar-width: 240px; }
+  .module-content { padding: 20px; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .charts-row { grid-template-columns: 1fr; }
+  .finance-summary { grid-template-columns: repeat(2, 1fr); }
+  .payments-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .health-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .maint-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .attendance-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+}
+
+/* ================================================================
+   MÓVIL: ≤ 768px
+   ================================================================ */
+@media (max-width: 768px) {
+
+  /* Previene zoom en iOS */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Sidebar: oculto, desliza desde izquierda */
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000; width: 280px;
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.3);
+  }
+  .main-content { margin-left: 0; }
+  .menu-toggle { display: flex; }
+  .table-scroll-hint { display: block; }
+
+  /* Top bar */
+  .top-bar { padding: 0 12px; gap: 6px; }
+  .top-bar-title { font-size: 13px; flex: 1; min-width: 0; }
+  .top-bar-right { gap: 4px; }
+  .online-pill { padding: 4px 8px; }
+
+  /* Módulo */
+  .module-content { padding: 10px; }
+  .module-header { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+  .module-header .btn-primary,
+  .module-header .btn-success { width: 100%; justify-content: center; }
+  .page-title { font-size: 16px; word-break: break-word; white-space: normal; }
+  .page-subtitle { font-size: 11px; }
+
+  /* ── KPI GRID: 2 columnas, compacto ── */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
+  .kpi-card { padding: 10px 8px; gap: 8px; min-width: 0; overflow: hidden; }
+  .kpi-icon { width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0; }
+  .kpi-icon i { font-size: 15px; }
+  .kpi-label { font-size: 10px; margin-bottom: 2px; }
+  .kpi-value { font-size: 13px; font-weight: 700; letter-spacing: -0.5px; }
+
+  /* ── CHARTS: 1 columna, altura reducida ── */
+  .charts-row { grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
+  .chart-card { padding: 10px; }
+  .chart-card h3 { font-size: 11px; margin-bottom: 8px; }
+  .chart-wrapper { height: 150px; }
+
+  /* ── SECTION CARDS ── */
+  .section-card { margin-bottom: 10px; }
+  .section-card-header { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+  .section-card-header h3 { font-size: 12px; }
+  .section-card-body { padding: 10px 12px; }
+
+  /* ── HOUSES GRID: 2 columnas ── */
+  .houses-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .house-mini-card { padding: 10px 8px; }
+  .house-mini-card h4 { font-size: 11px; flex-wrap: wrap; }
+  .house-mini-card p { font-size: 10px; margin-top: 4px; }
+
+  /* ── ACTIVITY LIST ── */
+  .activity-item { padding: 7px 10px; gap: 8px; }
+  .activity-item p { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .activity-item small { font-size: 10px; }
+
+  /* ── OTROS GRIDS ── */
+  .finance-summary { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .payments-grid { grid-template-columns: 1fr; gap: 10px; }
+  .health-grid { grid-template-columns: 1fr; gap: 8px; }
+  .maint-grid { grid-template-columns: 1fr; gap: 8px; }
+  .attendance-grid { grid-template-columns: 1fr; gap: 8px; }
+  .tasks-kanban { gap: 10px; }
+  .notif-type-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* ── TABLAS ── */
+  .table-card { overflow: hidden; }
+  .table-scroll { overflow-x: auto; }
+  .data-table th, .data-table td { padding: 8px 10px; font-size: 12px; }
+
+  /* ── FILTROS: apilados ── */
+  .filters-bar { flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 12px; }
+  .filters-bar select,
+  .filters-bar input[type=date],
+  .filters-bar input[type=text],
+  .filters-bar input[type=search] { width: 100%; padding: 10px 12px; min-height: 44px; }
+  .search-box { max-width: 100%; min-width: unset; width: 100%; }
+  .search-box input { width: 100%; padding: 10px 12px 10px 36px; }
+
+  /* ── MODALES: slide desde abajo ── */
+  .modal { padding: 8px; align-items: flex-end; }
+  .modal-content {
+    width: 100%; max-width: 100%; max-height: 92vh;
+    border-radius: 18px 18px 0 0; animation: slideInUp 0.25s ease;
+  }
+  .modal-content.modal-lg { max-width: 100%; }
+  .modal-header { padding: 14px 16px; }
+  .form-group { padding: 8px 14px 0; }
+  .form-row { grid-template-columns: 1fr; }
+  .form-section { margin: 10px 14px 0; }
+  .modal-content { --form-pad: 14px; }
+  .info-box { margin: 10px 14px 0; }
+  .form-actions { padding: 12px 14px; flex-direction: column-reverse; }
+  .form-actions button { width: 100%; justify-content: center; min-height: 44px; }
+
+  /* ── BOTONES ── */
+  .btn-primary, .btn-secondary, .btn-success { min-height: 44px; font-size: 13px; }
+
+  /* ── PAGINACIÓN ── */
+  .tbl-pagination { flex-direction: column; align-items: center; gap: 8px; padding: 10px; }
+  .tbl-pagination-info { font-size: 11px; text-align: center; }
+  .tbl-pages { flex-wrap: wrap; justify-content: center; gap: 3px; }
+  .tbl-pg-btn { min-width: 38px; min-height: 38px; font-size: 12px; }
+
+  /* ── NOTIFICACIONES ── */
+  .notifications-panel { width: 100%; right: 0; left: 0; top: var(--header-height); border-radius: 0; }
+
+  /* ── CHAT ── */
+  .chat-container { height: calc(100vh - var(--header-height) - 24px); height: calc(100dvh - var(--header-height) - 24px); border-radius: var(--radius-sm); }
+  .chat-header { padding: 8px 12px; gap: 8px; }
+  .chat-header-info h3 { font-size: 13px; }
+  .chat-header-info p { font-size: 11px; }
+  .chat-online-avatars { display: none; }
+  .chat-messages { padding: 10px 12px; }
+  .chat-msg-col { max-width: 82%; }
+  .msg-bubble { font-size: 13.5px; padding: 5px 8px 5px 9px; }
+  .chat-input-bar { padding: 6px 8px; }
+  .chat-input-inner { padding: 5px 12px; }
+  .chat-send-btn { width: 40px; height: 40px; }
+
+  /* ── TOAST ── */
+  .toast-container { right: 10px; left: 10px; bottom: 14px; }
+  .toast { max-width: 100%; font-size: 12px; }
+
+  /* ── LOGIN ── */
+  .login-card { padding: 28px 18px 20px; max-width: 360px; margin-top: 30px; }
+  .login-logo { width: 72px; height: 72px; border-radius: 50%; margin: -55px auto 16px; }
+  .login-logo i { font-size: 30px; }
+  .login-header h1 { font-size: 19px; }
+
+  /* ── ASISTENCIA ── */
+  .att-btn { flex: 1; text-align: center; min-height: 40px; font-size: 11px; }
+  .att-actions { flex-wrap: wrap; }
+
+  /* ── PAGOS CAPTURA ── */
+  .pay-img, .pay-img-placeholder { height: 120px; }
+}
+
+/* ================================================================
+   MÓVIL PEQUEÑO: ≤ 480px
+   ================================================================ */
+@media (max-width: 480px) {
+  /* KPI: sigue en 2 columnas pero aún más compacto */
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .kpi-card { padding: 8px 6px; gap: 6px; }
+  .kpi-icon { width: 30px; height: 30px; border-radius: 7px; }
+  .kpi-icon i { font-size: 13px; }
+  .kpi-label { font-size: 9px; }
+  .kpi-value { font-size: 12px; }
+
+  /* charts */
+  .chart-wrapper { height: 130px; }
+  .chart-card h3 { font-size: 10px; }
+
+  /* houses */
+  .houses-grid { grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .house-mini-card h4 { font-size: 10px; }
+  .house-mini-card p { font-size: 9px; }
+
+  /* finance */
+  .finance-summary { grid-template-columns: 1fr; }
+
+  /* misc */
+  .top-bar { padding: 0 8px; }
+  .module-content { padding: 8px; }
+  .section-card-header { padding: 8px 10px; }
+  .section-card-body { padding: 8px 10px; }
+  .tbl-pg-btn { min-width: 34px; min-height: 34px; font-size: 11px; }
+  .login-features { gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .login-feature { font-size: 9px; }
+  .actions { flex-wrap: wrap; gap: 4px; }
+  .payments-grid { grid-template-columns: 1fr; }
+}
+
+/* ================================================================
+   EXTRA PEQUEÑO: ≤ 360px
+   ================================================================ */
+@media (max-width: 360px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 5px; }
+  .kpi-value { font-size: 11px; }
+  .kpi-label { font-size: 8.5px; }
+  .page-title { font-size: 14px; }
+  .sidebar { width: 260px; }
+  .btn-primary, .btn-secondary, .btn-success { font-size: 12px; padding: 8px 10px; }
+  .module-content { padding: 6px; }
+  .chart-wrapper { height: 120px; }
+  .houses-grid { grid-template-columns: 1fr; }
+  .tb-btn { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+  .online-pill { font-size: 11px; padding: 4px 6px; gap: 4px; }
+}
+
+/* KEYBOARD / TV NAVIGATION */
+:focus-visible {
+  outline: 3px solid var(--primary) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 15px rgba(232,83,26,0.6) !important;
+  transition: all 0.2s ease !important;
+  z-index: 10;
+}
+.nav-item:focus-visible { background: var(--primary) !important; color: white !important; }
+.kpi-card:focus-visible, .house-mini-card:focus-visible, .payment-card:focus-visible,
+.btn-primary:focus-visible, .btn-success:focus-visible, .btn-secondary:focus-visible {
+  transform: translateY(-2px) scale(1.02);
+}
+@media (min-width: 1366px) and (min-height: 768px) {
+  body { font-size: 16px; }
+  :root { --sidebar-width: 300px; }
+  .page-title { font-size: 28px; }
+  .kpi-value { font-size: 20px; }
+  .nav-item span.nav-label { font-size: 15px; }
+  .data-table th, .data-table td { font-size: 15px; padding: 16px; }
+}
+
+/* VIEWER READ-ONLY */
+body[data-role="viewer"] .btn-primary,
+body[data-role="viewer"] .btn-success,
+body[data-role="viewer"] .actions button,
+body[data-role="viewer"] .att-actions,
+body[data-role="viewer"] .upload-area,
+body[data-role="viewer"] .notif-compose { display: none !important; }
+
+
+/* ===== v7: visibilidad, ayudas y alimentación ===== */
+.field-hint{display:block;margin-top:5px;font-size:11px;color:var(--gray-light);line-height:1.4}
+form>.field-hint,.modal-content>.field-hint{padding:0 var(--form-pad,22px)}
+.btn-chip{display:inline-flex;align-items:center;gap:4px;background:var(--primary);color:#fff;font-size:11px;font-weight:600;line-height:1.3;padding:2px 8px;border-radius:var(--radius-xs);vertical-align:baseline;white-space:nowrap}
+.btn-chip i{font-size:9px}
+.scope-note{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#7c3aed;background:rgba(139,92,246,.1);padding:2px 9px;border-radius:20px;margin-right:6px}
+.form-section{border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px 2px;margin:14px 22px 0;background:#fafafa}
+.form-section .form-group{padding:0 0 12px}
+.form-section-title{font-size:12px;font-weight:700;color:var(--gray);margin-bottom:10px;display:flex;gap:6px;align-items:center}
+.info-box{margin:12px 22px 0;padding:9px 12px;border-radius:var(--radius-sm);background:rgba(59,130,246,.08);color:#1d4ed8;font-size:12px;line-height:1.45}
+.info-box i{margin-right:5px}
+.stock-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px}
+.stock-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm)}
+.stock-card .lbl{font-size:11px;color:var(--gray);font-weight:700;letter-spacing:.3px}
+.stock-card .val{font-size:21px;font-weight:800;margin-top:5px}
+.stock-card .sub{font-size:11px;color:var(--gray-light);margin-top:3px}
+.btn-group-row{display:flex;gap:8px;flex-wrap:wrap}
+/* Comprobantes adjuntos */
+.voucher-box{padding-bottom:4px}
+.voucher-actions{display:flex;gap:8px;flex-wrap:wrap}
+.voucher-actions .btn-secondary{display:inline-flex;align-items:center;gap:6px;flex:1;justify-content:center;min-width:140px}
+.voucher-info{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:8px 12px;background:var(--light);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12.5px}
+.voucher-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--primary);text-decoration:none;background:var(--primary-light);padding:2px 9px;border-radius:20px;white-space:nowrap}
+.voucher-link:hover{background:var(--primary);color:#fff}
+.voucher-missing{font-size:11px;color:var(--gray-light);font-style:italic}
+
+.sug-box{display:none;background:#fff;border:1px solid #e5e7eb;border-radius:8px;margin-top:4px;max-height:150px;overflow:auto;font-size:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.sug-item{padding:7px 10px;cursor:pointer}.sug-item:hover{background:#f3f4f6}
+.sug-hint{font-size:11px;color:#6b7280;margin-top:2px}
+.task-hist{font-size:12px;max-height:160px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px;padding:6px 10px}
+.task-hist div{padding:4px 0;border-bottom:1px solid #f3f4f6}.task-hist div:last-child{border:0}
+
+/* SEGUIMIENTO DE TAREAS */
+.tu-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:var(--white);border:1px solid var(--border);border-left:4px solid var(--gray-light)}
+.tu-row.late{border-left-color:var(--danger);background:rgba(239,68,68,.07)}
+.tu-row.soon{border-left-color:#f59e0b;background:rgba(245,158,11,.08)}
+.tu-row.sched{opacity:.75}
+.tu-main{flex:1;min-width:180px}.tu-title{font-size:14px;font-weight:700}.tu-sub{font-size:12px;color:var(--gray);margin-top:2px}
+.tu-time{font-size:12px;font-weight:700;white-space:nowrap}
+.tu-actions{display:flex;gap:6px;flex-wrap:wrap}
+.tu-actions .btn-success,.tu-actions .btn-secondary{padding:8px 12px;font-size:12.5px}
+.task-card .tc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.task-card .tc-actions .btn-success,.task-card .tc-actions .btn-secondary{padding:7px 10px;font-size:12px}
+.task-alert-bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:900;display:none;align-items:center;gap:10px;max-width:92vw;padding:11px 18px;border-radius:999px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.task-alert-bar.late{background:var(--danger);animation:tpulse 1.6s ease-in-out infinite}
+.task-alert-bar.soon{background:#d97706}
+@keyframes tpulse{0%,100%{box-shadow:0 6px 24px rgba(239,68,68,.35)}50%{box-shadow:0 6px 30px rgba(239,68,68,.85)}}
+
+/* MIS TAREAS (vista básica del operador) */
+.mt-stats{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 16px}
+.mt-stat{flex:1;min-width:110px;background:var(--white);border:1px solid var(--border);border-radius:12px;padding:10px 14px}
+.mt-stat b{display:block;font-size:22px;line-height:1.1}.mt-stat span{font-size:12px;color:var(--gray)}
+.mt-sec{font-size:13px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.4px;margin:18px 0 8px}
+.my-task{background:var(--white);border:1px solid var(--border);border-left:5px solid var(--gray-light);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.my-task.late{border-left-color:var(--danger);background:rgba(239,68,68,.06)}
+.my-task.soon{border-left-color:#f59e0b;background:rgba(245,158,11,.07)}
+.my-task.done{border-left-color:var(--success)}
+.my-task.sched{opacity:.8}
+.my-task-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.my-task h4{font-size:16px;font-weight:700;margin:0}
+.my-task .mt-meta{font-size:12.5px;color:var(--gray);margin-top:4px}
+.my-task .mt-desc{margin:14px 0 0;padding:14px 16px 14px 18px;background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%);border:1px solid #bfdbfe;border-left:6px solid #2563eb;border-radius:12px;box-shadow:0 2px 8px rgba(37,99,235,.10)}
+.my-task .mt-desc-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#1d4ed8;margin-bottom:6px}
+.my-task .mt-desc-h i{font-size:15px}
+.my-task .mt-desc-t{font-size:24px;line-height:1.4;font-weight:800;color:#0f172a;white-space:pre-wrap;word-break:break-word}
+.my-task.late .mt-desc{background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-color:#fecaca;border-left-color:#dc2626;box-shadow:0 2px 8px rgba(220,38,38,.10)}
+.my-task.late .mt-desc-h{color:#b91c1c}
+.my-task.done .mt-desc,.my-task.sched .mt-desc{background:#f8fafc;border-color:#e2e8f0;border-left-color:#94a3b8;box-shadow:none}
+.my-task.done .mt-desc-h,.my-task.sched .mt-desc-h{color:#64748b}
+.my-task.done .mt-desc-t,.my-task.sched .mt-desc-t{font-size:15px;font-weight:600}
+@media (max-width:600px){.my-task .mt-desc-t{font-size:21px}}
+/* Tareas diarias agrupadas (vista del operador) */
+.my-task.grp .slot-count{font-size:13px;font-weight:800;color:#1d4ed8;background:#dbeafe;border-radius:999px;padding:4px 12px;white-space:nowrap}
+.my-task.grp.done .slot-count{color:#15803d;background:#dcfce7}
+.my-task .slot-bar{height:8px;background:#e2e8f0;border-radius:99px;overflow:hidden;margin:12px 0 4px}
+.my-task .slot-bar i{display:block;height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:99px;transition:width .4s}
+.my-task .slot-row{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px;border-radius:12px;border:2px solid #93c5fd;background:#eff6ff;flex-wrap:wrap}
+.my-task .slot-row.late{border-color:#fca5a5;background:#fef2f2}
+.my-task .slot-hr{font-size:26px;font-weight:900;color:#1d4ed8;min-width:78px;text-align:center;line-height:1}
+.my-task .slot-row.late .slot-hr{color:#b91c1c}
+.my-task .slot-tx{flex:1;min-width:150px}
+.my-task .slot-tx b{display:block;font-size:15px;font-weight:800;color:#0f172a}
+.my-task .slot-tx span{display:block;font-size:13px;color:#475569;margin-top:2px}
+.my-task .slot-btn{flex:1 1 180px;justify-content:center;padding:15px 14px;font-size:17px;font-weight:800;min-height:52px}
+.my-task .slot-lbl{font-size:12px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:#64748b;margin:14px 0 6px}
+.my-task .slot-chips,.my-task .slot-legend{display:flex;flex-wrap:wrap;gap:6px}
+.my-task .slot-legend{margin-top:8px;opacity:.75}
+.my-task .slot-legend .slot-chip{font-size:10.5px;padding:2px 8px}
+.slot-chip{font-size:13px;font-weight:700;padding:5px 11px;border-radius:999px;border:1px solid #cbd5e1;background:#f1f5f9;color:#64748b}
+.slot-chip.done{background:#dcfce7;border-color:#86efac;color:#15803d;cursor:pointer}
+.slot-chip.now{background:#dbeafe;border-color:#60a5fa;color:#1d4ed8}
+.slot-chip.late{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
+.my-task .slot-ok{margin-top:12px;padding:12px 14px;border-radius:10px;background:#dcfce7;color:#166534;font-weight:800;font-size:15px}
+
+.my-task .mt-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.my-task .mt-actions button{flex:1;min-width:140px;justify-content:center;padding:12px 14px;font-size:14px}
+.my-task .mt-hint{font-size:12px;color:var(--gray);margin-top:8px}
+.proof-prev{width:100%;max-height:300px;object-fit:contain;border-radius:10px;background:#111;margin:4px 0 10px}
+
+/* COMPROBANTES */
+.vch-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 16px}
+.vch-chip{border:1px solid var(--border);background:var(--white);color:var(--gray);border-radius:20px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.vch-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.vch-toolbar select,.vch-toolbar input{border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:13px;font-family:inherit;background:var(--white);min-width:0}
+.vch-toolbar input{flex:1;min-width:150px}
+.vch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.vch-card{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.vch-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.08)}
+.vch-thumb{height:150px;background:var(--light);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.vch-thumb img{width:100%;height:100%;object-fit:cover}
+.vch-thumb .vch-fallback{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--gray-light);font-size:12px}
+.vch-thumb .vch-ico{font-size:44px}
+.vch-info{padding:10px 12px 12px;display:flex;flex-direction:column;gap:5px}
+.vch-name{font-size:13.5px;font-weight:700;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vch-by{font-size:12px;color:var(--gray)}
+.vch-date{font-size:11.5px;color:var(--gray)}
+.vch-ref{font-size:11.5px;color:var(--gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vch-empty{grid-column:1/-1;text-align:center;color:var(--gray-light);padding:30px 10px}
+.ser-box{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.ser-box>summary{cursor:pointer;font-weight:800;font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+.ser-box>summary::-webkit-details-marker{display:none}
+.ser-item{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);margin-top:10px}
+.ser-item h5{margin:0;font-size:14px;font-weight:700}
+.ser-item .ser-meta{font-size:12px;color:var(--gray);margin-top:2px}
+.ser-item.paused{opacity:.6}
+.rep-box{background:rgba(59,130,246,.06);border:1px dashed rgba(59,130,246,.45);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.chip-daily{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#1d4ed8;background:rgba(59,130,246,.12);border-radius:10px;padding:2px 8px}
+.vch-tabs{display:flex;gap:6px;margin:0 0 14px;border-bottom:2px solid var(--border)}
+.vch-tab{border:none;background:none;padding:10px 16px;font-size:14px;font-weight:700;color:var(--gray);cursor:pointer;font-family:inherit;border-bottom:3px solid transparent;margin-bottom:-2px}
+.vch-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.vch-tab small{background:var(--light);border-radius:10px;padding:1px 8px;margin-left:6px;font-size:11.5px}
+.vch-group{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:14px}
+.vch-group-h{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start;margin-bottom:10px}
+.vch-group-h h4{margin:0;font-size:15px;font-weight:800}
+.vch-group-h .vch-meta{font-size:12px;color:var(--gray);margin-top:3px}
+.vch-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.vch-photo{aspect-ratio:1;border-radius:10px;overflow:hidden;background:var(--light);cursor:pointer;position:relative}
+.vch-photo img{width:100%;height:100%;object-fit:cover}
+.vch-photo .vch-fallback{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:4px;color:var(--gray-light);font-size:11px}
+.vch-photo small{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);color:#fff;font-size:10.5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.my-task .mt-alert{display:flex;gap:8px;align-items:center;margin-top:10px;padding:7px 10px;border-radius:8px;background:rgba(245,158,11,.12);border:1px solid var(--warning);color:#92400e}
+.my-task .mt-alert>i{font-size:16px;line-height:1;color:#d97706}
+.my-task .mt-alert b{display:block;font-size:12.5px;line-height:1.25;font-weight:700}
+.my-task .mt-alert span{display:block;font-size:11.5px;font-weight:500;margin-top:1px}
+.my-task .mt-actions .mt-photo{padding:16px 14px;font-size:17px;font-weight:700}
+/* TARJETA DE TAREA (operador) — diseño limpio: área → qué hacer → horas */
+.tk{background:var(--white);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:hidden;box-shadow:0 1px 4px rgba(15,23,42,.06)}
+.tk-area{display:flex;align-items:center;gap:10px;padding:10px 16px;color:#fff}
+.tk-area>i{font-size:20px;flex:0 0 auto}
+.tk-area .nm{font-size:18px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;line-height:1.1;word-break:break-word}
+.tk-area .ct{margin-left:auto;flex:0 0 auto;background:rgba(255,255,255,.22);border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.tk-area.a-prod{background:linear-gradient(135deg,#16a34a,#15803d)}
+.tk-area.a-salud{background:linear-gradient(135deg,#e11d48,#be123c)}
+.tk-area.a-mant{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.tk-area.a-alim{background:linear-gradient(135deg,#ea580c,#c2410c)}
+.tk-area.a-otro{background:linear-gradient(135deg,#7c3aed,#6d28d9)}
+.tk-area.a-none{background:linear-gradient(135deg,#64748b,#475569)}
+.tk-body{padding:12px 16px 12px}
+.tk-title{font-size:16px;font-weight:800;color:#0f172a;margin:0}
+.tk-meta{font-size:12px;color:var(--gray);margin-top:3px}
+.tk-do{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)}
+.tk-do .l{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#64748b;margin-bottom:4px}
+.tk-do .t{font-size:16px;font-weight:600;line-height:1.4;color:#0f172a;white-space:pre-wrap;word-break:break-word}
+.tk-times .th{padding:7px 16px;font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#64748b;background:#f8fafc;border-top:1px solid var(--border)}
+.tk-t{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid #eef2f7;flex-wrap:wrap}
+.tk-t .h{font-size:20px;font-weight:800;min-width:58px;color:#334155;line-height:1}
+.tk-t .s{flex:1;min-width:140px;font-size:12.5px;color:#64748b;line-height:1.35}
+.tk-t .s b{display:block;font-size:13.5px;color:#0f172a}
+.tk-t .r{flex:0 0 auto}
+.tk-t.now{background:#eff6ff}.tk-t.now .h{color:#1d4ed8}
+.tk-t.late{background:#fef2f2}.tk-t.late .h,.tk-t.late .s b{color:#b91c1c}
+.tk-t.done .h,.tk-t.later .h{color:#94a3b8}
+.tk-t.done .s b{color:#15803d}
+.tk-btn{background:var(--success);color:#fff;border:none;border-radius:12px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-family:inherit}
+.tk-btn:hover{filter:brightness(.95)}
+.tk-pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;border-radius:999px;padding:5px 12px;background:#f1f5f9;color:#64748b}
+.tk-pill.ok{background:#dcfce7;color:#15803d;cursor:pointer}
+.tk-foot{padding:8px 16px;font-size:12px;color:#92400e;background:#fffbeb;border-top:1px solid #fde68a}
+.tk-ev{padding:0 16px 10px}
+.tk.is-done{opacity:.8}
+@media (max-width:600px){.tk-btn{width:100%;justify-content:center}.tk-t .r{flex:1 1 100%}}
+
+/* ÁREA GRANDE + HORAS BLOQUEADAS (vista del operador) */
+.area-big{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.area-big .ab{display:flex;align-items:center;gap:12px;flex:1 1 100%;padding:14px 18px;border-radius:14px;color:#fff;font-weight:900;font-size:30px;line-height:1.1;letter-spacing:.5px;text-transform:uppercase;box-shadow:0 3px 10px rgba(0,0,0,.14);word-break:break-word}
+.area-big .ab i{font-size:34px;opacity:.95;flex:0 0 auto}
+.area-big .ab.a-prod{background:linear-gradient(135deg,#16a34a,#15803d)}
+.area-big .ab.a-salud{background:linear-gradient(135deg,#e11d48,#be123c)}
+.area-big .ab.a-mant{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.area-big .ab.a-alim{background:linear-gradient(135deg,#ea580c,#c2410c)}
+.area-big .ab.a-otro{background:linear-gradient(135deg,#7c3aed,#6d28d9)}
+.area-big.sm{margin:0 0 6px;gap:5px}
+.area-big.sm .ab{flex:0 0 auto;padding:4px 12px;font-size:14px;border-radius:999px;box-shadow:none;gap:6px}
+.area-big.sm .ab i{font-size:14px}
+.my-task.sched .area-big .ab,.my-task.done .area-big .ab{opacity:.55;filter:grayscale(.35)}
+.my-task h4{font-size:19px}
+.my-task .slot-row.locked{border-color:#cbd5e1;background:#f1f5f9}
+.my-task .slot-row.locked .slot-hr{color:#64748b}
+.my-task .slot-btn:disabled{opacity:.6;cursor:not-allowed;background:#cbd5e1;color:#475569}
+@media (max-width:600px){.area-big .ab{font-size:25px;padding:12px 14px}.area-big .ab i{font-size:28px}}
+/* ADMIN: eliminar comprobantes */
+.vch-card,.vch-photo{position:relative}
+.vch-del{position:absolute;top:8px;right:8px;z-index:3;width:34px;height:34px;border:none;border-radius:50%;background:rgba(220,38,38,.92);color:#fff;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.vch-del:hover{background:#b91c1c}
+.vch-photo .vch-del{top:4px;right:4px;width:28px;height:28px;font-size:12px}
+.lightbox-del{position:absolute;top:20px;right:80px;background:rgba(220,38,38,.92);border:none;color:#fff;height:44px;padding:0 16px;border-radius:22px;cursor:pointer;font-size:14px;font-weight:700;display:none;align-items:center;gap:8px}
+
+/* ===== MODO OSCURO ===== (se activa con <html data-theme="dark">; no altera el modo claro) */
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --dark:#e6e8ec;--dark-2:#cbd0d8;--gray:#9aa3b2;--gray-light:#6f7887;
+  --light:#252a33;--border:#303744;--white:#181c23;
+  --primary-light:rgba(232,83,26,0.2);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.5);--shadow:0 4px 12px rgba(0,0,0,0.5);--shadow-lg:0 8px 24px rgba(0,0,0,0.6)
+}
+html[data-theme="dark"] body{background:#0f1217}
+html[data-theme="dark"] .sidebar{background:#0b0e13}
+html[data-theme="dark"] .data-table th,
+html[data-theme="dark"] .kanban-col,
+html[data-theme="dark"] .form-section,
+html[data-theme="dark"] .tk-times .th{background:#1e232b;color:var(--gray)}
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .form-group textarea,
+html[data-theme="dark"] .filters-bar select,
+html[data-theme="dark"] .filters-bar input,
+html[data-theme="dark"] .search-box input,
+html[data-theme="dark"] .vch-toolbar select,
+html[data-theme="dark"] .vch-toolbar input{background:#1e232b;color:var(--dark);border-color:var(--border)}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{color:#6f7887}
+html[data-theme="dark"] .stock-card,
+html[data-theme="dark"] .sug-box,
+html[data-theme="dark"] .loader-box,
+html[data-theme="dark"] .wa-toast,
+html[data-theme="dark"] .chat-callout{background:#1e232b;color:var(--dark);border-color:var(--border)}
+html[data-theme="dark"] .chat-header{background:#202c33}
+html[data-theme="dark"] .chat-messages{background-color:#0b141a}
+html[data-theme="dark"] .msg-bubble{color:#e9edef}
+html[data-theme="dark"] .msg-bubble.own{--bub:#005c4b}
+html[data-theme="dark"] .msg-bubble.other{--bub:#202c33}
+html[data-theme="dark"] .msg-time{color:#8696a0}
+html[data-theme="dark"] .chat-date-chip,
+html[data-theme="dark"] .system-msg .msg-bubble{background:#182229;color:#8696a0}
+html[data-theme="dark"] .chat-input-bar{background:#202c33}
+html[data-theme="dark"] .chat-input-inner{background:#2a3942}
+html[data-theme="dark"] .chat-input-inner textarea{color:#e9edef}
+html[data-theme="dark"] .chat-input-inner textarea::placeholder{color:#8696a0}
+html[data-theme="dark"] .pay-desc-notebook,
+html[data-theme="dark"] .my-task.done .mt-desc,
+html[data-theme="dark"] .my-task.sched .mt-desc,
+html[data-theme="dark"] .tk-foot{background:#1e232b;border-color:var(--border);color:var(--dark-2)}
+html[data-theme="dark"] .tb-btn:hover{background:#2f3541}
+html[data-theme="dark"] .tb-btn.theme-on{color:#fbbf24}
+
+/* ===== TEMA «PESAJE» ===== (se activa con <html data-theme="pesaje">; no altera claro ni oscuro) */
+html[data-theme="pesaje"]{
+  color-scheme:dark;
+  --primary:#f59e0b;--primary-dark:#d97706;--primary-light:rgba(245,158,11,0.15);
+  --dark:#e2e8f0;--dark-2:#cbd5e1;--gray:#94a3b8;--gray-light:#64748b;
+  --light:#1e293b;--border:#1e293b;--white:#0f172a;
+  --radius:18px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.5);--shadow:0 6px 16px rgba(0,0,0,0.5);--shadow-lg:0 10px 25px rgba(0,0,0,0.6)
+}
+html[data-theme="pesaje"] body{font-family:'Inter','Plus Jakarta Sans',system-ui,-apple-system,sans-serif}
+html[data-theme="pesaje"] .kpi-value,
+html[data-theme="pesaje"] .top-bar-title,
+html[data-theme="pesaje"] .sidebar-header h2{font-family:'Chakra Petch',monospace;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+html[data-theme="pesaje"] .sidebar{border-right:1px solid #1e293b}
+html[data-theme="pesaje"] .top-bar{background:rgba(15,23,42,.95);backdrop-filter:blur(8px)}
+html[data-theme="pesaje"] .btn-primary,
+html[data-theme="pesaje"] .nav-item.active{color:#020617;font-weight:700}
+html[data-theme="pesaje"] .btn-primary:hover{background:#fbbf24}
+html[data-theme="pesaje"] .nav-item.active .nav-badge{background:rgba(2,6,23,.25)}
+html[data-theme="pesaje"] .data-table td{border-bottom-color:#1e293b}
+html[data-theme="pesaje"] .data-table tbody tr:hover td{background:#1e293b}
+html[data-theme="pesaje"] .tbl-pagination{background:#0b1220}
+html[data-theme="pesaje"] .sug-item:hover{background:#1e293b}
+html[data-theme="pesaje"] .slot-chip,
+html[data-theme="pesaje"] .tk-pill,
+html[data-theme="pesaje"] .my-task .slot-row.locked{background:#1e293b;border-color:#334155;color:#94a3b8}
+html[data-theme="pesaje"] .slot-chip.late,
+html[data-theme="pesaje"] .my-task .slot-row.late,
+html[data-theme="pesaje"] .tk-t.late{background:rgba(239,68,68,.12);border-color:#7f1d1d;color:#fca5a5}
+html[data-theme="pesaje"] .my-task .mt-desc-t,
+html[data-theme="pesaje"] .my-task .slot-tx b,
+html[data-theme="pesaje"] .tk-title,
+html[data-theme="pesaje"] .tk-do .t,
+html[data-theme="pesaje"] .tk-t .s b{color:#e2e8f0}
+html[data-theme="pesaje"] .tk-t .h{color:#94a3b8}
+html[data-theme="pesaje"] .badge-success{color:#34d399}
+html[data-theme="pesaje"] .badge-warning{color:#fbbf24}
+html[data-theme="pesaje"] .badge-danger{color:#f87171}
+html[data-theme="pesaje"] .badge-info,
+html[data-theme="pesaje"] .chip-daily{color:#60a5fa}
+html[data-theme="pesaje"] .badge-purple{color:#a78bfa}
+html[data-theme="pesaje"] .badge-gray{color:#94a3b8}
+html[data-theme="pesaje"] ::-webkit-scrollbar{width:6px;height:6px}
+html[data-theme="pesaje"] ::-webkit-scrollbar-track{background:#090d16}
+html[data-theme="pesaje"] ::-webkit-scrollbar-thumb{background:#334155;border-radius:4px}
+
+html[data-theme="pesaje"] body{background:#020617}
+html[data-theme="pesaje"] .sidebar{background:#020617}
+html[data-theme="pesaje"] .data-table th,
+html[data-theme="pesaje"] .kanban-col,
+html[data-theme="pesaje"] .form-section,
+html[data-theme="pesaje"] .tk-times .th{background:#1e293b;color:var(--gray)}
+html[data-theme="pesaje"] .form-group input,
+html[data-theme="pesaje"] .form-group select,
+html[data-theme="pesaje"] .form-group textarea,
+html[data-theme="pesaje"] .filters-bar select,
+html[data-theme="pesaje"] .filters-bar input,
+html[data-theme="pesaje"] .search-box input,
+html[data-theme="pesaje"] .vch-toolbar select,
+html[data-theme="pesaje"] .vch-toolbar input{background:#1e293b;color:var(--dark);border-color:var(--border)}
+html[data-theme="pesaje"] input::placeholder,
+html[data-theme="pesaje"] textarea::placeholder{color:#64748b}
+html[data-theme="pesaje"] .stock-card,
+html[data-theme="pesaje"] .sug-box,
+html[data-theme="pesaje"] .loader-box,
+html[data-theme="pesaje"] .wa-toast,
+html[data-theme="pesaje"] .chat-callout{background:#1e293b;color:var(--dark);border-color:var(--border)}
+html[data-theme="pesaje"] .chat-header{background:#202c33}
+html[data-theme="pesaje"] .chat-messages{background-color:#0b141a}
+html[data-theme="pesaje"] .msg-bubble{color:#e9edef}
+html[data-theme="pesaje"] .msg-bubble.own{--bub:#005c4b}
+html[data-theme="pesaje"] .msg-bubble.other{--bub:#202c33}
+html[data-theme="pesaje"] .msg-time{color:#8696a0}
+html[data-theme="pesaje"] .chat-date-chip,
+html[data-theme="pesaje"] .system-msg .msg-bubble{background:#182229;color:#8696a0}
+html[data-theme="pesaje"] .chat-input-bar{background:#202c33}
+html[data-theme="pesaje"] .chat-input-inner{background:#2a3942}
+html[data-theme="pesaje"] .chat-input-inner textarea{color:#e9edef}
+html[data-theme="pesaje"] .chat-input-inner textarea::placeholder{color:#8696a0}
+html[data-theme="pesaje"] .pay-desc-notebook,
+html[data-theme="pesaje"] .my-task.done .mt-desc,
+html[data-theme="pesaje"] .my-task.sched .mt-desc,
+html[data-theme="pesaje"] .tk-foot{background:#1e293b;border-color:var(--border);color:var(--dark-2)}
+html[data-theme="pesaje"] .tb-btn:hover{background:#334155}
+html[data-theme="pesaje"] .tb-btn.theme-on{color:#fbbf24}
+
+/* ===== Corrección: sin zonas blancas en los temas Oscuro y Pesaje (cabeceras/pies de ventanas, columnas, paginación, tarjetas de tabla) ===== */
+html[data-theme="dark"] .modal-header,
+html[data-theme="dark"] .form-actions,
+html[data-theme="dark"] .kanban-col-header,
+html[data-theme="pesaje"] .modal-header,
+html[data-theme="pesaje"] .form-actions,
+html[data-theme="pesaje"] .kanban-col-header{background:var(--white);color:var(--dark);border-color:var(--border)}
+html[data-theme="dark"] .tbl-pagination{background:#12161c}
+html[data-theme="dark"] .data-table tbody tr:hover td{background:#252a33}
+html[data-theme="dark"] .table-card-mode .data-table td.td-actions,
+html[data-theme="dark"] .table-card-mode .data-table td.actions{background:#1e232b}
+html[data-theme="pesaje"] .table-card-mode .data-table td.td-actions,
+html[data-theme="pesaje"] .table-card-mode .data-table td.actions{background:#1e293b}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/spatial-navigation-js@1.3.0/spatial_navigation.min.js" defer></script>
+<script>try{var _t=localStorage.getItem('gs_theme');if(_t==='dark'||_t==='pesaje'){document.documentElement.setAttribute('data-theme',_t);}}catch(e){}</script>
+</head>
+<body>
+<div id="app">
+
+<!-- LOGIN -->
+<div id="login-container" class="login-container">
+  <div class="login-bg-img" id="login-bg-img"></div>
+  <div class="login-bg login-bg-no-img" id="login-bg-overlay"></div>
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo"><i class="fas fa-drumstick-bite"></i></div>
+      <h1 class="app-title">Gestión Avícola</h1>
+      <p class="app-subtitle">Sistema de Gestión Avícola</p>
+    </div>
+    <div class="login-divider"><span>Acceso Seguro</span></div>
+    <div class="input-group">
+      <i class="fas fa-user input-icon"></i>
+      <input type="text" id="username" placeholder="Usuario" autocomplete="username">
+    </div>
+    <div class="input-group">
+      <i class="fas fa-lock input-icon"></i>
+      <input type="password" id="password" placeholder="Contraseña" autocomplete="current-password">
+    </div>
+    <button class="btn-login" id="login-btn">
+      <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+    </button>
+    <div id="login-error" class="error-message"></div>
+    <p class="login-hint" style="display:none;">Demo: <span>admin / admin123</span></p>
+    <div class="login-features">
+      <div class="login-feature"><i class="fas fa-shield-alt"></i> Acceso Seguro</div>
+      <div class="login-feature"><i class="fas fa-clock"></i> 24 / 7</div>
+      <div class="login-feature"><i class="fas fa-lock"></i> Datos Protegidos</div>
+    </div>
+    <div class="login-footer-card"><span class="app-title">Gestión Avícola</span> &mdash; Gestión Avícola Profesional</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-container" style="display:none;">
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo"><i class="fas fa-drumstick-bite"></i></div>
+      <div><h2 class="app-title">Gestión Avícola</h2><small class="app-subtitle">Gestión Avícola</small></div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">Principal</div>
+      <div data-module="dashboard" class="nav-item active" tabindex="0">
+        <i class="fas fa-chart-line"></i><span class="nav-label">Dashboard</span>
+      </div>
+      <div class="nav-section-title">Operación</div>
+      <div data-module="houses" class="nav-item" tabindex="0">
+        <i class="fas fa-warehouse"></i><span class="nav-label">Galpones</span>
+      </div>
+      <div data-module="birds" class="nav-item" tabindex="0">
+        <i class="fas fa-dove"></i><span class="nav-label">Aves</span>
+      </div>
+      <div data-module="feeding" class="nav-item" tabindex="0">
+        <i class="fas fa-seedling"></i><span class="nav-label">Alimentación</span>
+      </div>
+      <div data-module="production" class="nav-item" tabindex="0">
+        <i class="fas fa-drumstick-bite"></i><span class="nav-label">Registro diario</span>
+      </div>
+      <div data-module="tasks" class="nav-item" tabindex="0">
+        <i class="fas fa-tasks"></i><span class="nav-label">Tareas</span>
+        <span class="nav-badge" id="tasks-badge" style="display:none">0</span>
+      </div>
+      <div data-module="health" class="nav-item" tabindex="0">
+        <i class="fas fa-heartbeat"></i><span class="nav-label">Salud / Vet.</span>
+      </div>
+      <div data-module="maintenance" class="nav-item" tabindex="0">
+        <i class="fas fa-tools"></i><span class="nav-label">Mantenimiento</span>
+      </div>
+      <div class="nav-section-title">Finanzas y Boletas</div>
+      <div data-module="pending" class="nav-item" id="nav-pending" tabindex="0">
+        <i class="fas fa-inbox"></i><span class="nav-label">Por revisar</span>
+        <span class="nav-badge" id="pending-badge" style="display:none">0</span>
+      </div>
+      <div data-module="finance" class="nav-item" tabindex="0">
+        <i class="fas fa-coins"></i><span class="nav-label">Finanzas</span>
+      </div>
+      <div data-module="pesaje" class="nav-item admin-only" id="nav-pesaje" tabindex="0">
+        <i class="fas fa-weight-scale"></i><span class="nav-label">Pesaje y Liquidación</span>
+      </div>
+      <div data-module="buyerdebts" class="nav-item admin-only" id="nav-buyerdebts" tabindex="0">
+        <i class="fas fa-hand-holding-dollar"></i><span class="nav-label">Deuda de compradores</span>
+      </div>
+      <div data-module="payments" class="nav-item" tabindex="0">
+        <i class="fas fa-receipt"></i><span class="nav-label">Boletas y evidencias</span>
+      </div>
+      <div class="nav-section-title">Equipo</div>
+      <div data-module="staff" class="nav-item" tabindex="0">
+        <i class="fas fa-users"></i><span class="nav-label">Empleados</span>
+      </div>
+      <div data-module="attendance" class="nav-item" tabindex="0">
+        <i class="fas fa-clipboard-check"></i><span class="nav-label">Asistencia</span>
+      </div>
+      <div class="nav-section-title">Sistema</div>
+      <div data-module="chat" class="nav-item" tabindex="0">
+        <i class="fas fa-comments"></i><span class="nav-label">Chat</span>
+        <span class="nav-badge" id="chat-badge" style="display:none">0</span>
+      </div>
+      <div data-module="notifications-admin" class="nav-item admin-only" id="nav-notif-admin" tabindex="0">
+        <i class="fas fa-bullhorn"></i><span class="nav-label">Enviar Notif.</span>
+      </div>
+      <div data-module="tutorials" class="nav-item" id="nav-tutorials" tabindex="0">
+        <i class="fas fa-graduation-cap"></i><span class="nav-label">Tutoriales</span>
+      </div>
+      <div data-module="users" class="nav-item admin-only" id="nav-users" tabindex="0">
+        <i class="fas fa-user-cog"></i><span class="nav-label">Usuarios del sistema</span>
+      </div>
+      <div data-module="settings" class="nav-item" id="nav-settings" tabindex="0">
+        <i class="fas fa-cog"></i><span class="nav-label">Ajustes del Sistema</span>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-card">
+        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div>
+          <span id="user-name">Usuario</span>
+          <small id="user-role">—</small>
+        </div>
+      </div>
+      <button id="logout-btn" class="btn-logout">
+        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="top-bar">
+      <button id="menu-toggle" class="menu-toggle" tabindex="0"><i class="fas fa-bars"></i></button>
+      <span class="top-bar-title" id="top-bar-title">Dashboard</span>
+      <div class="top-bar-right">
+        <div class="tb-btn" id="theme-toggle-btn" title="Modo oscuro / claro" tabindex="0" role="button" aria-label="Cambiar modo oscuro" onclick="toggleTheme()">
+          <i class="fas fa-moon" id="theme-toggle-icon"></i>
+        </div>
+        <div class="tb-btn" id="refresh-sys-btn" title="Actualizar Sistema" tabindex="0" onclick="clearCache(); if(App.currentModule) loadModule(App.currentModule);">
+          <i class="fas fa-sync-alt"></i>
+        </div>
+        <div class="tb-btn" id="notifications-icon" title="Notificaciones" tabindex="0">
+          <i class="fas fa-bell"></i>
+          <span class="badge" id="notif-dot"></span>
+        </div>
+        <div class="online-pill">
+          <div class="online-dot"></div>
+          <span id="online-count">0</span>&nbsp;online
+        </div>
+      </div>
+    </header>
+    <div class="module-content" id="module-content">
+      <div id="dynamic-content"></div>
+    </div>
+    <div id="app-footer-container" class="app-footer" style="display:none">
+      <a id="app-footer-link" class="app-footer-link" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--primary)"><span id="app-footer-text"></span><i class="fas fa-arrow-up-right-from-square"></i></a>
+      <div id="app-footer-social" class="foot-social" style="display:none"></div>
+    </div>
+  </main>
+</div>
+
+<!-- NOTIFICATIONS PANEL -->
+<div id="notifications-panel" class="notifications-panel" style="display:none">
+  <div class="notifications-header">
+    <h3><i class="fas fa-bell" style="color:var(--primary)"></i>Notificaciones<span class="notif-count" id="notif-count" style="display:none"></span></h3>
+    <button id="close-notifications" class="close-modal" tabindex="0"><i class="fas fa-times"></i></button>
+  </div>
+  <div id="push-box" style="display:none;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.5"></div>
+  <div id="notifications-list" class="notifications-list">
+    <div class="no-notifications">Sin notificaciones</div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<div id="toast-container" class="toast-container"></div>
+<div id="loader" class="loader-overlay" style="display:none">
+  <div class="loader-box">
+    <svg class="chick-loader" viewBox="0 0 72 72" role="img" aria-label="Cargando">
+      <ellipse class="ck-shadow" cx="36" cy="66" rx="17" ry="3.5" fill="#000"/>
+      <g class="ck-hop">
+        <path d="M31 17c-1-5 1-8 3-9 0 3 1 5 2 6 1-3 3-5 6-5-1 3-1 5-1 7z" fill="#f59e0b"/>
+        <circle cx="36" cy="40" r="23" fill="#fcd34d"/>
+        <ellipse class="ck-wing" cx="22" cy="43" rx="7" ry="10" fill="#fbbf24"/>
+        <path d="M54 37l11 4-11 5z" fill="#f97316"/>
+        <path d="M54 41l11 .6-11 4.4z" fill="#ea580c" opacity=".55"/>
+        <ellipse class="ck-eye" cx="46" cy="33" rx="3" ry="3.6" fill="#1f2937"/>
+        <circle cx="47" cy="31.8" r="1" fill="#fff"/>
+        <circle cx="49" cy="43" r="4" fill="#fb923c" opacity=".35"/>
+        <path d="M30 62v5M30 67l-3 1.5M30 67l3 1.5M42 62v5M42 67l-3 1.5M42 67l3 1.5" stroke="#f97316" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      </g>
+    </svg>
+    <p>Cargando...</p>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ==================== APP STATE ====================
+var App = {
+  token: null, user: null, currentModule: 'dashboard',
+  notifications: [], charts: {}, polls: {},
+  _onlineUsers: [],
+  _cache: {}, _cacheTs: {},
+  _lastChatMsgId: '', _unreadChat: 0
+};
+// Tiempo máximo de cache por módulo (ms)
+var CACHE_TTL = {
+  dashboard: 60000, houses: 120000, birds: 120000,
+  production: 30000, feeding: 60000, finance: 60000,
+  staff: 120000, tasks: 30000, health: 120000,
+  maintenance: 60000, payments: 120000, users: 60000,
+  notifications: 15000, online: 20000
+};
+function isCacheValid(key) {
+  var ttl = CACHE_TTL[key] || 60000;
+  return App._cache[key] && App._cacheTs[key] && (Date.now() - App._cacheTs[key] < ttl);
+}
+function setCache(key, data) {
+  App._cache[key] = data; App._cacheTs[key] = Date.now();
+}
+function clearCache(key) {
+  if (key) { delete App._cache[key]; delete App._cacheTs[key]; }
+  else { App._cache = {}; App._cacheTs = {}; }
+}
+
+// ==================== UTILIDADES ====================
+function showToast(msg, type) {
+  type = type || 'info';
+  var icons = {
+    success: 'fa-check-circle', error: 'fa-times-circle',
+    warning: 'fa-exclamation-triangle', info: 'fa-info-circle'
+  };
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + type;
+  t.innerHTML = '<i class="fas ' + (icons[type] || icons.info) + '"></i><span>' + escHtml(msg) + '</span>';
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(function() {
+    t.classList.add('fade-out');
+    setTimeout(function() { if (t.parentNode) t.remove(); }, 300);
+  }, 3500);
+}
+
+// ==================== DIÁLOGOS PERSONALIZADOS ====================
+// Reemplazan confirm()/alert() nativos del navegador.
+// confirmDialog(mensaje, alAceptar, {title, message, okText, cancelText, type:'danger'|'primary', icon, onCancel})
+function _dlgOpen(cfg) {
+  var prev = document.getElementById('dlg-overlay');
+  if (prev) prev.remove();
+  var lastFocus = document.activeElement;
+  var ov = document.createElement('div');
+  ov.id = 'dlg-overlay';
+  ov.className = 'dlg-overlay';
+  ov.setAttribute('role', 'alertdialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-labelledby', 'dlg-title');
+  var box = document.createElement('div');
+  box.className = 'dlg-box';
+  var ico = document.createElement('div');
+  ico.className = 'dlg-icon ' + cfg.kind;
+  ico.innerHTML = '<i class="fas ' + cfg.icon + '"></i>';
+  var h = document.createElement('h3');
+  h.className = 'dlg-title'; h.id = 'dlg-title'; h.textContent = cfg.title;
+  box.appendChild(ico); box.appendChild(h);
+  if (cfg.detail) {
+    var pEl = document.createElement('p');
+    pEl.className = 'dlg-msg'; pEl.id = 'dlg-msg'; pEl.textContent = cfg.detail;
+    box.appendChild(pEl);
+    ov.setAttribute('aria-describedby', 'dlg-msg');
+  }
+  var actions = document.createElement('div');
+  actions.className = 'dlg-actions';
+  var btnNo = null;
+  if (cfg.showCancel) {
+    btnNo = document.createElement('button');
+    btnNo.type = 'button'; btnNo.className = 'dlg-cancel'; btnNo.textContent = cfg.cancelText;
+    actions.appendChild(btnNo);
+  }
+  var btnYes = document.createElement('button');
+  btnYes.type = 'button';
+  btnYes.className = 'dlg-ok' + (cfg.kind === 'danger' ? ' danger' : '');
+  btnYes.textContent = cfg.okText;
+  actions.appendChild(btnYes);
+  box.appendChild(actions);
+  ov.appendChild(box);
+  document.body.appendChild(ov);
+
+  var done = false;
+  function close(result) {
+    if (done) return;
+    done = true;
+    ov.remove();
+    try { if (lastFocus && document.body.contains(lastFocus) && lastFocus.focus) lastFocus.focus(); } catch (e) {}
+    if (result) { if (cfg.onYes) cfg.onYes(); }
+    else if (cfg.onNo) cfg.onNo();
+  }
+  btnYes.addEventListener('click', function() { close(true); });
+  if (btnNo) btnNo.addEventListener('click', function() { close(false); });
+  ov.addEventListener('mousedown', function(e) { if (e.target === ov) close(false); });
+  ov.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(false); }
+    else if (e.key === 'Tab') {
+      var items = btnNo ? [btnNo, btnYes] : [btnYes];
+      var i = items.indexOf(document.activeElement);
+      e.preventDefault();
+      i = e.shiftKey ? (i <= 0 ? items.length - 1 : i - 1) : (i + 1) % items.length;
+      items[i].focus();
+    }
+  });
+  // En acciones destructivas el foco inicial va en "Cancelar" (más seguro)
+  (cfg.kind === 'danger' && btnNo ? btnNo : btnYes).focus();
+}
+
+function confirmDialog(message, onYes, opts) {
+  opts = opts || {};
+  var msg = String(message == null ? '' : message);
+  var title = opts.title, detail = opts.message;
+  if (title == null) {
+    var m = /^(¿[^?]*\?)\s+([\s\S]+)$/.exec(msg);
+    if (m) { title = m[1]; if (detail == null) detail = m[2]; }
+    else if (/^¿[^?]*\?$/.test(msg)) { title = msg; }
+    else { title = '¿Confirmar acción?'; if (detail == null) detail = msg; }
+  }
+  var danger = opts.type ? opts.type === 'danger' : /eliminar|borrar/i.test(title);
+  _dlgOpen({
+    kind: danger ? 'danger' : 'primary',
+    icon: opts.icon || (danger ? 'fa-trash-alt' : 'fa-question'),
+    title: title, detail: detail,
+    okText: opts.okText || (danger ? 'Eliminar' : 'Aceptar'),
+    cancelText: opts.cancelText || 'Cancelar',
+    showCancel: true,
+    onYes: onYes, onNo: opts.onCancel
+  });
+}
+
+function alertDialog(message, opts) {
+  opts = opts || {};
+  _dlgOpen({
+    kind: 'info', icon: opts.icon || 'fa-info',
+    title: opts.title || String(message == null ? '' : message),
+    detail: opts.title ? String(message == null ? '' : message) : '',
+    okText: opts.okText || 'Aceptar', showCancel: false,
+    onYes: opts.onClose, onNo: opts.onClose
+  });
+}
+// Por seguridad, cualquier alert() nativo que quede (o se agregue) usa el diálogo propio
+window.alert = function(msg) { alertDialog(msg); };
+// ==================== FIN DIÁLOGOS PERSONALIZADOS ====================
+
+function showLoader(v) {
+  document.getElementById('loader').style.display = v ? 'flex' : 'none';
+}
+
+function escHtml(s) {
+  if (s == null) return '';
+  var d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+// Texto 'yyyy-MM-dd[ T]HH:mm[:ss]' (sin zona) = hora LOCAL exacta; con 'Z' se convierte a local.
+function parseLocal(s) {
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2})?)?$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0));
+  return new Date(s);
+}
+function fmtDate(s) {
+  if (!s) return '—';
+  try {
+    var d = parseLocal(s);
+    if (isNaN(d.getTime())) return String(s).slice(0, 10);
+    return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch(e) { return String(s).slice(0, 10); }
+}
+function fmtDateTime(s) {
+  if (!s) return '—';
+  var d = parseLocal(s);
+  if (isNaN(d.getTime())) return String(s);
+  return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+         d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+// valor del servidor → <input type="datetime-local"> sin conversión
+function toInputDT(s) { s = String(s || '').trim().replace(' ', 'T'); return s.length >= 16 ? s.slice(0, 16) : (s.length === 10 ? s + 'T00:00' : ''); }
+function campStatusFE(b) {
+  var s = String((b && b.campaign_status) || '').trim().toLowerCase();
+  if (s) return s;
+  return String((b && b.status) || '') === 'active' ? 'started' : 'closed';
+}
+// Sugerencias al escribir: solo se usan si el usuario hace clic; nunca se reemplaza ni guarda solo.
+function attachSuggest(inputId, boxId, getList) {
+  var el = document.getElementById(inputId), box = document.getElementById(boxId);
+  if (!el || !box) return;
+  el.addEventListener('input', function() {
+    var q = el.value.trim().toLowerCase();
+    var items = q.length < 2 ? [] : getList().filter(function(t) { var l = t.toLowerCase(); return l.indexOf(q) > -1 && l !== q; }).slice(0, 5);
+    if (!items.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    box.innerHTML = items.map(function(t, i) { return '<div class="sug-item" data-i="' + i + '">' + escHtml(t) + '</div>'; }).join('');
+    box.style.display = 'block';
+    Array.prototype.forEach.call(box.children, function(c) {
+      c.onmousedown = function(ev) { ev.preventDefault(); el.value = items[+c.getAttribute('data-i')]; box.style.display = 'none'; };
+    });
+  });
+  el.addEventListener('blur', function() { setTimeout(function() { box.style.display = 'none'; }, 150); });
+}
+
+function fmtMoney(n) {
+  return 'S/ ' + (parseFloat(n) || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtNum(n) {
+  var num = parseFloat(n) || 0;
+  if (num >= 1000000) return (num / 1000000).toFixed(1).replace('.0','') + 'M';
+  if (num >= 1000)    return (num / 1000).toFixed(1).replace('.0','') + 'K';
+  return num.toLocaleString('es-PE');
+}
+
+// Abreviar números como YouTube / Google: 1.2K · 45.9K · 1.2M (1 decimal, sin ceros sobrantes)
+function fmtK(n) {
+  var x = parseFloat(n) || 0, a = Math.abs(x);
+  if (a < 1000) return x.toLocaleString('es-PE', { maximumFractionDigits: 1 });
+  var v = a >= 1e6 ? x / 1e6 : x / 1e3, u = a >= 1e6 ? 'M' : 'K';
+  var t = Math.round(v * 10) / 10;
+  if (u === 'K' && Math.abs(t) >= 1000) { t = Math.round(x / 1e5) / 10; u = 'M'; }   // 999.96K → 1M
+  return String(t) + u;
+}
+// Cantidades: hasta 9,999 completo; desde 10,000 abreviado (12.5K / 3.2M). El valor exacto va en el tooltip.
+function fmtCompact(n) {
+  var num = parseFloat(n) || 0;
+  if (Math.abs(num) < 10000) return num.toLocaleString('es-PE', { maximumFractionDigits: 1 });
+  return fmtK(num);
+}
+// Dinero: completo hasta S/ 99,999.99 (o hasta «min» si se indica); después abreviado (S/ 125.4K / S/ 1.2M).
+function fmtMoneyShort(n, min) {
+  var num = parseFloat(n) || 0;
+  if (Math.abs(num) < (min || 100000)) return fmtMoney(num);
+  return 'S/ ' + fmtK(num);
+}
+function tip(txt, full) { return '<span title="' + escHtml(full) + '">' + escHtml(txt) + '</span>'; }
+// Para tarjetas: dinero / cantidades abreviados (K, M) con el valor exacto al pasar el mouse o mantener presionado.
+function fmtMoneyCard(n, min) { var num = parseFloat(n) || 0; return tip(fmtMoneyShort(num, min || 10000), fmtMoney(num)); }
+function fmtNumCard(n, unit) { var num = parseFloat(n) || 0, u = unit || ''; return tip(fmtCompact(num) + u, fmtNum2(num) + u); }
+
+// Ajusta la letra de los números grandes para que SIEMPRE se vean completos (sin «…» ni cortes).
+var FIT_SEL_ = '.summary-card p,.stock-card .val,.kpi-value,.gx-card .v,.fit-num';
+function fitNums_(root) {
+  try {
+    var list = (root || document).querySelectorAll(FIT_SEL_);
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      if (!el.offsetParent) continue;                      // oculto: se ajusta cuando se muestre
+      var key = el.textContent + '|' + (el.parentNode ? el.parentNode.clientWidth : 0) + '|' + window.innerWidth;
+      if (el._fitKey === key) continue;                    // nada cambió desde el último ajuste
+      el.style.fontSize = '';
+      var fs = parseFloat(getComputedStyle(el).fontSize) || 16, guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && fs > 9 && guard++ < 40) { fs -= 0.5; el.style.fontSize = fs + 'px'; }
+      el._fitKey = key;
+    }
+  } catch (e) {}
+}
+(function() {
+  var t = null;
+  function sched() { if (t) return; t = setTimeout(function() { t = null; fitNums_(); }, 90); }
+  function start() {
+    try { new MutationObserver(sched).observe(document.body, { childList: true, subtree: true, characterData: true }); } catch (e) {}
+    window.addEventListener('resize', sched); window.addEventListener('orientationchange', sched);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(sched);
+    sched();
+  }
+  if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
+function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+function pct(a, b) { return b > 0 ? Math.min(100, Math.round((a / b) * 100)) : 0; }
+
+function progressClass(p) { return p >= 90 ? 'danger' : p >= 70 ? 'warning' : 'success'; }
+
+function destroyCharts() {
+  Object.keys(App.charts).forEach(function(k) {
+    try { if (App.charts[k]) { App.charts[k].destroy(); } } catch(e) {}
+    delete App.charts[k];
+  });
+  App.charts = {};
+}
+
+function filterTable(rows, query, cols) {
+  if (!query || !query.trim()) return rows;
+  var q = query.toLowerCase().trim();
+  return rows.filter(function(r) {
+    return cols.some(function(c) {
+      return String(r[c] || '').toLowerCase().indexOf(q) > -1;
+    });
+  });
+}
+
+function v(id) {
+  var el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+function fGroup(label, type, id, val, req, ph, hint) {
+  val = (val == null) ? '' : val;
+  var r = req ? ' required' : '';
+  var step = (type === 'number') ? ' step="any" min="0" inputmode="decimal"' : '';
+  var p = ph ? ' placeholder="' + escHtml(ph) + '"' : '';
+  return '<div class="form-group"><label>' + label + '</label>' +
+    '<input type="' + type + '" id="' + id + '" value="' + escHtml(val) + '"' + r + step + p + '>' +
+    (hint ? '<small class="field-hint">' + hint + '</small>' : '') + '</div>';
+}
+
+function selOpt(opts, selected) {
+  return opts.map(function(o) {
+    var parts = o.split(':');
+    var val = parts[0];
+    var lbl = parts.slice(1).join(':');
+    return '<option value="' + val + '"' + (val === selected ? ' selected' : '') + '>' + lbl + '</option>';
+  }).join('');
+}
+
+function openModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'flex';
+}
+
+function closeModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+function bindForm(formId, handler) {
+  var f = document.getElementById(formId);
+  if (f) {
+    f.removeEventListener('submit', handler);
+    f.addEventListener('submit', handler);
+  }
+}
+
+// ==================== API ====================
+// ==================== CONFIGURACIÓN DE CONEXIÓN ====================
+// URL directa del Web App de Google Apps Script
+var GAS_DIRECT_URL = 'https://script.google.com/macros/s/AKfycbx6raorZG8zueSQW7X3OZtI8cdC9kS-AhQkf8p5PGwAU4Hm93sF3Tu-Q8lIS34TDzCT6g/exec';
+
+// Estado de la conexión (celulares con red inestable)
+var _proxyFalloHasta = 0;        // si el proxy falló por red, se evita probarlo de nuevo durante 60 s
+var _gasCbSeq = 0;               // contador para que cada llamada JSONP tenga un callback único
+var GAS_JSONP_MAX_URL = 7000;    // largo máximo seguro de URL en navegadores móviles
+
+function api(action, params, cb) {
+  var cb0 = cb;
+  cb = function(r) { if (r && r.tasks_done) showToast('✅ Se marcó como cumplida tu tarea', 'success'); if (cb0) cb0(r); };
+  var p = Object.assign({}, params || {});
+  p.action = action;
+  if (App.token) p.token = App.token;
+  if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;   // aislamiento por campaña
+
+  var isSilent = (action === 'getTaskAlert' || action === 'updateOnlineStatus' || action === 'getNotifications' || action === 'getChatMessages' || action === 'getOnlineUsers');
+
+  // ── Modo 1: dentro de Google Apps Script (iframe) ──────────────────
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(function(r) { if (cb) cb(r || {}); })
+      .withFailureHandler(function(e) {
+        if (!isSilent) {
+          console.error('GAS Error [' + action + ']:', e);
+          showToast('Error de conexión', 'error');
+        }
+        if (cb) cb({ success: false, error: (e && e.message) || 'Error', network: true });
+      })
+      .handleApiRequest(p);
+    return;
   }
 
+  // ── Modo 2: Vercel / cualquier servidor con proxy ──────────────────
+  // Intenta /api/gas primero; si falla, cae al modo 3
+  if (Date.now() < _proxyFalloHasta) { _gasGetJsonp(GAS_DIRECT_URL, p, cb); return; }
+  _fetchPost('/api/gas', p, function(err, data) {
+    if (!err) { if (cb) cb(data); return; }
+    console.warn('Proxy failed [' + action + ']:', err.message);
+    // Un timeout en una acción que escribe datos NO se reintenta por otra vía:
+    // el servidor pudo haberla procesado y se duplicaría el registro.
+    if (err.fallback === false) {
+      if (!isSilent) showToast('Error de conexión: el servidor tardó demasiado en responder', 'error');
+      if (cb) cb({ success: false, error: 'Timeout', network: true });
+      return;
+    }
+    _proxyFalloHasta = Date.now() + 60000;
+    // ── Modo 3: llamada directa a GAS vía GET+JSONP ────────────────
+    _gasGetJsonp(GAS_DIRECT_URL, p, cb);
+  });
+}
+
+// Fetch POST con timeout de 35s — devuelve error si respuesta no es JSON
+function _fetchPost(url, payload, cb, intento) {
+  var ctrl = new AbortController();
+  var tid = setTimeout(function() { ctrl.abort(); }, 35000); // 35s para cold starts de GAS
+  var esLectura = /^get/.test(String(payload && payload.action || ''));
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    cache: 'no-store',
+    signal: ctrl.signal
+  })
+  .then(function(res) {
+    clearTimeout(tid);
+    var ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json') && !ct.includes('text/plain')) {
+      // El servidor devolvió HTML — proxy no configurado o error
+      return Promise.reject(new Error('Respuesta no-JSON del proxy (status ' + res.status + ')'));
+    }
+    return res.text();
+  })
+  .then(function(txt) {
+    try { cb(null, JSON.parse(txt)); }
+    catch(e) { cb(new Error('JSON inválido: ' + txt.substring(0, 80))); }
+  })
+  .catch(function(e) {
+    clearTimeout(tid);
+    // Red inestable en móvil: las lecturas se reintentan una vez antes de caer al modo directo
+    if (!intento && esLectura && e && e.name !== 'AbortError') {
+      setTimeout(function() { _fetchPost(url, payload, cb, 1); }, 800);
+      return;
+    }
+    if (e && e.name === 'AbortError' && !esLectura) e.fallback = false;
+    cb(e);
+  });
+}
+
+// Llamada directa a GAS vía GET con callback JSONP en URL
+function _gasGetJsonp(baseUrl, payload, cb) {
+  var isSilent = (payload && (payload.action === 'getTaskAlert' || payload.action === 'updateOnlineStatus' || payload.action === 'getNotifications' || payload.action === 'getChatMessages' || payload.action === 'getOnlineUsers'));
+  var cbName = '_gasCb_' + Date.now() + '_' + (++_gasCbSeq);   // único aunque varias llamadas salgan en el mismo milisegundo
+  var tid;
+  function limpiar() {
+    clearTimeout(tid);
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    var s = document.getElementById(cbName);
+    if (s) s.remove();
+  }
+  window[cbName] = function(data) {
+    limpiar();
+    if (cb) cb(data || {});
+  };
+  var encoded = encodeURIComponent(JSON.stringify(payload));
+  var src = baseUrl + '?data=' + encoded + '&callback=' + cbName + '&_=' + Date.now();
+  if (src.length > GAS_JSONP_MAX_URL) {
+    limpiar();
+    console.error('GAS JSONP: solicitud demasiado grande (' + src.length + ' caracteres)');
+    if (!isSilent) showToast('Error de conexión: la solicitud es demasiado grande para el modo directo. Verifica el servidor (/api/gas).', 'error');
+    if (cb) cb({ success: false, error: 'Solicitud demasiado grande', network: true });
+    return;
+  }
+  tid = setTimeout(function() {
+    limpiar();
+    if (!isSilent) {
+      console.error('GAS JSONP timeout');
+      showToast('Error: sin respuesta del servidor', 'error');
+    }
+    if (cb) cb({ success: false, error: 'Timeout', network: true });
+  }, 25000);
+  var script = document.createElement('script');
+  script.id = cbName;
+  script.src = src;
+  script.onerror = function() {
+    limpiar();
+    console.error('GAS JSONP: error de carga (red, bloqueo del navegador o cuenta de Google)');
+    if (!isSilent) showToast('Error de conexión con el servidor', 'error');
+    if (cb) cb({ success: false, error: 'Error de red', network: true });
+  };
+  document.head.appendChild(script);
+}
+
+// Limpieza de service workers y cachés antiguos: evita que el navegador normal
+// siga sirviendo una versión vieja de la app (el modo incógnito arranca sin nada de esto).
+// Se conserva únicamente el service worker de notificaciones push (firebase-messaging-sw.js).
+(function limpiarCacheVieja_() {
   try {
-    // Vercel ya entrega req.body como objeto cuando el Content-Type es application/json
-    const payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) {
+          var w = reg.active || reg.waiting || reg.installing;
+          var u = (w && w.scriptURL) || '';
+          if (u.indexOf('firebase-messaging-sw') === -1) reg.unregister();
+        });
+      }).catch(function() {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function(ks) { ks.forEach(function(k) { caches.delete(k); }); }).catch(function() {});
+    }
+  } catch (e) {}
+})();
 
-    // Apps Script responde con 302 hacia googleusercontent.com; fetch lo sigue solo
-    const upstream = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: payload,
-      redirect: 'follow',
-      signal: AbortSignal.timeout(28000)
+function apiGet(action, params, cb) {
+  // Mapa de acción → clave de caché
+  var cacheMap = {
+    getHouses: 'houses', getBirds: 'birds', getStaff: 'staff',
+    getUsers: '_users', getMaintenance: 'maintenance',
+    getHealthEvents: 'health'
+  };
+  var cacheKey = cacheMap[action];
+  // Solo cachear si no hay parámetros de filtro significativos
+  var hasParams = params && Object.keys(params).some(function(k){ return k !== 'action' && k !== 'token'; });
+  if (cacheKey && !hasParams && isCacheValid(cacheKey)) {
+    if (cb) cb(App._cache[cacheKey]);
+    return;
+  }
+  api(action, params, function(r) {
+    var data;
+    if (r && r.success !== undefined) {
+      data = r.success === false ? [] : (Array.isArray(r.data) ? r.data : (Array.isArray(r) ? r : []));
+    } else {
+      data = Array.isArray(r) ? r : [];
+    }
+    if (cacheKey && !hasParams) setCache(cacheKey, data);
+    if (cb) cb(data);
+  });
+}
+
+// ==================== DEMO DATA ====================
+function getDemoData(action, params) {
+  var HOUSES = [
+    { id: 'h1', name: 'Galpón A', capacity: 5000, current_population: 4200, status: 'active', created_at: '2024-01-01' },
+    { id: 'h2', name: 'Galpón B', capacity: 3000, current_population: 2800, status: 'active', created_at: '2024-01-01' },
+    { id: 'h3', name: 'Galpón C', capacity: 4000, current_population: 1500, status: 'active', created_at: '2024-01-01' },
+    { id: 'h4', name: 'Galpón D', capacity: 2000, current_population: 0,    status: 'inactive', created_at: '2024-01-01' }
+  ];
+  var BIRDS = [
+    { id: 'b1', house_id: 'h1', batch_number: 'L-2024-01', species: 'Pollo',   quantity: 4200, arrival_date: '2024-01-15', status: 'active' },
+    { id: 'b2', house_id: 'h2', batch_number: 'L-2024-02', species: 'Pollo',   quantity: 2800, arrival_date: '2024-02-10', status: 'active' },
+    { id: 'b3', house_id: 'h3', batch_number: 'L-2024-03', species: 'Pollo',   quantity: 1500, arrival_date: '2024-03-05', status: 'active' }
+  ];
+  var PROD = [];
+  for (var d = 6; d >= 0; d--) {
+    var dt = new Date(); dt.setDate(dt.getDate() - d);
+    PROD.push({
+      id: 'p' + d, house_id: 'h1', bird_id: 'b1',
+      date: dt.toISOString().split('T')[0],
+      eggs_count: 250 + Math.floor(Math.random() * 100),
+      damaged: Math.floor(Math.random() * 8),
+      mortality: Math.floor(Math.random() * 5), notes: ''
     });
+  }
+  var FINANCE = [
+    { id: 'f1', type: 'income',  category: 'Venta de pollos', description: 'Venta semana 1',      amount: 12500, date: '2024-03-15', house_id: 'h1' },
+    { id: 'f2', type: 'income',  category: 'Venta de pollos', description: 'Venta semana 2',      amount: 11800, date: '2024-03-22', house_id: 'h2' },
+    { id: 'f3', type: 'expense', category: 'Alimento',        description: 'Alimento balanceado', amount: 8400,  date: '2024-03-10', house_id: 'h1' },
+    { id: 'f4', type: 'expense', category: 'Mano de obra',    description: 'Planilla semanal',    amount: 3200,  date: '2024-03-18', house_id: '' },
+    { id: 'f5', type: 'expense', category: 'Medicinas',       description: 'Vacunas lote B',      amount: 950,   date: '2024-03-20', house_id: 'h2' }
+  ];
+  var FEEDING = [
+    { id: 'fe1', house_id: 'h1', date: '2024-03-25', feed_type: 'Engorde',  quantity_kg: 850, cost: 2975, notes: '' },
+    { id: 'fe2', house_id: 'h2', date: '2024-03-25', feed_type: 'Engorde',  quantity_kg: 560, cost: 1960, notes: '' },
+    { id: 'fe3', house_id: 'h3', date: '2024-03-25', feed_type: 'Engorde', quantity_kg: 420, cost: 1470, notes: 'Nuevo proveedor' }
+  ];
+  var STAFF = [
+    { id: 'st1', name: 'Carlos Quispe', position: 'Encargado',  house_id: 'h1', phone: '987654321', email: 'carlos@granja.com', salary: 2500, hire_date: '2023-01-10', status: 'active',   notes: '' },
+    { id: 'st2', name: 'María López',   position: 'Veterinaria', house_id: '',   phone: '976543210', email: 'maria@granja.com',  salary: 3500, hire_date: '2023-03-15', status: 'active',   notes: 'Especialista en aves' },
+    { id: 'st3', name: 'Pedro Huanca',  position: 'Operario',    house_id: 'h2', phone: '965432109', email: 'pedro@granja.com',  salary: 1800, hire_date: '2024-01-05', status: 'active',   notes: '' },
+    { id: 'st4', name: 'Ana Torres',    position: 'Operaria',    house_id: 'h3', phone: '954321098', email: 'ana@granja.com',    salary: 1800, hire_date: '2024-02-01', status: 'inactive', notes: 'Licencia médica' }
+  ];
+  var USERS = [
+    { id: 'u1', username: 'admin',  full_name: 'Administrador', role: 'admin',    status: 'active', email: 'admin@granja.com', last_login: new Date().toISOString(), created_at: '2023-01-01' },
+    { id: 'u2', username: 'maria',  full_name: 'María López',   role: 'manager',  status: 'active', email: 'maria@granja.com', last_login: '', created_at: '2023-03-15' },
+    { id: 'u3', username: 'carlos', full_name: 'Carlos Quispe', role: 'operator', status: 'active', email: 'carlos@granja.com',last_login: '', created_at: '2023-06-10' },
+    { id: 'u4', username: 'vet1',   full_name: 'Dr. Ramírez',   role: 'vet',      status: 'active', email: 'vet@granja.com',   last_login: '', created_at: '2024-01-01' }
+  ];
+  var ATTENDANCE = [
+    { id: 'a1', user_id: 'st1', date: today(), check_in: '08:00', check_out: '', status: 'present', notes: '' },
+    { id: 'a2', user_id: 'st3', date: today(), check_in: '08:15', check_out: '', status: 'late',    notes: '' },
+    { id: 'a3', user_id: 'st4', date: today(), check_in: '',      check_out: '', status: 'absent',  notes: 'Licencia' }
+  ];
+  var TASKS = [
+    { id: 't1', assigned_to: 'st1', house_id: 'h1', title: 'Desinfección Galpón A', description: 'Usar producto XYZ', priority: 'high',   status: 'pending',     due_date: today(),        completed_at: '', created_by: 'u1' },
+    { id: 't2', assigned_to: 'st3', house_id: 'h2', title: 'Revisión comederos',    description: 'Verificar todos',  priority: 'normal',  status: 'in_progress', due_date: '2024-04-05',   completed_at: '', created_by: 'u1' },
+    { id: 't3', assigned_to: 'st2', house_id: '',   title: 'Informe veterinario',   description: '',                 priority: 'high',    status: 'done',        due_date: '2024-03-31',   completed_at: '2024-03-30', created_by: 'u1' }
+  ];
+  var HEALTH = [
+    { id: 'he1', house_id: 'h1', bird_id: 'b1', date: '2024-03-15', type: 'vaccine',   description: 'Vacuna Newcastle',       vet_id: 'u2', cost: 450, next_date: '2024-06-15' },
+    { id: 'he2', house_id: 'h2', bird_id: 'b2', date: '2024-03-20', type: 'treatment', description: 'Tratamiento bronquitis', vet_id: 'u2', cost: 280, next_date: '2024-03-27' }
+  ];
+  var MAINTENANCE = [
+    { id: 'm1', house_id: 'h1', type: 'Eléctrico',       description: 'Revisión ventilación',       status: 'pending',     assigned_to: '',    scheduled_date: '2024-04-05', completed_date: '', cost: 0 },
+    { id: 'm2', house_id: 'h2', type: 'Infraestructura', description: 'Reparar techo sector norte', status: 'in_progress', assigned_to: 'st3', scheduled_date: '2024-03-28', completed_date: '', cost: 1200 },
+    { id: 'm3', house_id: 'h3', type: 'Equipos',         description: 'Calibrar bebederos',         status: 'done',        assigned_to: 'st1', scheduled_date: '2024-03-20', completed_date: '2024-03-21', cost: 150 }
+  ];
+  var NOTIFS = [
+    { id: 'n1', user_id: 'u1', title: 'Baja producción', message: 'Producción por debajo del promedio en Galpón C', type: 'warning', is_read: false, created_at: new Date().toISOString() },
+    { id: 'n2', user_id: 'u1', title: 'Tarea vencida',   message: 'Desinfección semanalsin completar', type: 'error', is_read: false, created_at: new Date(Date.now() - 3600000).toISOString() }
+  ];
+  var CHAT = [
+    { id: 'c1', user_id: 'u2', username: 'María',  fullName: 'María López',   message: 'Buenos días, ¿cómo va la producción hoy?',        timestamp: new Date(Date.now() - 3600000).toISOString() },
+    { id: 'c2', user_id: 'u1', username: 'admin',  fullName: 'Administrador', message: 'Muy bien, el Galpón A superó los 300 pollos vendidos',     timestamp: new Date(Date.now() - 1800000).toISOString() },
+    { id: 'c3', user_id: 'u3', username: 'carlos', fullName: 'Carlos Quispe', message: 'Todo en orden por acá, iniciando alimentación.',   timestamp: new Date(Date.now() - 900000).toISOString() }
+  ];
 
-    const texto = await upstream.text();
+  switch (action) {
+    case 'login':
+      if (params.username === 'admin' && params.password === 'admin123')
+        return { success: true, token: 'demo-token-123', user: { id: 'u1', username: 'admin', role: 'admin', fullName: 'Admin Demo' } };
+      return { success: false, error: 'Usuario o contraseña incorrectos' };
+    case 'getSession':
+      if (params.token === 'demo-token-123')
+        return { success: true, user: { id: 'u1', username: 'admin', role: 'admin', fullName: 'Admin Demo' } };
+      return { success: false };
+    case 'getDashboard':
+      var totalInc = 0, totalExp = 0;
+      FINANCE.forEach(function(f) { if (f.type === 'income') totalInc += f.amount; else totalExp += f.amount; });
+      return {
+        success: true,
+        kpis: { totalBirds: 8500, totalHouses: 4, activeCampaigns: 3, mortalityPct: 2.4, mortalityTotal: 204, feedKg: 18450, costPerBird: 3.1, balance: totalInc - totalExp, totalIncome: totalInc, totalExpenses: totalExp, pendingTasks: 2, pendingCount: 1, overdueCount: 1, doneCount: 3, absentToday: 1 },
+        campaigns: [
+          { id: 'b0', batch: 'L-2023-12', house: 'Galpón D', start: '2023-12-01', active: false, days: 49, initial: 2000, mortality: 90,  mortalityPct: 4.5, sold: 1880, discarded: 12, feedKg: 6100,  income: 21500,  expenses: 15200, profit: 6300,  costPerBird: 7.6 },
+          { id: 'b1', batch: 'L-2024-01', house: 'Galpón A', start: '2024-01-15', active: true,  days: 62, initial: 4200, mortality: 105, mortalityPct: 2.5, sold: 3900, discarded: 20, feedKg: 9200,  income: 112500, expenses: 78400, profit: 34100, costPerBird: 18.7 },
+          { id: 'b2', batch: 'L-2024-02', house: 'Galpón B', start: '2024-02-10', active: true,  days: 45, initial: 2800, mortality: 60,  mortalityPct: 2.1, sold: 2200, discarded: 9,  feedKg: 5400,  income: 1820000, expenses: 64000, profit: 1756000, costPerBird: 22.9 },
+          { id: 'b3', batch: 'L-2024-03', house: 'Galpón C', start: '2024-03-05', active: true,  days: 20, initial: 1500, mortality: 39,  mortalityPct: 2.6, sold: 0,    discarded: 0,  feedKg: 3850,  income: 0,     expenses: 9800,  profit: -9800, costPerBird: 6.5 }
+        ],
+        monthlyFinance: [ { month: '2024-01', income: 42000, expense: 31000 }, { month: '2024-02', income: 58000, expense: 44000 }, { month: '2024-03', income: 24300, expense: 12550 } ],
+        expenseByCategory: [ { category: 'Alimento', amount: 8400 }, { category: 'Mano de obra', amount: 3200 }, { category: 'Medicinas', amount: 950 } ],
+        alerts: [ { type: 'danger', text: '1 tarea(s) vencida(s)' }, { type: 'warning', text: 'Salud próxima: Refuerzo vacuna Newcastle' } ],
+        houses: HOUSES.map(function(h) { return { id: h.id, name: h.name, population: h.current_population, capacity: h.capacity, occupancy: pct(h.current_population, h.capacity), status: h.status }; }),
+        recentActivities: [
+          { action: 'SAVE_PRODUCTION', details: 'Registro de producción Galpón A — 320 pollos vendidos', timestamp: new Date().toISOString() },
+          { action: 'SAVE_HEALTH',     details: 'Vacuna Newcastle aplicada en Galpón A',          timestamp: new Date(Date.now() - 86400000).toISOString() },
+          { action: 'SAVE_TASK',       details: 'Tarea de desinfección asignada a Carlos',        timestamp: new Date(Date.now() - 172800000).toISOString() }
+        ]
+      };
+    case 'getHouses':      return { success: true, data: HOUSES };
+    case 'getBirds':       return { success: true, data: params.house_id ? BIRDS.filter(function(b) { return b.house_id === params.house_id; }) : BIRDS };
+    case 'getProduction':  return { success: true, data: PROD };
+    case 'getFeeding':     return { success: true, data: FEEDING };
+    case 'getFinance':     return { success: true, data: FINANCE };
+    case 'getStaff':       return { success: true, data: STAFF };
+    case 'getUsers':       return { success: true, data: USERS };
+    case 'getVouchers':    return { success: true, data: [] };
+    case 'getAttendance':  return { success: true, data: params.date ? ATTENDANCE.filter(function(a) { return a.date === params.date; }) : ATTENDANCE };
+    case 'getTasks':       return { success: true, data: TASKS };
+    case 'getHealthEvents':return { success: true, data: params.house_id ? HEALTH.filter(function(h) { return h.house_id === params.house_id; }) : HEALTH };
+    case 'getMaintenance': return { success: true, data: MAINTENANCE };
+    // ── Módulos combinados (demo) ──────────────────────────────────
+    case 'getBirdsModule':       return { success: true, houses: HOUSES, birds: BIRDS };
+    case 'getProductionModule':  return { success: true, houses: HOUSES, birds: BIRDS, production: PROD };
+    case 'getFeedingModule':     return { success: true, houses: HOUSES, feeding: FEEDING };
+    case 'getFinanceModule':     return { success: true, houses: HOUSES, finances: FINANCE };
+    case 'getStaffModule':       return { success: true, houses: HOUSES, staff: STAFF };
+    case 'getAttendanceModule':  return { success: true, staff: STAFF, attendance: params.date ? ATTENDANCE.filter(function(a){ return a.date === params.date; }) : ATTENDANCE };
+    case 'getTasksModule':       return { success: true, staff: STAFF, houses: HOUSES, tasks: TASKS };
+    case 'getHealthModule':      return { success: true, houses: HOUSES, events: params.house_id ? HEALTH.filter(function(h){ return h.house_id === params.house_id; }) : HEALTH };
+    case 'getMaintenanceModule': return { success: true, houses: HOUSES, records: MAINTENANCE };
+    case 'getChatMessages':return { success: true, data: CHAT };
+    case 'getNotifications':return { success: true, data: App.user ? NOTIFS.filter(function(n) { return n.user_id === App.user.id; }) : [] };
+    case 'getOnlineUsers': return { success: true, data: [{ user_id: 'u1', username: 'admin' }, { user_id: 'u2', username: 'María' }] };
+    case 'getSettings':   return { success: true, data: { title: 'Gestión Avícola', subtitle: 'Gestión Avícola', bgUrl: '', logoUrl: '', footerText: '', footerUrl: '' } };
+    default:               return { success: true };
+  }
+}
 
-    // Si Google devuelve HTML (página de login, error o cuota excedida) no es JSON válido
-    let json;
-    try { json = JSON.parse(texto); }
-    catch (e) {
-      return responder(res, 502, {
-        success: false,
-        error: 'Apps Script no devolvió JSON (status ' + upstream.status + '). Revisa que el Web App esté publicado para «Cualquier persona».'
+// ==================== AUTH ====================
+// Pollito pequeño (sin sombra) para el botón de Iniciar Sesión
+var CHICK_MINI_SVG = '<svg class="chick-loader mini" viewBox="0 0 72 72" aria-hidden="true"><g class="ck-hop">' +
+  '<path d="M31 17c-1-5 1-8 3-9 0 3 1 5 2 6 1-3 3-5 6-5-1 3-1 5-1 7z" fill="#f59e0b"/>' +
+  '<circle cx="36" cy="40" r="23" fill="#fcd34d"/><ellipse class="ck-wing" cx="22" cy="43" rx="7" ry="10" fill="#fbbf24"/>' +
+  '<path d="M54 37l11 4-11 5z" fill="#f97316"/><ellipse class="ck-eye" cx="46" cy="33" rx="3.4" ry="4" fill="#1f2937"/>' +
+  '<circle cx="47" cy="31.8" r="1.2" fill="#fff"/>' +
+  '<path d="M30 62v5M30 67l-3 1.5M30 67l3 1.5M42 62v5M42 67l-3 1.5M42 67l3 1.5" stroke="#f97316" stroke-width="2.4" stroke-linecap="round" fill="none"/></g></svg>';
+function doLogin() {
+  var u = document.getElementById('username').value.trim();
+  var p = document.getElementById('password').value;
+  var errEl = document.getElementById('login-error');
+  var btn   = document.getElementById('login-btn');
+  errEl.classList.remove('show');
+  if (!u || !p) { errEl.textContent = 'Ingresa usuario y contraseña'; errEl.classList.add('show'); return; }
+  btn.disabled = true;
+  btn.innerHTML = CHICK_MINI_SVG + ' Ingresando...';
+  api('login', { username: u, password: p }, function(r) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Iniciar Sesión';
+    if (r && r.success) {
+      App.token = r.token;
+      App.user  = r.user;
+      try { localStorage.setItem('gs_token', r.token); } catch(e) {}
+      initDashboard(r.user);
+      showToast('Bienvenido, ' + (r.user.fullName || r.user.username), 'success');
+    } else {
+      errEl.textContent = (r && r.error) ? r.error : 'Error al iniciar sesión';
+      errEl.classList.add('show');
+    }
+  });
+}
+
+function initDashboard(user) {
+  document.getElementById('user-name').textContent = user.fullName || user.username;
+  document.getElementById('user-role').textContent = (typeof ROLE_LABELS !== 'undefined' && ROLE_LABELS[user.role]) || user.role;
+  
+  var role = user.role || 'viewer';
+  
+  // Definir permisos de navegación por rol
+  var allowed = ['dashboard', 'chat', 'tutorials']; // Módulos básicos (todos los roles)
+  
+  document.body.setAttribute('data-role', role);
+
+  if (role === 'viewer') {
+    allowed.push('houses', 'birds', 'production', 'feeding', 'tasks', 'health', 'maintenance');   // solo lectura: sin Finanzas / Personal / Boletas
+  } else if (role === 'vet') {
+    allowed.push('health', 'birds', 'payments', 'tasks');
+  } else if (role === 'maintenance') {
+    allowed.push('maintenance', 'houses', 'tasks', 'payments');
+  } else if (role === 'operator' || role === 'manager' || role === 'admin') {
+    allowed.push('houses', 'birds', 'production', 'feeding', 'tasks', 'health', 'maintenance', 'payments');
+  }
+  
+  // Gerente (asistente administrativo) y Administrador: mismo trabajo diario
+  if (role === 'manager' || role === 'admin') {
+    allowed.push('staff', 'attendance', 'finance', 'payments', 'pending', 'notifications-admin');
+    setTimeout(function() { refreshPendingBadge(); }, 1200);
+  }
+  // Exclusivo del Administrador: usuarios, ajustes del sistema y pesaje
+  if (role === 'admin') {
+    allowed.push('users', 'settings', 'pesaje', 'buyerdebts');
+  }
+  
+  // Aplicar visibilidad a cada item del menú
+  document.querySelectorAll('.nav-item').forEach(function(el) {
+    var mod = el.getAttribute('data-module');
+    if (allowed.indexOf(mod) > -1) {
+      el.style.display = 'flex';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+
+  // Mostrar u Ocultar títulos de sección
+  var nav = document.querySelector('.sidebar-nav');
+  if (nav) {
+    var sections = Array.from(nav.children);
+    var currentTitle = null;
+    var hasVisibleItems = false;
+    
+    sections.forEach(function(el) {
+      if (el.classList.contains('nav-section-title')) {
+        if (currentTitle && !hasVisibleItems) currentTitle.style.display = 'none';
+        else if (currentTitle) currentTitle.style.display = 'block';
+        currentTitle = el;
+        hasVisibleItems = false;
+      } else if (el.classList.contains('nav-item') && el.style.display !== 'none') {
+        hasVisibleItems = true;
+      }
+    });
+    if (currentTitle) {
+      currentTitle.style.display = hasVisibleItems ? 'block' : 'none';
+    }
+  }
+
+  document.getElementById('login-container').style.display  = 'none';
+  document.getElementById('dashboard-container').style.display = 'flex';
+  startPolling();
+  try { initPush(); } catch (ePush) {}
+  // Acceso directo de la app instalada (?m=modulo): abre ese módulo si el rol lo permite
+  var _mIni = 'dashboard';
+  try { var _qm = new URLSearchParams(location.search).get('m'); if (_qm && allowed.indexOf(_qm) > -1) _mIni = _qm; } catch (eQm) {}
+  loadModule(_mIni);
+  // Inicializar sidebar responsivo después de mostrar el dashboard
+  setTimeout(function() {
+    var sb = document.getElementById('sidebar');
+    var ov = document.getElementById('sidebar-overlay');
+    var tg = document.getElementById('menu-toggle');
+    if (!sb || !ov || !tg) return;
+    function _openSB() { sb.classList.add('mobile-open'); ov.classList.add('show'); document.body.style.overflow='hidden'; }
+    function _closeSB() { sb.classList.remove('mobile-open'); ov.classList.remove('show'); document.body.style.overflow=''; }
+    // Clonar toggle para limpiar handlers anteriores
+    var newTg = tg.cloneNode(true);
+    tg.parentNode.replaceChild(newTg, tg);
+    newTg.addEventListener('click', function(e) { e.stopPropagation(); if (sb.classList.contains('mobile-open')) _closeSB(); else _openSB(); });
+    ov.addEventListener('click', _closeSB);
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() { if (window.innerWidth <= 768) _closeSB(); });
+    });
+    // Swipe en el sidebar para cerrar
+    var _sx = 0;
+    sb.addEventListener('touchstart', function(e) { _sx = e.changedTouches[0].clientX; }, { passive: true });
+    sb.addEventListener('touchend', function(e) { if (e.changedTouches[0].clientX - _sx < -60) _closeSB(); }, { passive: true });
+  }, 100);
+}
+
+function doLogout() {
+  confirmDialog('¿Cerrar sesión?', function() {
+    var _tok = App.token, _pk = ''; try { _pk = localStorage.getItem('gs_push_token') || ''; } catch (e) {}
+    if (_tok) {
+      // Se quita el aviso de ESTE dispositivo para que otro usuario del mismo celular no reciba los del anterior
+      if (_pk) api('unregisterPushDevice', { fcm_token: _pk }, function() { api('logout', { token: _tok }); });
+      else api('logout', {});
+    }
+    try { localStorage.removeItem('gs_push_token'); } catch (e) {}
+    stopPolling();
+    destroyCharts();
+    App.token = null; App.user = null; App._cache = {};
+    try { localStorage.removeItem('gs_token'); } catch(e) {}
+    document.documentElement.classList.remove('has-session');
+    document.getElementById('dashboard-container').style.display = 'none';
+    document.getElementById('login-container').style.display    = 'flex';
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('dynamic-content').innerHTML = '';
+  }, { okText: 'Cerrar sesión', icon: 'fa-sign-out-alt' });
+}
+
+function checkSession() {
+  var t; try { t = localStorage.getItem('gs_token'); } catch(e) {}
+  if (!t) return;
+  showLoader(true);
+  api('getSession', { token: t }, function(r) {
+    showLoader(false);
+    if (r && r.success && r.user) {
+      App.token = t; App.user = r.user;
+      initDashboard(r.user);
+    } else if (r && r.network) {
+      // Falla de red: se conserva el token para no cerrar la sesión; recargar reintenta
+      document.documentElement.classList.remove('has-session');
+      document.getElementById('login-container').style.display = 'flex';
+    } else {
+      try { localStorage.removeItem('gs_token'); } catch(e) {}
+      document.documentElement.classList.remove('has-session');
+      document.getElementById('login-container').style.display = 'flex';
+    }
+  });
+}
+
+// ==================== POLLING ====================
+function startPolling() {
+  App._notifPrimed = false; App._seenNotifs = {};
+  api('getSettings', {}, function(r) { if (r && r.data) App.notifSound = r.data.notifSound !== false; });
+  api('updateOnlineStatus', {});
+  pollNotifications();
+  pollOnline();
+  pollChat(); // Llamar inmediatamente para inicializar _lastChatMsgId
+  // Intervalos más largos = menos ejecuciones de Apps Script. Chat: 30s; Notif: 2min; Online: 2min; Tareas: 3min
+  App.polls.notif  = setInterval(pollNotifications, 120000);
+  App.polls.online = setInterval(function() { api('updateOnlineStatus', {}); pollOnline(); }, 120000);
+  var _chatTick = 0;   // con la pestaña oculta el chat se consulta 4 veces menos (menos carga en Apps Script)
+  App.polls.chat   = setInterval(function() { if (document.hidden && (++_chatTick % 4)) return; pollChat(); }, 30000);
+  App.polls.taskAlert = setInterval(pollTaskAlerts, 180000);
+  // Vista del operador: se actualiza sola cada minuto para que las horas pasen a «te toca ahora» sin recargar
+  App.polls.myTasks = setInterval(function() {
+    if (App.currentModule !== 'tasks' || isMgrFE() || document.hidden) return;
+    if (document.getElementById('my-proof-modal')) return;   // no interrumpir si está confirmando una foto
+    renderMyTasks();
+  }, 60000);
+  setTimeout(pollTaskAlerts, 3000);
+}
+
+function stopPolling() {
+  var tab = document.getElementById('task-alert-bar'); if (tab) tab.style.display = 'none';
+  Object.keys(App.polls).forEach(function(k) { clearInterval(App.polls[k]); });
+  App.polls = {};
+}
+
+// ==================== SONIDO DE NOTIFICACIONES ====================
+// Lo enciende o apaga el administrador en Ajustes del Sistema. Se genera con el navegador (sin archivos de audio).
+// Los navegadores solo permiten sonido después de que la persona toca la pantalla una vez; por eso se "desbloquea" con el primer toque.
+// Sonido generado como archivo WAV en memoria y reproducido con un <audio> "desbloqueado" por el primer toque:
+// así sigue sonando aunque el usuario esté en otra sección y no depende de que el audio del navegador esté despierto.
+var _audioCtx = null, _chimeEls = {}, _audioUnlocked = false;
+function getAudioCtx_() {
+  try {
+    if (!_audioCtx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) _audioCtx = new AC(); }
+    if (_audioCtx && _audioCtx.state !== 'running') _audioCtx.resume();
+  } catch (e) {}
+  return _audioCtx;
+}
+// Sonido de pollito: "píos" cortos y agudos. Cada pío = [inicio s, duración s, tono grave Hz, tono agudo Hz].
+// El tono sube rápido, baja un poco y lleva un pequeño temblor (vibrato), como un pollito de verdad.
+var CHICK_ = {
+  notif: [[0, 0.13, 2300, 3500], [0.19, 0.13, 2500, 3700], [0.40, 0.17, 2200, 3600]],   // pi-pi-píooo
+  chat:  [[0, 0.12, 2400, 3600], [0.17, 0.12, 2600, 3800]]                               // pi-pi
+};
+function chickFreq_(c, t) {                       // frecuencia (Hz) del pío en el instante t (segundos desde su inicio)
+  var p = Math.min(1, t / c[1]);
+  var sweep = p < 0.35 ? p / 0.35 : 1 - 0.25 * (p - 0.35) / 0.65;
+  return (c[2] + (c[3] - c[2]) * sweep) * (1 + 0.03 * Math.sin(2 * Math.PI * 38 * t));
+}
+function chimeWavUrl_(kind) {
+  var rate = 22050, chirps = CHICK_[kind === 'chat' ? 'chat' : 'notif'];
+  var total = 0.05; chirps.forEach(function(c) { total = Math.max(total, c[0] + c[1] + 0.05); });
+  var n = Math.floor(rate * total), data = new Int16Array(n);
+  chirps.forEach(function(c) {
+    var st = Math.floor(rate * c[0]), len = Math.floor(rate * c[1]), phase = 0;
+    for (var i = 0; i < len && st + i < n; i++) {
+      var tt = i / rate;
+      phase += 2 * Math.PI * chickFreq_(c, tt) / rate;                                      // integra la frecuencia → fase
+      var env = Math.pow(Math.sin(Math.PI * i / len), 0.6);                                // sube y baja suave (sin "clic")
+      var smp = (Math.sin(phase) + 0.35 * Math.sin(2 * phase)) / 1.35;                     // tono + armónico = timbre de pollito
+      data[st + i] = Math.max(-32767, Math.min(32767, data[st + i] + smp * env * 24000));
+    }
+  });
+  var buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  var w = function(o, str) { for (var i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  for (var k = 0; k < n; k++) v.setInt16(44 + k * 2, data[k], true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+function chimeEl_(kind) {
+  kind = kind === 'chat' ? 'chat' : 'notif';
+  if (!_chimeEls[kind]) { try { var a = new Audio(chimeWavUrl_(kind)); a.preload = 'auto'; _chimeEls[kind] = a; } catch (e) {} }
+  return _chimeEls[kind];
+}
+// Cada toque/tecla vuelve a despertar el audio (en celulares el navegador lo duerme) y "desbloquea" los sonidos una vez.
+function unlockAudio_() {
+  getAudioCtx_();
+  if (_audioUnlocked) return;
+  ['notif', 'chat'].forEach(function(k) {
+    var a = chimeEl_(k); if (!a) return;
+    try { a.muted = true; var pr = a.play(); if (pr && pr.then) pr.then(function() { a.pause(); a.currentTime = 0; a.muted = false; _audioUnlocked = true; }).catch(function() { a.muted = false; }); } catch (e) {}
+  });
+}
+['click', 'touchstart', 'touchend', 'keydown', 'pointerdown'].forEach(function(ev) { document.addEventListener(ev, unlockAudio_, { passive: true }); });
+document.addEventListener('visibilitychange', function() { if (!document.hidden) getAudioCtx_(); });
+function playNotifSound(force, kind) {
+  if (!force && App.notifSound === false) return;
+  var webAudio = function() {
+    try {
+      var ctx = getAudioCtx_(); if (!ctx || ctx.state !== 'running') return;
+      var t0 = ctx.currentTime + 0.02;
+      CHICK_[kind === 'chat' ? 'chat' : 'notif'].forEach(function(c) {
+        var st = t0 + c[0], d = c[1], g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime(0.7, st + d * 0.25);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + d);
+        g.connect(ctx.destination);
+        lfo.frequency.value = 38; lg.gain.value = 90; lfo.connect(lg);                      // temblor (vibrato)
+        [[1, 1], [2, 0.35]].forEach(function(h) {                                           // tono + armónico
+          var o = ctx.createOscillator(), hg = ctx.createGain();
+          o.type = 'sine'; hg.gain.value = h[1] / 1.35;
+          o.frequency.setValueAtTime(c[2] * h[0], st);
+          o.frequency.linearRampToValueAtTime(c[3] * h[0], st + d * 0.35);                  // sube rápido
+          o.frequency.linearRampToValueAtTime((c[2] + (c[3] - c[2]) * 0.75) * h[0], st + d); // baja un poco
+          if (h[0] === 1) lg.connect(o.frequency);
+          o.connect(hg); hg.connect(g); o.start(st); o.stop(st + d + 0.02);
+        });
+        lfo.start(st); lfo.stop(st + d + 0.02);
+      });
+    } catch (e) {}
+  };
+  try {
+    var a = chimeEl_(kind);
+    if (a) { a.muted = false; a.currentTime = 0; var pr = a.play(); if (pr && pr.catch) pr.catch(webAudio); return; }
+  } catch (e) {}
+  webAudio();
+}
+function notifSoundCheck_(list) {
+  var seen = App._seenNotifs || (App._seenNotifs = {}), fresh = false;
+  list.forEach(function(n) {
+    var id = String(n.id);
+    if (!seen[id]) { seen[id] = 1; if (!n.is_read) fresh = true; }
+  });
+  if (App._notifPrimed && fresh) playNotifSound();
+  App._notifPrimed = true;   // la primera carga solo memoriza, no suena
+}
+
+function pollNotifications() {
+  apiGet('getNotifications', {}, function(data) {
+    App.notifications = Array.isArray(data) ? data : [];
+    notifSoundCheck_(App.notifications);
+    var unread = App.notifications.filter(function(n) { return !n.is_read; }).length;
+    var dot = document.getElementById('notif-dot');
+    if (dot) dot.className = 'badge' + (unread > 0 ? ' show' : '');
+    renderNotificationsPanel();
+    // Actualizar badge de tareas desde caché (sin llamada extra al GAS)
+    var tasks = App._cache.tasks || [];
+    var pending = tasks.filter(function(t) { return t.status === 'pending' || t.status === 'overdue'; }).length;
+    var tb = document.getElementById('tasks-badge');
+    if (tb) { tb.textContent = pending; tb.style.display = pending > 0 ? 'inline-flex' : 'none'; }
+  });
+}
+
+function pollOnline() {
+  // Usar api() directo — apiGet no tiene 'getOnlineUsers' en su cacheMap
+  api('getOnlineUsers', {}, function(r) {
+    var data = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    App._onlineUsers = data;
+    // Actualizar contador topbar
+    var el = document.getElementById('online-count');
+    if (el) el.textContent = App._onlineUsers.length;
+    // Actualizar contador en header del chat (si está visible)
+    var chatOnline = document.getElementById('chat-online-count');
+    if (chatOnline) chatOnline.textContent = App._onlineUsers.length + ' en línea';
+    // Actualizar avatares online en el header del chat
+    var chatAvatarsEl = document.getElementById('chat-online-avatars');
+    if (chatAvatarsEl) {
+      chatAvatarsEl.innerHTML = App._onlineUsers.slice(0, 5).map(function(u) {
+        var initials = (u.fullName || u.username || 'U').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+        var color = getChatUserColor(u.user_id);
+        return '<div class="chat-online-avatar-sm" style="background:' + color + '" title="' + escHtml(u.fullName || u.username) + '">' + initials + '</div>';
+      }).join('') + (App._onlineUsers.length > 5 ? '<span style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600">+' + (App._onlineUsers.length - 5) + '</span>' : '');
+    }
+    // Actualizar indicadores online/offline en la tabla de usuarios
+    var onlineDots = document.querySelectorAll('[data-online-uid]');
+    if (onlineDots.length) {
+      var onlineIds = App._onlineUsers.map(function(u){ return String(u.user_id); });
+      onlineDots.forEach(function(dot) {
+        var uid = dot.getAttribute('data-online-uid');
+        dot.className = onlineIds.indexOf(uid) > -1 ? 'online-indicator online' : 'online-indicator offline';
+        dot.title = onlineIds.indexOf(uid) > -1 ? 'En línea' : 'Desconectado';
       });
     }
-    return responder(res, 200, json);
-  } catch (err) {
-    const timeout = err && (err.name === 'TimeoutError' || err.name === 'AbortError');
-    return responder(res, timeout ? 504 : 502, {
-      success: false,
-      error: timeout ? 'Timeout esperando a Apps Script' : 'No se pudo contactar con Apps Script: ' + (err && err.message)
+  });
+}
+
+function pollChat() {
+  api('getChatMessages', {}, function(r) {
+    var data = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    if (!Array.isArray(data)) return;
+    // Detectar mensajes nuevos para notificación WhatsApp
+    var prevLast = App._lastChatMsgId || '';
+    if (data.length > 0) {
+      var last = data[data.length - 1];
+      if (last.id !== prevLast && prevLast !== '') {
+        if (App.user && String(last.user_id) !== String(App.user.id)) playNotifSound(false, 'chat');
+        // Hay mensaje nuevo y no somos el autor
+        if (App.currentModule !== 'chat' && App.user && String(last.user_id) !== String(App.user.id)) {
+          chatNotify(last);
+          // Actualizar badge del nav
+          var cb = document.getElementById('chat-badge');
+          if (cb) { App._unreadChat = (App._unreadChat || 0) + 1; cb.textContent = App._unreadChat; cb.style.display = 'inline-flex'; }
+        }
+      }
+      App._lastChatMsgId = last.id;
+    }
+    if (App.currentModule === 'chat') renderChatMessages(data);
+  });
+}
+
+// ==================== MÓDULOS ====================
+// ==================== FILTRO GLOBAL DE CAMPAÑA ====================
+// Un selector en la barra superior: «General» = todas las campañas juntas; o una campaña concreta.
+// Dashboard: lo filtra el servidor. Registro diario, Alimentación, Finanzas, Salud y Mantenimiento: se filtra aquí.
+// Regla de pertenencia (la misma del servidor): campaign_id/bird_id, o galpón + fechas de esa campaña.
+var CAMP_MODS = { houses: 1, birds: 1, production: 1, feeding: 1, finance: 1, health: 1, maintenance: 1, staff: 1, attendance: 1, payments: 1, pending: 1 };
+// Acciones del servidor que reciben automáticamente la campaña elegida (el servidor filtra y guarda con ella)
+var CAMP_API_ = { getProductionModule: 1, getFeedingModule: 1, getFinanceModule: 1, getHealthModule: 1, getMaintenanceModule: 1, getAttendanceModule: 1, saveAttendance: 1, getStaffModule: 1, saveStaffPayment: 1, generateStaffSalaries: 1, getVouchers: 1, getPendingReview: 1, getTaskAlert: 1 };
+function campLoadSaved_() {
+  if (App._campInit) return; App._campInit = true;
+  App.camp = '';   // sin filtro de campaña: se ven todas
+  try { localStorage.removeItem('gx_camp'); } catch (e) {}
+}
+function campIsDraft_(b) { return String(b.campaign_status || '').trim().toLowerCase() === 'draft'; }
+function campById_(id) {
+  var l = (App._campMeta && App._campMeta.birds) || [];
+  for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(id)) return l[i];
+  return null;
+}
+function campWinOf_(b) {
+  var start = String(b.arrival_date || '').slice(0, 10), end = '9999-12-31';
+  ((App._campMeta && App._campMeta.birds) || []).forEach(function(o) {
+    if (String(o.house_id) !== String(b.house_id) || String(o.id) === String(b.id) || campIsDraft_(o)) return;
+    var s = String(o.arrival_date || '').slice(0, 10);
+    if (s > start && s < end) end = s;
+  });
+  return { start: start, end: end };
+}
+// ¿Este registro pertenece a la campaña elegida? (sin campaña elegida = General: todo pasa)
+function campKeep_(rec, kind) {
+  var cid = campCur_(App.currentModule);
+  if (!cid || !App._campMeta) return true;
+  var b = campById_(cid); if (!b) return true;
+  if (kind === 'bird') return String(rec.bird_id) === String(cid);
+  if (rec.campaign_id) return String(rec.campaign_id) === String(cid);
+  var d = String(rec.date || rec.scheduled_date || rec.completed_date || rec.created_at || '').slice(0, 10);
+  var w = campWinOf_(b);
+  return String(rec.house_id) === String(b.house_id) && d >= w.start && d < w.end;
+}
+// Nombre de la campaña de un registro (por campaign_id, bird_id o, si no, por galpón + fecha)
+function campNameOf_(rec) {
+  var b = rec.campaign_id ? campById_(rec.campaign_id) : null;
+  if (!b && rec.bird_id) b = campById_(rec.bird_id);
+  if (!b && rec.house_id && App._campMeta) {
+    var d = String(rec.date || rec.scheduled_date || rec.created_at || '').slice(0, 10);
+    ((App._campMeta.birds) || []).forEach(function(o) {
+      if (b || campIsDraft_(o) || String(o.house_id) !== String(rec.house_id)) return;
+      var w = campWinOf_(o); if (d >= w.start && d < w.end) b = o;
     });
   }
+  return b ? b.batch_number : '';
+}
+// ---- Filtro de campañas por sección (cada tabla recuerda el suyo) ----
+function campCur_(mod) { return String((App._fc && App._fc[mod]) || App.camp || ''); }
+function campFilterHtml_(mod, rerender) {
+  var cur = campCur_(mod);
+  var hMap = {}; ((App._campMeta && App._campMeta.houses) || []).forEach(function(h) { hMap[h.id] = h.name; });
+  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) { return !campIsDraft_(b); })
+    .sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
+  return '<select title="Filtrar por campaña" onchange="App._fc=App._fc||{};App._fc[\'' + mod + '\']=this.value;' + rerender + '">' +
+    '<option value="">Todas las campañas</option>' + list.map(function(b) {
+      return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === cur ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + '</option>';
+    }).join('') + '</select>';
+}
+function campOfHouse_(houseId) {
+  var act = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) {
+    return String(b.house_id) === String(houseId) && !campIsDraft_(b) &&
+      (String(b.campaign_status || '').trim().toLowerCase() === 'started' || (!b.campaign_status && String(b.status).trim().toLowerCase() === 'active'));
+  }).sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
+  return act[0] ? act[0].batch_number : '';
+}
+function campBadge_(name) { return name ? '<span class="badge badge-purple">' + escHtml(name) + '</span>' : '<span style="color:var(--gray-light)">—</span>'; }
+function campMetaLoad_(cb) {
+  if (App._campMeta && (Date.now() - App._campMeta.ts < 60000)) { if (cb) cb(); return; }
+  api('getBirdsModule', {}, function(r) {
+    if (r && r.birds) App._campMeta = { birds: r.birds, houses: r.houses || [], ts: Date.now() };
+    if (cb) cb();
+  });
+}
+// Barra del dashboard (solo admin): muestra con qué campaña de Pesaje está enlazada la campaña elegida.
+// Sin enlace, los kg vendidos, las ventas y la deuda de esa campaña salen en cero (el total «general» sí los suma todos).
+function pzLinkBar_(data) {
+  if (!App.user || App.user.role !== 'admin' || !data || !data.selectedCampaign) return '';
+  var L = data.pzCampanas || []; if (!L.length) return '';
+  var sel = String(data.selectedCampaign);
+  var mine = L.filter(function(c) { return String(c.lote) === sel; });
+  var opts = '<option value="">— Elegir campaña de Pesaje —</option>' + L.map(function(c) {
+    var other = c.lote && String(c.lote) !== sel;
+    return '<option value="' + escHtml(c.campana) + '">' + escHtml(c.label) + ' · vendido ' + fmtMoneyShort(c.vendido || 0) + (other ? ' (hoy enlazada al lote ' + escHtml(c.loteLabel || 'otro') + ')' : '') + '</option>';
+  }).join('');
+  var state = mine.length
+    ? '<span><i class="fas fa-link"></i> Pesaje enlazado: <b>' + mine.map(function(c) { return escHtml(c.label); }).join(', ') + '</b></span>'
+    : '<span style="color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> Esta campaña no tiene Pesaje enlazado: kg vendidos, ventas y deuda salen en cero.</span>';
+  return '<div class="modal-note" style="margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' + state +
+    '<select id="pz-link-sel" style="max-width:100%">' + opts + '</select>' +
+    '<button type="button" class="btn-primary" onclick="pzLinkDash_()"><i class="fas fa-link"></i> ' + (mine.length ? 'Cambiar / añadir' : 'Enlazar') + '</button></div>';
+}
+function pzLinkDash_() {
+  var camp = v('pz-link-sel');
+  if (!camp) { showToast('Elige la campaña de Pesaje', 'error'); return; }
+  if (!App.camp) { showToast('Elige primero una campaña arriba', 'error'); return; }
+  api('pesajeFijarLote', { campana: camp, lote: App.camp }, function(r) {
+    if (r && r.success) { showToast('Pesaje enlazado a esta campaña', 'success'); loadModule('dashboard'); }
+    else showToast((r && r.error) || 'No se pudo enlazar', 'error');
+  });
+}
+
+function loadModule(mod) {
+  campLoadSaved_();
+  App.currentModule = mod;
+  destroyCharts();
+  document.querySelectorAll('.nav-item').forEach(function(el) {
+    el.classList.toggle('active', el.getAttribute('data-module') === mod);
+  });
+  var titles = {
+    dashboard: 'Dashboard', houses: 'Galpones', birds: 'Aves',
+    production: 'Registro diario', feeding: 'Alimentación', finance: 'Finanzas',
+    chat: 'Chat General', staff: 'Empleados', attendance: 'Asistencia',
+    tasks: 'Tareas', health: 'Salud / Veterinaria', maintenance: 'Mantenimiento',
+    'notifications-admin': 'Enviar Notificación', users: 'Usuarios del sistema',
+    payments: 'Boletas y evidencias', pesaje: 'Pesaje y Liquidación', buyerdebts: 'Deuda de compradores', tutorials: 'Tutoriales', pending: 'Por revisar'
+  };
+  var tb = document.getElementById('top-bar-title');
+  if (tb) tb.textContent = titles[mod] || mod;
+  showLoader(true);
+  var renders = {
+    dashboard: renderDashboard, houses: renderHouses, birds: renderBirds,
+    production: renderProduction, feeding: renderFeeding, finance: renderFinance,
+    chat: renderChat, staff: renderStaff, attendance: renderAttendance,
+    tasks: renderTasks, health: renderHealth, maintenance: renderMaintenance,
+    'notifications-admin': renderNotifAdmin, users: renderUsers, payments: renderPayments,
+    settings: renderSettings, pesaje: renderPesaje, buyerdebts: renderBuyerDebts, tutorials: renderTutorials, pending: renderPending
+  };
+  if (renders[mod]) {
+    if (CAMP_MODS[mod] && !App._campMeta) campMetaLoad_(function() { renders[mod](); });   // espera los lotes para poder filtrar
+    else { renders[mod](); if (CAMP_MODS[mod]) campMetaLoad_(); }
+  }
+  else { document.getElementById('dynamic-content').innerHTML = '<p style="padding:20px;color:var(--gray)">Módulo no encontrado.</p>'; showLoader(false); }
+}
+
+// ==================== MODO OSCURO ====================
+function applyTheme(mode) {
+  if (mode !== 'dark' && mode !== 'pesaje') mode = 'light';
+  var dark = (mode !== 'light');
+  var root = document.documentElement;
+  if (dark) root.setAttribute('data-theme', mode); else root.removeAttribute('data-theme');
+  var names = { light: 'Claro', dark: 'Oscuro', pesaje: 'Pesaje' };
+  var icons = { light: 'fas fa-sun', dark: 'fas fa-moon', pesaje: 'fas fa-weight-scale' };
+  var ic = document.getElementById('theme-toggle-icon'), bt = document.getElementById('theme-toggle-btn');
+  if (ic) ic.className = icons[mode];
+  if (bt) { bt.classList.toggle('theme-on', dark); bt.title = 'Tema: ' + names[mode] + ' (clic para cambiar)'; }
+  var mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.setAttribute('content', mode === 'pesaje' ? '#020617' : (dark ? '#0b0e13' : '#e8531a'));
+  try { var _pf = document.getElementById('pesaje-frame'); if (_pf && _pf.contentWindow) _pf.contentWindow.postMessage({ type: 'gs-theme', theme: mode }, '*'); } catch (e) {}   // el módulo Pesaje sigue el tema del sistema
+  try { var _tf = document.getElementById('tutorial-frame'); if (_tf && _tf.contentWindow) _tf.contentWindow.postMessage({ type: 'gs-theme', theme: mode }, '*'); } catch (e) {}   // el módulo Tutoriales sigue el tema del sistema
+  try { if (window.Chart && Chart.defaults) { Chart.defaults.color = mode === 'pesaje' ? '#94a3b8' : (dark ? '#9aa3b2' : '#666'); Chart.defaults.borderColor = mode === 'pesaje' ? '#1e293b' : (dark ? '#303744' : 'rgba(0,0,0,0.1)'); } } catch (e) {}
+}
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme') || 'light';
+  var next = cur === 'light' ? 'dark' : (cur === 'dark' ? 'pesaje' : 'light');   // Claro → Oscuro → Pesaje → Claro
+  try { localStorage.setItem('gs_theme', next); } catch (e) {}
+  applyTheme(next);
+  if (window.App && App.currentModule && typeof loadModule === 'function' && document.getElementById('dashboard-container') && document.getElementById('dashboard-container').style.display !== 'none') {
+    loadModule(App.currentModule);   // redibuja para que los gráficos tomen los colores nuevos
+  }
+}
+(function() {
+  var t = 'light'; try { t = localStorage.getItem('gs_theme') || 'light'; } catch (e) {}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { applyTheme(t); });
+  else applyTheme(t);
+})();
+
+// ==================== MÓDULO PESAJE (solo administrador) ====================
+// La pantalla vive en un archivo aparte («Pesaje») y se muestra dentro de un iframe aislado:
+// no comparte estilos ni variables con el resto del sistema. Los datos van por api('pesaje...').
+var _pesajeHtmlCache = '';
+function renderPesaje() {
+  var box = document.getElementById('dynamic-content');
+  if (!App.user || App.user.role !== 'admin') {
+    box.innerHTML = '<p style="padding:20px;color:var(--danger)"><i class="fas fa-lock" style="margin-right:8px"></i>Solo administrador.</p>';
+    showLoader(false); return;
+  }
+  function pzPrepare_(cb) {
+    if (!App.camp) { cb(null); return; }
+    api('pesajeCampanaDeLote', { lote: App.camp }, function(r) {
+      var cs = (r && r.campanas) || [];
+      if (cs.length) { try { localStorage.setItem('avicola_campana_activa', cs[0]); } catch (e) {} }
+      cb({ camps: cs });
+    });
+  }
+  function pzBar_(info) {
+    if (!info || !App.camp) return '';
+    var b = campById_(App.camp), nm = b ? b.batch_number : 'campaña';
+    return info.camps.length
+      ? '<div class="camp-chip" style="margin:0 0 8px"><i class="fas fa-link"></i> Campaña del sistema: <b>' + escHtml(nm) + '</b> · Pesaje enlazado: <b>' + escHtml(info.camps.map(bdCampLabel).join(', ')) + '</b></div>'
+      : '<div class="camp-chip" style="margin:0 0 8px;border-color:var(--danger);color:var(--danger)"><i class="fas fa-triangle-exclamation"></i> La campaña <b>' + escHtml(nm) + '</b> aún no tiene Pesaje enlazado. Crea la campaña de Pesaje que le corresponde y elige este lote en el selector de Finanzas; lo que ves abajo puede ser de otra campaña.</div>';
+  }
+  function mount(html, info) {
+    box.innerHTML = pzBar_(info) + '<iframe id="pesaje-frame" title="Pesaje y Liquidación" allow="camera; clipboard-write" ' +
+      'style="width:100%;height:calc(100vh - var(--header-height) - 48px);height:calc(100dvh - var(--header-height) - 48px);' +
+      'border:1px solid var(--border);border-radius:var(--radius);background:#020617;display:block;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;opacity:0;transition:opacity .15s" scrolling="yes"></iframe>';
+    var fr = document.getElementById('pesaje-frame');
+    var shown = false;
+    // El iframe queda oculto (con el loader visible) hasta que cargue y Tailwind aplique estilos: evita el parpadeo
+    function reveal() {
+      if (shown || document.getElementById('pesaje-frame') !== fr) return;
+      shown = true; fr.style.opacity = '1'; showLoader(false);
+    }
+    fr.onload = function() { requestAnimationFrame(function() { requestAnimationFrame(reveal); }); };
+    setTimeout(reveal, 8000);   // por si algún recurso externo tarda o falla
+    if (info) fr.style.height = 'calc(100dvh - var(--header-height) - 96px)';
+    fr.srcdoc = html;
+  }
+  if (_pesajeHtmlCache) { pzPrepare_(function(info) { mount(_pesajeHtmlCache, info); }); return; }
+  api('pesajeGetPage', {}, function(r) {
+    if (!r || !r.success || !r.html) {
+      box.innerHTML = '<p style="padding:20px;color:var(--danger)">' + escHtml((r && r.error) || 'No se pudo cargar el módulo de Pesaje.') + '</p>';
+      showLoader(false); return;
+    }
+    _pesajeHtmlCache = r.html;
+    pzPrepare_(function(info) { mount(r.html, info); });
+  });
+}
+
+// ==================== MÓDULO TUTORIALES (todos los roles ven; solo ROLES_EDITAR administra) ====================
+// Igual que Pesaje: la pantalla vive en el archivo «Tutorial» y se muestra en un iframe aislado.
+// Los datos van por api('tutorial...'); el permiso de editar lo valida el servidor (tutorialRoute).
+var _tutorialHtmlCache = '';
+function renderTutorials() {
+  var box = document.getElementById('dynamic-content');
+  function mount(html) {
+    box.innerHTML = '<iframe id="tutorial-frame" title="Tutoriales" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write" allowfullscreen ' +
+      'style="width:100%;height:calc(100vh - var(--header-height) - 48px);height:calc(100dvh - var(--header-height) - 48px);' +
+      'border:1px solid var(--border);border-radius:var(--radius);background:var(--white);display:block;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;opacity:0;transition:opacity .15s" scrolling="yes"></iframe>';
+    var fr = document.getElementById('tutorial-frame');
+    var shown = false;
+    function reveal() {
+      if (shown || document.getElementById('tutorial-frame') !== fr) return;
+      shown = true; fr.style.opacity = '1'; showLoader(false);
+    }
+    fr.onload = function() { requestAnimationFrame(function() { requestAnimationFrame(reveal); }); };
+    setTimeout(reveal, 8000);   // por si algún recurso externo tarda o falla
+    fr.srcdoc = html;
+  }
+  if (_tutorialHtmlCache) { mount(_tutorialHtmlCache); return; }
+  api('tutorialGetPage', {}, function(r) {
+    if (!r || !r.success || !r.html) {
+      box.innerHTML = '<p style="padding:20px;color:var(--danger)">' + escHtml((r && r.error) || 'No se pudo cargar el módulo de Tutoriales.') + '</p>';
+      showLoader(false); return;
+    }
+    _tutorialHtmlCache = r.html;
+    mount(r.html);
+  });
+}
+
+// ==================== DASHBOARD ====================
+// ==================== PAGINACIÓN DE TABLAS ====================
+var _tblState = {}; // { tableId: { page, perPage, allRows } }
+var TBL_PER_PAGE = 10;
+
+function tblPaginate(tableId, allRows, perPage) {
+  perPage = perPage || TBL_PER_PAGE;
+  if (!_tblState[tableId]) _tblState[tableId] = { page: 1 };
+  var state = _tblState[tableId];
+  state.allRows = allRows;
+  state.perPage = perPage;
+  var total = allRows.length;
+  var totalPages = Math.max(1, Math.ceil(total / perPage));
+  if (state.page > totalPages) state.page = 1;
+  return _tblRender(tableId);
+}
+
+function tblGoPage(tableId, page) {
+  if (!_tblState[tableId]) return;
+  _tblState[tableId].page = page;
+  var pg = _tblRender(tableId);
+  // Actualizar DOM sin re-renderizar todo el módulo
+  var tbody = document.getElementById('tbl-body-' + tableId);
+  var pgEl  = document.getElementById('tbl-pg-' + tableId);
+  if (tbody) tbody.innerHTML = pg.rowsHtml;
+  if (pgEl)  pgEl.outerHTML = pg.paginationHtml;
+  // Scroll suave al inicio de la tabla
+  var card = tbody && tbody.closest('.table-card');
+  if (card && typeof applyCardMode === 'function') applyCardMode(card);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function _tblRender(tableId) {
+  var state = _tblState[tableId];
+  var allRows = state.allRows || [];
+  var perPage = state.perPage || TBL_PER_PAGE;
+  var total = allRows.length;
+  var totalPages = Math.max(1, Math.ceil(total / perPage));
+  var page = Math.min(state.page, totalPages);
+  var start = (page - 1) * perPage;
+  var pageRows = allRows.slice(start, start + perPage);
+  var emptyRow = allRows._emptyRow || ('<tr class="empty-row"><td colspan="99">Sin registros</td></tr>');
+  var rowsHtml = pageRows.length ? pageRows.join('') : emptyRow;
+  var from = total === 0 ? 0 : start + 1;
+  var to   = Math.min(start + perPage, total);
+  var paginationHtml = _tblPaginationHtml(tableId, page, totalPages, from, to, total);
+  return { rowsHtml: rowsHtml, paginationHtml: paginationHtml };
+}
+
+function _tblPaginationHtml(tableId, page, totalPages, from, to, total) {
+  var info = '<span class="tbl-pagination-info">Mostrando <strong>' + from + '–' + to + '</strong> de <strong>' + total + '</strong></span>';
+  if (totalPages <= 1) {
+    return '<div class="tbl-pagination" id="tbl-pg-' + tableId + '">' +
+      '<span class="tbl-pagination-info"><strong>' + total + '</strong> registro' + (total !== 1 ? 's' : '') + '</span>' +
+    '</div>';
+  }
+  var prev = '<button class="tbl-pg-btn" onclick="tblGoPage(\'' + tableId + '\',' + (page-1) + ')" ' + (page<=1?'disabled':'') + ' title="Anterior"><i class="fas fa-chevron-left"></i></button>';
+  var next = '<button class="tbl-pg-btn" onclick="tblGoPage(\'' + tableId + '\',' + (page+1) + ')" ' + (page>=totalPages?'disabled':'') + ' title="Siguiente"><i class="fas fa-chevron-right"></i></button>';
+  var pages = _tblPageButtons(tableId, page, totalPages);
+  return '<div class="tbl-pagination" id="tbl-pg-' + tableId + '">' +
+    info + '<div class="tbl-pages">' + prev + pages + next + '</div>' +
+  '</div>';
+}
+
+function _tblPageButtons(tableId, page, totalPages) {
+  var btns = [], range = [];
+  if (totalPages <= 7) {
+    for (var i = 1; i <= totalPages; i++) range.push(i);
+  } else {
+    range.push(1);
+    if (page > 3) range.push('...');
+    for (var j = Math.max(2, page-1); j <= Math.min(totalPages-1, page+1); j++) range.push(j);
+    if (page < totalPages - 2) range.push('...');
+    range.push(totalPages);
+  }
+  range.forEach(function(r) {
+    if (r === '...') { btns.push('<span class="tbl-pg-dots">…</span>'); }
+    else { btns.push('<button class="tbl-pg-btn' + (r===page?' active':'') + '" onclick="tblGoPage(\'' + tableId + '\',' + r + ')">' + r + '</button>'); }
+  });
+  return btns.join('');
+}
+
+function tblResetPage(tableId) {
+  if (_tblState[tableId]) _tblState[tableId].page = 1;
+  else _tblState[tableId] = { page: 1 };
+}
+
+// Helper: construye el bloque tabla+paginación listo para insertar en HTML
+function tblBuild(tableId, allRows, emptyRow, theadHtml, perPage) {
+  if (emptyRow) allRows._emptyRow = emptyRow;
+  tblResetPage(tableId);
+  _tblOrig[tableId] = allRows.slice();   // orden original (para volver a «Orden original»)
+  // Si el usuario ya eligió un orden en esta tabla, se mantiene al volver a dibujarla (buscar, filtrar, guardar)
+  var so = _tblSort[tableId], nCols = (theadHtml.match(/<th[\s>]/g) || []).length;
+  if (so && so.col >= nCols) { delete _tblSort[tableId]; so = null; }
+  if (so) { var emp = allRows._emptyRow; allRows = _tblSorted(allRows, so.col, so.dir); if (emp) allRows._emptyRow = emp; }
+  var pg = tblPaginate(tableId, allRows, perPage);
+  return '<div class="table-card">' + _tblSortBarHtml(tableId, theadHtml, allRows) + '<div class="table-scroll"><table class="data-table tbl-sortable">' +
+    '<thead>' + _tblMarkHead(theadHtml, so) + '</thead>' +
+    '<tbody id="tbl-body-' + tableId + '">' + pg.rowsHtml + '</tbody>' +
+  '</table></div>' + pg.paginationHtml + '</div>';
+}
+
+// ==================== ORDENAR TABLAS ====================
+// Todas las tablas hechas con tblBuild se pueden ordenar: con el selector «Ordenar por» (celular y PC) o con clic
+// en el encabezado de la columna (PC). El orden se aplica a TODOS los registros, no solo a la página que se ve.
+// Reconoce solo: fechas (dd/mm/aaaa), números / dinero (S/ 1,250.00 · 85% · 12K) y texto (A–Z, con tildes y ñ).
+var _tblSort = {};   // { tableId: { col: nº de columna, dir: 1 ascendente | -1 descendente } }
+var _tblOrig = {};   // { tableId: filas en su orden original }
+
+function _tblCellText(rowHtml, col) {
+  var tb = document.createElement('tbody'); tb.innerHTML = rowHtml;
+  var c = tb.rows[0] && tb.rows[0].cells[col];
+  return c ? c.textContent : '';
+}
+// Interpreta el texto de una celda: { e:1 } vacía · { k:'d' } fecha · { k:'n' } número · { k:'s' } texto
+function _tblVal(t) {
+  t = String(t == null ? '' : t).replace(/\s+/g, ' ').trim();
+  if (!t || t === '—' || t === '-') return { e: 1 };
+  var m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?: (\d{1,2}):(\d{2}))?$/);
+  if (m) return { k: 'd', x: +m[3] * 1e8 + +m[2] * 1e6 + +m[1] * 1e4 + (+m[4] || 0) * 100 + (+m[5] || 0), t: t };
+  m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (m && t.length <= 19) return { k: 'd', x: +m[1] * 1e8 + +m[2] * 1e6 + +m[3] * 1e4 + (+m[4] || 0) * 100 + (+m[5] || 0), t: t };
+  m = t.replace(/^S\/\s*/, '').replace(/\s*%$/, '').match(/^(-?\d[\d.,]*)(?:\s*(mil|K|M)(?![A-Za-zÁ-ú]))?(?:\s*[A-Za-zÁ-ú.\/]{1,8})?$/);
+  if (m) {
+    var n = m[1]; n = /,\d{3}(?!\d)/.test(n) ? n.replace(/,/g, '') : n.replace(',', '.');
+    var x = parseFloat(n);
+    if (!isNaN(x)) return { k: 'n', x: x * ({ mil: 1e3, K: 1e3, M: 1e6 }[m[2]] || 1), t: t };
+  }
+  return { k: 's', t: t };
+}
+// Tipo de una columna: todas fechas → 'd' · todas números → 'n' · cualquier otro caso → 's' (texto)
+function _tblKind(vals) {
+  var v = vals.filter(function(x) { return !x.e; });
+  if (!v.length) return 's';
+  if (v.every(function(x) { return x.k === 'd'; })) return 'd';
+  if (v.every(function(x) { return x.k === 'n'; })) return 'n';
+  return 's';
+}
+// Devuelve las filas ordenadas por la columna col (dir 1 / -1). Las celdas vacías van siempre al final.
+function _tblSorted(rows, col, dir) {
+  var items = rows.map(function(r, i) { return { r: r, i: i, v: _tblVal(_tblCellText(r, col)) }; });
+  var kind = _tblKind(items.map(function(x) { return x.v; }));
+  items.sort(function(a, b) {
+    if (a.v.e || b.v.e) return a.v.e === b.v.e ? a.i - b.i : (a.v.e ? 1 : -1);
+    var c = kind === 's' ? a.v.t.localeCompare(b.v.t, 'es', { sensitivity: 'base', numeric: true }) : a.v.x - b.v.x;
+    return c ? c * dir : a.i - b.i;
+  });
+  return items.map(function(x) { return x.r; });
+}
+// Aplica un orden (dir 0 = volver al orden original) y actualiza la tabla sin dibujar todo el módulo
+function tblSortApply(tableId, col, dir) {
+  var st = _tblState[tableId]; if (!st || !_tblOrig[tableId]) return;
+  var emp = st.allRows && st.allRows._emptyRow;
+  var rows = dir ? _tblSorted(_tblOrig[tableId], col, dir) : _tblOrig[tableId].slice();
+  if (emp) rows._emptyRow = emp;
+  if (dir) _tblSort[tableId] = { col: col, dir: dir }; else delete _tblSort[tableId];
+  st.allRows = rows;
+  tblGoPage(tableId, 1);
+  var body = document.getElementById('tbl-body-' + tableId), tbl = body && body.closest('table');
+  if (tbl) Array.prototype.forEach.call(tbl.querySelectorAll('th'), function(h, i) {
+    if (dir && i === col) h.setAttribute('data-sort', dir > 0 ? 'asc' : 'desc'); else h.removeAttribute('data-sort');
+  });
+  var sel = document.querySelector('select[data-tbl="' + tableId + '"]'); if (sel) sel.value = dir ? col + ':' + dir : '';
+}
+function tblSortSel(tableId, val) {
+  if (!val) { tblSortApply(tableId, 0, 0); return; }
+  var p = val.split(':'); tblSortApply(tableId, +p[0], +p[1]);
+}
+// Marca en el encabezado la columna ordenada (flecha ▲ / ▼)
+function _tblMarkHead(h, so) {
+  if (!so) return h;
+  var n = -1;
+  return h.replace(/<th(?=[\s>])/g, function(m) { n++; return n === so.col ? '<th data-sort="' + (so.dir > 0 ? 'asc' : 'desc') + '"' : m; });
+}
+// Selector «Ordenar por» con una opción ascendente y otra descendente por cada columna con título
+function _tblSortBarHtml(tableId, theadHtml, rows) {
+  if (!rows || rows.length < 2) return '';
+  var t = document.createElement('table'); t.innerHTML = '<thead>' + theadHtml + '</thead>';
+  var ths = t.querySelectorAll('th'), so = _tblSort[tableId], opts = '';
+  var sample = rows.slice(0, 8).map(function(r) { var tb = document.createElement('tbody'); tb.innerHTML = r; return tb.rows[0]; });
+  Array.prototype.forEach.call(ths, function(th, i) {
+    var name = th.textContent.trim(); if (!name) return;
+    var kind = _tblKind(sample.map(function(row) { return _tblVal(row && row.cells[i] ? row.cells[i].textContent : ''); }));
+    var lbl = kind === 'd' ? ['Más antigua primero', 'Más reciente primero'] : kind === 'n' ? ['Menor a mayor', 'Mayor a menor'] : ['A → Z', 'Z → A'];
+    [1, -1].forEach(function(d) {
+      opts += '<option value="' + i + ':' + d + '"' + (so && so.col === i && so.dir === d ? ' selected' : '') + '>' + escHtml(name) + ' — ' + lbl[d > 0 ? 0 : 1] + '</option>';
+    });
+  });
+  if (!opts) return '';
+  return '<div class="filters-bar tbl-sortbar"><label><i class="fas fa-sort-amount-down"></i> Ordenar por</label>' +
+    '<select class="tbl-sortsel" data-tbl="' + tableId + '" onchange="tblSortSel(\'' + tableId + '\', this.value)"><option value="">Orden original</option>' + opts + '</select></div>';
+}
+// Clic en el encabezado de una columna (PC): ascendente → descendente → ascendente…
+document.addEventListener('click', function(e) {
+  var th = e.target.closest && e.target.closest('.tbl-sortable th');
+  if (!th || !th.textContent.trim()) return;
+  var body = th.closest('table').querySelector('tbody[id^="tbl-body-"]'); if (!body) return;
+  var id = body.id.slice(9), col = th.cellIndex, cur = _tblSort[id];
+  tblSortApply(id, col, cur && cur.col === col ? -cur.dir : 1);
+});
+
+// ==================== ORDENAR TARJETAS (Salud / Mantenimiento) ====================
+// Valor «campo:dirección:tipo» → tipo d = fecha · n = número · s = texto. «@» = campo que se muestra con el nombre del galpón.
+var _cardSort = {};   // { módulo: 'campo:dirección:tipo' }
+var CARD_SORT_OPTS = {
+  health: [
+    ['date:-1:d', 'Fecha: más reciente primero'], ['date:1:d', 'Fecha: más antigua primero'],
+    ['cost:-1:n', 'Costo: mayor a menor'], ['cost:1:n', 'Costo: menor a mayor'],
+    ['house_id:1:s', 'Galpón: A → Z'], ['description:1:s', 'Descripción: A → Z']
+  ],
+  maintenance: [
+    ['scheduled_date:1:d', 'Programado: más próximo primero'], ['scheduled_date:-1:d', 'Programado: más lejano primero'],
+    ['cost:-1:n', 'Costo: mayor a menor'], ['cost:1:n', 'Costo: menor a mayor'],
+    ['house_id:1:s', 'Galpón: A → Z'], ['description:1:s', 'Descripción: A → Z']
+  ]
 };
+function cardSortSelectHtml(mod, renderFn) {
+  return '<select onchange="_cardSort[\'' + mod + '\']=this.value;' + renderFn + '"><option value="">Orden original</option>' +
+    CARD_SORT_OPTS[mod].map(function(o) { return '<option value="' + o[0] + '"' + (_cardSort[mod] === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
+}
+// maps: { campo: { id: nombre } } para ordenar por el nombre y no por el id (ej. galpón)
+function cardSortRecords(list, mod, maps) {
+  var s = _cardSort[mod]; if (!s) return list;
+  var p = s.split(':'), f = p[0], dir = +p[1], t = p[2];
+  return list.map(function(r, i) { return { r: r, i: i, v: (maps && maps[f]) ? maps[f][r[f]] : r[f] }; }).sort(function(a, b) {
+    var ea = a.v === undefined || a.v === null || a.v === '', eb = b.v === undefined || b.v === null || b.v === '';
+    if (ea || eb) return ea === eb ? a.i - b.i : (ea ? 1 : -1);
+    var c = t === 'n' ? (parseFloat(a.v) || 0) - (parseFloat(b.v) || 0)
+          : t === 'd' ? String(a.v).localeCompare(String(b.v))
+          : String(a.v).localeCompare(String(b.v), 'es', { sensitivity: 'base', numeric: true });
+    return c ? c * dir : a.i - b.i;
+  }).map(function(x) { return x.r; });
+}
+// ==================== FIN PAGINACIÓN ====================
+
+function renderDashboard() {
+  api('getDashboard', { campaign_id: (App._dashCamp != null ? App._dashCamp : (App.camp || '')) }, function(data) {
+    if (!data || data.success === false) { showLoader(false); showToast('Error al cargar dashboard', 'error'); return; }
+    var kpis = data.kpis || {};
+    var bal  = kpis.balance || 0;
+    var profile = data.profile || 'full';
+    var html =
+      dashTop(profile, data) +
+      (false ? (
+      '<div class="section-card" id="dash-payments-card"><div class="section-card-header" style="display:flex;align-items:center;justify-content:space-between">' +
+        '<h3><i class="fas fa-receipt" style="color:var(--primary);margin-right:8px"></i>Comprobantes</h3>' +
+        '<button class="btn-secondary" onclick="loadModule(\'payments\')" style="font-size:12px;padding:6px 12px">Ver todos <i class="fas fa-arrow-right" style="margin-left:4px;font-size:11px"></i></button>' +
+      '</div><div class="section-card-body"><div id="dash-payments-body"><p style="color:var(--gray-light);font-size:13px;text-align:center;padding:20px">Cargando...</p></div></div></div>'
+      ) : '');
+    document.getElementById('dynamic-content').innerHTML = html;
+    showLoader(false);
+
+    // Comprobantes recientes para el widget del dashboard
+    if (document.getElementById('dash-payments-body')) apiGet('getVouchers', {}, function(list) {
+      var el = document.getElementById('dash-payments-body');
+      if (!el) return;
+      if (!list || !list.length) {
+        el.innerHTML = '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:20px">No hay comprobantes subidos</p>';
+        return;
+      }
+      App._cache.vouchers = list;
+      var vList = list.filter(function(v) { return v.entity !== 'task'; });
+      if (!vList.length) { el.innerHTML = '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:20px">No hay comprobantes subidos</p>'; return; }
+      var rows = vList.slice(0, 5).map(function(v) {
+        var k = voucherKind(v);
+        var icon = k === 'image'
+          ? '<div style="width:40px;height:40px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--light)"><img src="' + escHtml(driveThumbUrl(v.url)) + '" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"></div>'
+          : '<div style="width:40px;height:40px;background:rgba(239,68,68,0.1);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas ' + (k === 'pdf' ? 'fa-file-pdf' : 'fa-file') + '" style="color:#ef4444;font-size:17px"></i></div>';
+        return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="openVoucher(' + list.indexOf(v) + ')">' +
+          icon +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:13px;font-weight:600;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHtml(v.file_name) + '</div>' +
+            '<div style="font-size:11px;color:var(--gray);margin-top:2px">' + escHtml(v.uploader_name || '—') + ' · ' + fmtDateTime(v.uploaded_at) + '</div>' +
+          '</div></div>';
+      }).join('');
+      el.innerHTML =
+        '<div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap"><div style="background:var(--primary-light);border-radius:8px;padding:7px 14px;display:flex;align-items:center;gap:7px">' +
+          '<i class="fas fa-receipt" style="color:var(--primary);font-size:13px"></i>' +
+          '<span style="font-size:12px;font-weight:600;color:var(--dark)">' + vList.length + ' comprobantes</span></div></div>' + rows +
+        '<div id="lightbox" class="lightbox" style="display:none" onclick="closeLightbox()"><button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button><button type="button" id="lightbox-del" class="lightbox-del" onclick="event.stopPropagation();confirmDeleteVoucher(window._lbIdx)"><i class="fas fa-trash"></i> Eliminar</button><img id="lightbox-img" src="" alt=""></div>';
+    });
+    App._dashCampaigns = data.campaigns || [];
+    drawCampaignChart('mortalityPct');
+    drawPzCharts(data);
+    drawRoleCharts(data);
+
+    var fin = data.monthlyFinance || [];
+    var ctxF = document.getElementById('fin-chart');
+    if (ctxF) {
+      App.charts.fin = new Chart(ctxF, {
+        type: 'bar',
+        data: {
+          labels: fin.map(function(m) { var p = m.month.split('-'); return p[1] + '/' + p[0].slice(2); }),
+          datasets: [
+            { label: 'Ingresos', data: fin.map(function(m) { return m.income; }),  backgroundColor: 'rgba(34,197,94,0.75)' },
+            { label: 'Egresos',  data: fin.map(function(m) { return m.expense; }), backgroundColor: 'rgba(239,68,68,0.75)' }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtMoney(c.parsed.y); } } } },
+          scales: { y: { grid: { color: gxTheme().grid }, ticks: { callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false } } }
+        }
+      });
+    }
+
+    var cats = data.expenseByCategory || [];
+    var ctxC = document.getElementById('cat-chart');
+    if (ctxC) {
+      App.charts.cat = new Chart(ctxC, {
+        type: 'doughnut',
+        data: {
+          labels: cats.map(function(c) { return c.category; }),
+          datasets: [{ data: cats.map(function(c) { return c.amount; }),
+            backgroundColor: ['#e8531a', '#f59e0b', '#3b82f6', '#22c55e', '#8b5cf6', '#06b6d4'] }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { color: gxTheme().text, boxWidth: 12, font: { size: 11 } } },
+                     tooltip: { callbacks: { label: function(c) { return c.label + ': ' + fmtMoney(c.parsed); } } } }
+        }
+      });
+    }
+
+    // Gráfico ocupación
+    var hArr = data.houses || [];
+    var ctx2 = document.getElementById('occ-chart');
+    if (ctx2) {
+      App.charts.occ = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: hArr.map(function(h) { return h.name; }),
+          datasets: [{
+            label: 'Ocupación %',
+            data: hArr.map(function(h) { return Math.round(h.occupancy); }),
+            backgroundColor: hArr.map(function(h) {
+              var p = h.occupancy;
+              return p >= 90 ? 'rgba(239,68,68,0.7)' : p >= 70 ? 'rgba(245,158,11,0.7)' : 'rgba(34,197,94,0.7)';
+            }),
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { max: 100, grid: { color: gxTheme().grid }, ticks: { callback: function(v) { return v + '%'; } } },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    }
+  });
+}
+
+function kpiCard(icon, label, val, color, cls, title, sub) {
+  return '<div class="kpi-card" style="--kpi-color:' + color + '" tabindex="0"' + (title ? ' title="' + escHtml(title) + '"' : '') + '>' +
+    '<div class="kpi-icon"><i class="fas ' + icon + '"></i></div>' +
+    '<div class="kpi-content"><div class="kpi-label">' + label + '</div>' +
+    '<div class="kpi-value ' + cls + '">' + escHtml(String(val)) + '</div>' +
+    (sub ? '<div class="kpi-sub">' + escHtml(sub) + '</div>' : '') + '</div></div>';
+}
+
+function fmtNum2(n) { return (parseFloat(n) || 0).toLocaleString('es-PE'); }
+function mortColor(p) { p = parseFloat(p) || 0; return p >= 5 ? '#ef4444' : p >= 3 ? '#f59e0b' : '#22c55e'; }
+
+function alertsHtml(list) {
+  list = list || [];
+  if (!list.length) return '<div class="dash-alert ok"><i class="fas fa-circle-check"></i> Todo en orden: sin alertas pendientes.</div>';
+  return list.slice(0, 8).map(function(a) {
+    return '<div class="dash-alert ' + (a.type === 'danger' ? 'danger' : 'warning') + '"><i class="fas ' + (a.type === 'danger' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation') + '"></i><span>' + escHtml(a.text) + '</span></div>';
+  }).join('');
+}
+
+var ROLE_LABELS = { admin: 'Administrador', manager: 'Gerente', operator: 'Operario', vet: 'Veterinario', maintenance: 'Mantenimiento', viewer: 'Visualizador' };
+var ROLE_HINTS = {
+  full: 'Resumen general de la granja', operator: 'Resumen operativo de campañas y galpones',
+  vet: 'Resumen sanitario de las campañas', maintenance: 'Resumen de mantenimiento y galpones'
+};
+var ROLE_DUTY = {
+// ====================  admin: 'Tú controlas: revisas registros, finanzas, pesaje y usuarios. El día a día (mortalidad, consumo de alimento, salud) lo registra el operador.',
+  manager: 'Apoyas a la administración: revisas registros, finanzas, personal y asistencia. El día a día (mortalidad, consumo de alimento, salud) lo registra el operador.',
+  operator: 'Tu trabajo diario: registrar la mortalidad, el consumo de alimento y cumplir tus tareas, siempre con la foto de la boleta.',
+  vet: 'Tu trabajo: registrar vacunas, tratamientos y revisiones, con su boleta.',
+  maintenance: 'Tu trabajo: registrar los trabajos de mantenimiento, con su boleta.',
+  viewer: 'Solo consulta: no puedes registrar ni modificar datos.'
+};
+var HEALTH_TYPES = { vaccine: 'Vacuna', disease: 'Enfermedad', treatment: 'Tratamiento', checkup: 'Revisión' };
+var MAINT_STATUS = { pending: 'Pendiente', in_progress: 'En progreso' };
+
+function secCard(icon, title, body, flush) {
+  return '<div class="section-card"><div class="section-card-header"><h3><i class="fas ' + icon + '" style="color:var(--primary);margin-right:8px"></i>' + title + '</h3></div>' +
+    '<div class="section-card-body"' + (flush ? ' style="padding:0"' : '') + '>' + body + '</div></div>';
+}
+function chartCard(icon, title, canvasId, tabs) {
+  return '<div class="chart-card"><h3><i class="fas ' + icon + '" style="color:var(--primary);margin-right:8px"></i>' + title + '</h3>' + (tabs || '') +
+    '<div class="chart-wrapper"><canvas id="' + canvasId + '"></canvas></div></div>';
+}
+function campTabs(list) {
+  return '<div class="camp-tabs" id="camp-tabs">' + list.map(function(m, i) {
+    return '<button class="camp-tab' + (i === 0 ? ' active' : '') + '" data-m="' + m[0] + '" onclick="drawCampaignChart(\'' + m[0] + '\')">' + m[1] + '</button>';
+  }).join('') + '</div>';
+}
+function dashTasksCard(k) {
+  return '<div class="kpi-card" style="--kpi-color:#8b5cf6" tabindex="0">' +
+    '<div class="kpi-icon"><i class="fas fa-tasks"></i></div>' +
+    '<div class="kpi-content">' +
+      '<div class="kpi-label">Tareas Pendientes</div>' +
+      '<div class="kpi-value">' + fmtNum(k.pendingTasks || 0) + '</div>' +
+      '<div style="font-size:11px; margin-top:4px; display:flex; gap:10px; font-weight:600;">' +
+        '<span style="color:var(--primary)" title="En Progreso"><i class="fas fa-spinner"></i> <span style="font-size:10px;">' + fmtNum(k.pendingCount || 0) + '</span></span>' +
+        '<span style="color:var(--success)" title="Completadas"><i class="fas fa-check"></i> <span style="font-size:10px;">' + fmtNum(k.doneCount || 0) + '</span></span>' +
+        '<span style="color:var(--danger)" title="Vencidas"><i class="fas fa-exclamation-circle"></i> <span style="font-size:10px;">' + fmtNum(k.overdueCount || 0) + '</span></span>' +
+      '</div></div></div>';
+}
+function dashHousesHtml(houses) {
+  var h = '<div class="section-card"><div class="section-card-header"><h3>Estado de Galpones</h3></div><div class="section-card-body"><div class="houses-grid">';
+  (houses || []).forEach(function(x) {
+    var p = x.occupancy || 0;
+    h += '<div class="house-mini-card"><h4>' + escHtml(x.name) + '<span class="badge ' + (p < 70 ? 'badge-success' : p < 90 ? 'badge-warning' : 'badge-danger') + '">' + Math.round(p) + '%</span></h4>' +
+      '<div class="progress-bar ' + progressClass(p) + '"><div class="progress-fill" style="width:' + p + '%"></div></div>' +
+      '<p>' + fmtNum(x.population || 0) + ' / ' + fmtNum(x.capacity || 0) + '  aves</p></div>';
+  });
+  return h + '</div></div></div>';
+}
+function eventList(list, empty, kind) {
+  if (!list || !list.length) return '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:16px">' + empty + '</p>';
+  return list.map(function(e) {
+    var label = kind === 'maint' ? (MAINT_STATUS[e.status] || e.status) : (HEALTH_TYPES[e.type] || e.type || '');
+    var late = kind === 'maint' && e.overdue;
+    return '<div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)">' +
+      '<div style="min-width:78px;font-size:12px;font-weight:600;color:' + (late ? 'var(--danger)' : 'var(--gray)') + '">' + (e.date ? fmtDate(e.date) : 'Sin fecha') + '</div>' +
+      '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + escHtml(e.description || '—') + '</div>' +
+      '<div style="font-size:11.5px;color:var(--gray)">' + escHtml(e.house) + (label ? ' · ' + escHtml(label) : '') + (late ? ' · <span style="color:var(--danger)">Vencido</span>' : '') + '</div></div></div>';
+  }).join('');
+}
+
+// Saludo según la hora del dispositivo: Buenos días (hasta las 11:59), Buenas tardes (hasta las 18:59), Buenas noches.
+function greetingEs_() {
+  var h = new Date().getHours();
+  return h < 12 ? 'Buenos días' : (h < 19 ? 'Buenas tardes' : 'Buenas noches');
+}
+function dashTop(profile, data) {
+  var k = data.kpis || {}, bal = k.balance || 0, camps = data.campaigns || [];
+  var role = (App.user && App.user.role) || 'viewer';
+  var head = '<div class="module-header"><div><h1 class="page-title">' + greetingEs_() + ', ' + escHtml((App.user && (App.user.fullName || App.user.username)) || '') + '</h1>' +
+    (profile === 'full' ? '<div class="page-subtitle">' + (ROLE_LABELS[role] || role) + ' — ' + ROLE_HINTS[profile] + (!seeAllFE() ? ' &nbsp;<span class="scope-note"><i class="fas fa-user-lock"></i> Solo tus registros</span>' : '') + '</div>' +
+    '</div>' : '') + '</div></div>';
+
+  if (profile === 'full') return head + gxStyle() + dashStyle_() + dashFullHtml_(k, data);
+  // otros roles (operador, veterinario, mantenimiento, visualizador): siguen abajo con sus tarjetas y gráficos propios
+
+  var cards, body;
+  var hasPz = !!k.hasPesaje;
+  var aliveCard = kpiCard('fa-dove', 'Aves vivas hoy', fmtCompact(k.aliveBirds || 0), '#22c55e', '', fmtNum2(k.aliveBirds), 'de ' + fmtNum2(k.totalBirds) + ' ingresadas · ' + fmtNum2(k.totalHouses) + ' galpones');
+  var pzCards = hasPz ?
+    kpiCard('fa-weight-hanging', 'Kg vendidos', fmtCompact(k.soldKg || 0), '#8b5cf6', '', fmtNum2(k.soldKg) + ' kg', 'precio prom. ' + fmtMoney(k.avgPrice || 0) + ' /kg') +
+    kpiCard('fa-receipt', 'Vendido (Pesaje)', fmtMoneyShort(k.salesTotal || 0), '#22c55e', '', fmtMoney(k.salesTotal), 'cobrado ' + fmtMoneyShort(k.collectedTotal || 0)) +
+    kpiCard('fa-hand-holding-dollar', 'Por cobrar', fmtMoneyShort(k.receivableTotal || 0), (k.receivableTotal > 0.005 ? '#ef4444' : '#22c55e'), '', fmtMoney(k.receivableTotal), 'compradores') : '';
+
+  if (profile === 'full') {
+    cards = gxDashboard(k, camps, data, bal);
+    body = gxTodayCards(data.today) +
+      gxTitle('fa-chart-column', 'Comparación de campañas') +
+      '<div class="charts-row">' +
+        chartCard('fa-chart-column', 'Compara tus campañas', 'camp-chart', campTabs([['mortalityPct','Mortalidad']].concat(hasPz ? [['kgSold','Kg vendidos']] : []).concat([['alive','Aves vivas']]))) +
+        (hasPz ? chartCard('fa-chart-column', 'Comparación entre Campañas (Kilos Netos vs Tara)', 'pz-chart') : '') + '</div>';
+  } else if (profile === 'operator') {
+    cards = dashRoleCards_([
+      { icon: 'fa-dove', title: 'Aves en campaña', val: fmtNumCard(k.totalBirds || 0), color: '#22c55e', sub: fmtNum2(k.totalHouses) + ' galpones', go: 'birds' },
+      { icon: 'fa-layer-group', title: 'Campañas activas', val: fmtNumCard(k.activeCampaigns || 0), color: '#3b82f6', sub: 'de ' + fmtNum2(camps.length) + ' registradas' },
+      { icon: 'fa-heart-crack', title: 'Mortalidad', val: escHtml((k.mortalityPct || 0) + '%'), color: mortColor(k.mortalityPct), vcolor: mortColor(k.mortalityPct), sub: fmtNum2(k.mortalityTotal) + ' aves' },
+      { icon: 'fa-seedling', title: 'Alimento', val: fmtNumCard(k.feedKg || 0, ' kg'), color: '#f59e0b', sub: 'campañas activas' },
+      { icon: 'fa-tasks', title: 'Mis tareas pendientes', val: fmtNumCard(k.pendingTasks || 0), color: (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), sub: fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', go: 'tasks' }
+    ]);
+    body = '<div class="dash-2">' +
+        chartCard('fa-chart-column', 'Comparativa por campaña', 'camp-chart', campTabs([['mortalityPct','Mortalidad'],['feedKg','Alimento']])) +
+        chartCard('fa-warehouse', 'Ocupación por galpón', 'occ-chart') +
+        chartCard('fa-list-check', 'Estado de mis tareas', 'task-chart') + '</div>';
+  } else if (profile === 'vet') {
+    cards = dashRoleCards_([
+      { icon: 'fa-dove', title: 'Aves en campaña', val: fmtNumCard(k.totalBirds || 0), color: '#22c55e', sub: 'campañas activas: ' + fmtNum(k.activeCampaigns || 0) },
+      { icon: 'fa-heart-crack', title: 'Mortalidad', val: escHtml((k.mortalityPct || 0) + '%'), color: mortColor(k.mortalityPct), vcolor: mortColor(k.mortalityPct), sub: fmtNum2(k.mortalityTotal) + ' aves' },
+      { icon: 'fa-syringe', title: 'Eventos próximos', val: fmtNumCard(k.healthUpcoming || 0), color: '#f59e0b', sub: 'próximos 7 días', go: 'health' },
+      { icon: 'fa-notes-medical', title: 'Eventos de salud', val: fmtNumCard(k.healthCount30d || 0), color: '#06b6d4', sub: 'últimos 30 días', go: 'health' }
+    ]);
+    body = '<div class="dash-2">' +
+        chartCard('fa-chart-column', 'Mortalidad por campaña', 'camp-chart') +
+        chartCard('fa-notes-medical', 'Eventos de salud por tipo', 'health-chart') + '</div>';
+  } else {
+    cards = dashRoleCards_([
+      { icon: 'fa-hourglass-half', title: 'Mant. pendientes', val: fmtNumCard(k.maintPending || 0), color: '#f59e0b', go: 'maintenance' },
+      { icon: 'fa-screwdriver-wrench', title: 'En progreso', val: fmtNumCard(k.maintProgress || 0), color: '#3b82f6', go: 'maintenance' },
+      { icon: 'fa-circle-check', title: 'Completados', val: fmtNumCard(k.maintDone || 0), color: '#22c55e', go: 'maintenance' },
+      { icon: 'fa-triangle-exclamation', title: 'Vencidos', val: fmtNumCard(k.maintOverdue || 0), color: '#ef4444', go: 'maintenance' },
+      { icon: 'fa-tasks', title: 'Tareas pendientes', val: fmtNumCard(k.pendingTasks || 0), color: (k.overdueCount > 0 ? '#ef4444' : '#8b5cf6'), sub: fmtNum(k.overdueCount || 0) + ' vencidas · ' + fmtNum(k.doneCount || 0) + ' hechas', go: 'tasks' },
+      { icon: 'fa-warehouse', title: 'Galpones', val: fmtNumCard(k.totalHouses || 0), color: '#06b6d4' }
+    ]);
+    body = '<div class="dash-2">' +
+        chartCard('fa-screwdriver-wrench', 'Estado del mantenimiento', 'maint-chart') +
+        chartCard('fa-list-check', 'Estado de mis tareas', 'task-chart') +
+        chartCard('fa-warehouse', 'Ocupación por galpón', 'occ-chart') + '</div>';
+  }
+  if (profile === 'full') {
+    return head + gxStyle() + gxAlertBox(data.alerts) + cards + body;
+  }
+  return head + gxStyle() + dashStyle_() + dashFilterBar_(data) + cards + body;
+}
+// Filtro de campaña para los demás roles (misma lógica y mismo diseño que el del administrador)
+function dashFilterBar_(data) {
+  var camps = data.campaigns || [], sel = String(data.selectedCampaign || '');
+  if (!camps.length) return '';
+  var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
+    return String(b.start).localeCompare(String(a.start));
+  }).map(function(c) {
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+  }).join('');
+  return '<div class="filters-bar dash-filter"><label><i class="fas fa-layer-group"></i> Campaña</label>' +
+    '<select title="Filtrar por campaña" onchange="dashCampPick(this.value)">' + opts + '</select></div>';
+}
+// Tarjetas con el diseño del administrador: icono, título, número abreviado (K / M) y nota.
+function dashRoleCards_(list) {
+  return '<div class="finance-summary dash-cards">' + list.map(function(c) {
+    return '<div class="summary-card"' + (c.go ? ' tabindex="0" onclick="loadModule(\'' + c.go + '\')"' : '') + '>' +
+      '<div class="summary-icon custom" style="--ic:' + c.color + '"><i class="fas ' + c.icon + '"></i></div>' +
+      '<div><h3>' + escHtml(c.title) + '</h3><p' + (c.vcolor ? ' style="color:' + c.vcolor + '"' : '') + '>' + c.val + '</p>' +
+      (c.sub ? '<small>' + escHtml(c.sub) + '</small>' : '') + '</div></div>';
+  }).join('') + '</div>';
+}
+// ==================== DASHBOARD: tarjetas de Finanzas + filtro de campaña + 2 gráficos ====================
+function dashStyle_() {
+  return '<style>' +
+    '.dash-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}' +
+    '.dash-2 .chart-card{min-width:0}.dash-2 .chart-wrapper{height:260px}' +
+    '@media(max-width:760px){.dash-2{grid-template-columns:1fr}.dash-2 .chart-wrapper{height:210px}}' +
+    '.dash-filter select{max-width:100%}' +
+    '.dash-cards.finance-summary{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}' +
+    '.dash-cards .summary-card{min-width:0;padding:11px 13px;gap:10px}' +
+    '.dash-cards .summary-icon{width:34px;height:34px;border-radius:10px}.dash-cards .summary-icon i{font-size:15px}' +
+    '.dash-cards .summary-card h3{font-size:10px;margin-bottom:2px}' +
+    '.dash-cards .summary-card small{font-size:11px!important}' +
+    '.dash-cards .summary-card{min-width:0}.dash-cards .summary-card>div:last-child{min-width:0;flex:1}' +
+    '.dash-cards .summary-card>div:last-child{container-type:inline-size}.dash-cards .summary-card p{font-size:clamp(12px,12.5cqw,17px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.dash-cards .summary-card small{display:block;font-size:12px;line-height:1.3;color:var(--gray)}' +
+    '@media(max-width:600px){.dash-cards .summary-card{padding:9px 10px;gap:8px}.dash-cards .summary-icon{width:30px;height:30px}.dash-cards .summary-icon i{font-size:13px}.dash-cards .summary-card h3{font-size:10px}.dash-cards .summary-card:last-child:nth-child(odd){grid-column:1/-1}}' +
+    '.dash-2>:last-child:nth-child(odd){grid-column:1/-1}' +
+    '</style>';
+}
+
+function dashFullHtml_(k, data) {
+  var camps = data.campaigns || [], sel = String(data.selectedCampaign || '');
+  var egr = k.egresosTotal || 0, rest = (k.totalCapital || 0) - egr, ok = rest >= 0;
+  // Filtro de campaña: «Todas» envía 'all' (el servidor lo toma como General); el resto envía el id del lote
+  var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
+    return String(b.start).localeCompare(String(a.start));
+  }).map(function(c) {
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+  }).join('');
+  var card = function(cls, icon, ic, title, val, sub, extra) {
+    return '<div class="summary-card ' + cls + '"' + (extra || '') + '><div class="summary-icon ' + ic + '"><i class="fas ' + icon + '"></i></div><div><h3>' + title + '</h3><p title="' + escHtml(fmtMoney(val)) + '">' + fmtMoneyShort(val, 10000) + '</p>' + (sub ? '<small>' + sub + '</small>' : '') + '</div></div>';
+  };
+  return '<div class="filters-bar dash-filter"><label><i class="fas fa-layer-group"></i> Campaña</label>' +
+      '<select title="Filtrar por campaña" onchange="dashCampPick(this.value)">' + opts + '</select></div>' +
+    '<div class="finance-summary dash-cards">' +
+      card('', 'fa-piggy-bank', 'balance', 'Capital recibido', (k.totalCapital || 0), 'Con lo que empezó') +
+      card('', 'fa-arrow-down', 'expense', 'Egresos', egr) +
+      card(ok ? 'positive' : 'negative', 'fa-scale-balanced', ok ? 'income' : 'expense', 'Capital − Egresos', rest, ok ? 'Capital que te queda' : 'Egresos superan el capital') +
+      card('positive', 'fa-wallet', 'income', 'Dinero que ya cobré', (k.totalIncome || 0)) +
+      (k.hasPesaje ? card('', 'fa-hand-holding-dollar', 'expense', 'Me deben los compradores', (k.receivableTotal || 0), 'Vendido sin cobrar', ' style="cursor:pointer" onclick="loadModule(\'buyerdebts\')" title="Ver Deuda de compradores"') : '') +
+    '</div>' +
+    '<div class="dash-2">' +
+      (k.hasPesaje ? chartCard('fa-chart-column', '📊 Comparación entre Campañas (Kilos Netos vs Tara)', 'pz-chart') : '') +
+      chartCard('fa-chart-column', 'Comparación entre Campañas', 'camp-chart', campTabs([['mortalityPct', 'Mortalidad'], ['alive', 'Aves vivas'], ['feedKg', 'Alimento']].concat(k.hasPesaje ? [['kgSold', 'Kg vendidos'], ['profitReal', 'Utilidad']] : [['profit', 'Utilidad']]))) +
+    '</div>';
+}
+
+function dashCampPick(id) { App._dashCamp = id || 'all'; showLoader(true); renderDashboard(); }
+
+function gxGrid_(list) { return '<div class="gx-grid" style="margin-top:6px;margin-bottom:18px">' + list.join('') + '</div>'; }
+
+// ===== Dashboard del gerente: solo tarjetas y gráficos =====
+function gxStyle() {
+  return '<style>' +
+    '.gx-title{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.6px;margin:26px 0 12px}' +
+    '.gx-title i{color:var(--primary)}' +
+    '.gx-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}' +
+    '.gx-card{background:var(--white);border:1px solid var(--border);border-left:4px solid var(--c,var(--primary));border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);min-width:0}' +
+    '.gx-card .l{font-size:12px;font-weight:600;color:var(--gray);display:flex;align-items:center;gap:8px}' +
+    '.gx-card .l i{color:var(--c,var(--primary));font-size:14px}' +
+    '.gx-card .v{font-size:clamp(17px,1.45vw,22px);font-weight:800;color:var(--dark);line-height:1.2;margin:7px 0 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '.gx-card .s{font-size:12px;color:var(--gray);line-height:1.35}' +
+    '.gx-camp{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow-sm);min-width:0}' +
+    '.gx-camp-h{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px}' +
+    '.gx-camp-h b{font-size:15px;color:var(--dark)}.gx-camp-h small{display:block;font-size:12px;color:var(--gray);margin-top:2px}' +
+    '.gx-bar{height:9px;border-radius:9px;background:var(--border);overflow:hidden}.gx-bar>div{height:100%;border-radius:9px;background:#22c55e}' +
+    '.gx-barl{display:flex;justify-content:space-between;font-size:12px;color:var(--gray);margin:6px 0 14px}' +
+    '.gx-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}' +
+    '.gx-stats div{background:var(--light,rgba(128,128,128,.08));border-radius:10px;padding:9px 10px;min-width:0}' +
+    '.gx-stats small{display:block;font-size:11px;color:var(--gray);margin-bottom:2px}.gx-stats b{font-size:14px;color:var(--dark);word-break:break-word}' +
+    '.gx-go{cursor:pointer;transition:transform .15s}.gx-go:hover{transform:translateY(-2px)}' +
+    '.charts-row{grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr))}.chart-card{min-width:0}' +
+    '@media(max-width:600px){.gx-grid>.gx-card:last-child:nth-child(odd){grid-column:1/-1}.gx-title{flex-wrap:wrap;row-gap:4px}.gx-today .r{flex-wrap:wrap;row-gap:4px}.gx-card .l{flex-wrap:wrap}}' +
+    '.gx-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 10px;border-radius:20px;white-space:nowrap}' +
+    '.gx-ok{background:rgba(34,197,94,.14);color:#22c55e}.gx-no{background:rgba(239,68,68,.14);color:#ef4444}' +
+    '.gx-today{display:flex;flex-direction:column;gap:9px}.gx-today .r{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--gray)}' +
+    '@media(max-width:600px){.gx-grid{grid-template-columns:repeat(2,1fr);gap:10px}.gx-card{padding:12px}.gx-card .v{font-size:16px}.gx-stats{grid-template-columns:repeat(2,1fr)}}' +
+    '.gx-alerts{background:var(--white);border:1px solid var(--border);border-left:4px solid var(--c,#f59e0b);border-radius:var(--radius);padding:12px 16px;margin-bottom:6px;box-shadow:var(--shadow-sm)}' +
+    '.gx-alerts .h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--dark)}' +
+    '.gx-alerts .h i{color:var(--c,#f59e0b)}' +
+    '.gx-x{background:none;border:0;color:var(--gray);font-size:20px;line-height:1;cursor:pointer;padding:0 4px;margin-left:8px}' +
+    '.gx-alerts ul{margin:8px 0 0;padding:0;list-style:none;max-height:170px;overflow:auto}' +
+    '.gx-alerts li{font-size:12.5px;color:var(--gray);padding:5px 0;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-start}' +
+    '.gx-alerts li i{margin-top:2px;font-size:11px}' +
+    '</style>';
+}
+function gxTitle(icon, text, extra) {
+  return '<div class="gx-title"><i class="fas ' + icon + '"></i><span>' + text + '</span>' + (extra || '') + '</div>';
+}
+function gxCard(icon, label, value, color, sub, tipText, go) {
+  return '<div class="gx-card' + (go ? ' gx-go' : '') + '" style="--c:' + color + '"' + (tipText ? ' title="' + escHtml(tipText) + '"' : '') + (go ? ' onclick="loadModule(\'' + go + '\')" tabindex="0"' : '') + '><div class="l"><i class="fas ' + icon + '"></i>' + escHtml(label) + '</div>' +
+    '<div class="v">' + escHtml(String(value)).replace(/ /g, '\u00a0') + '</div>' + (sub ? '<div class="s">' + escHtml(sub) + '</div>' : '') + '</div>';
+}
+function gxDashboard(k, camps, data, bal) {
+  var hasPz = !!k.hasPesaje;
+  var debe = k.receivableTotal || 0;
+  return '<div class="gx-grid" style="margin-top:6px">' +
+    gxCard('fa-dove', 'Aves vivas', fmtNum2(k.aliveBirds || 0), '#22c55e', 'de ' + fmtNum2(k.totalBirds) + ' que ingresaron') +
+    gxCard('fa-heart-crack', 'Mortalidad', (k.mortalityPct || 0) + '%', mortColor(k.mortalityPct), fmtNum2(k.mortalityTotal) + ' aves muertas') +
+    (hasPz ? gxCard('fa-weight-hanging', 'Vendido', fmtNum2(k.soldKg || 0) + ' kg', '#8b5cf6', fmtMoney(k.salesTotal || 0)) : '') +
+    (hasPz ? gxCard('fa-hand-holding-dollar', 'Me deben', fmtMoney(debe), debe > 0.005 ? '#ef4444' : '#22c55e', debe > 0.005 ? 'compradores con saldo' : 'todo cobrado') : '') +
+    gxCard('fa-piggy-bank', 'Capital recibido', fmtMoney(k.totalCapital || 0), '#3b82f6', 'con lo que empezó') +
+    gxCard('fa-wallet', 'Dinero que ya cobré', fmtMoney(k.totalIncome || 0), '#22c55e', 'ventas ya cobradas') +
+  '</div>';
+}
+function gxTodayCards(list) {
+  list = list || [];
+  if (!list.length) return '';
+  var day = new Date().toLocaleDateString('en-CA');
+  var key = day + '|' + list.map(function(x) { return x.house + (x.feed ? '1' : '0') + (x.prod ? '1' : '0'); }).join(',');
+  if (gxOff('gx-today', key)) return '';
+  var done = list.filter(function(x) { return x.feed && x.prod; }).length;
+  var chip = function(ok) { return ok ? '<span class="gx-chip gx-ok"><i class="fas fa-check"></i> Registrado</span>' : '<span class="gx-chip gx-no"><i class="fas fa-xmark"></i> Falta</span>'; };
+  return '<div id="gx-today" data-k="' + escHtml(key) + '">' +
+    gxTitle('fa-clipboard-check', 'Hoy en los galpones', '<span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600">' + done + ' de ' + list.length + ' completos</span><button class="gx-x" onclick="gxClose(\'gx-today\')" title="Quitar">&times;</button>') +
+    '<div class="gx-grid">' + list.map(function(x) {
+      return '<div class="gx-card gx-today" style="--c:' + ((x.feed && x.prod) ? '#22c55e' : '#f59e0b') + '"><div><b style="font-size:15px;color:var(--dark)">' + escHtml(x.house) + '</b><div class="s">' + escHtml(x.batch) + '</div></div>' +
+        '<div class="r"><span><i class="fas fa-seedling"></i> Alimentación</span>' + chip(x.feed) + '</div>' +
+        '<div class="r"><span><i class="fas fa-clipboard-list"></i> Registro diario</span>' + chip(x.prod) + '</div></div>';
+    }).join('') + '</div></div>';
+}
+function gxOff(id, sig) { try { return localStorage.getItem('dash_off_' + id) === sig; } catch (e) { return false; } }
+function gxClose(id) {
+  var el = document.getElementById(id);
+  try { if (el) localStorage.setItem('dash_off_' + id, el.getAttribute('data-k') || ''); } catch (e) {}
+  if (el) el.remove();
+}
+function gxAlertBox(list) {
+  list = list || [];
+  if (!list.length) return '<div class="dash-alert ok"><i class="fas fa-circle-check"></i> Todo en orden: sin avisos pendientes.</div>';
+  var key = list.map(function(a) { return a.text; }).join('|');
+  if (gxOff('gx-alerts', key)) return '';
+  var danger = list.some(function(a) { return a.type === 'danger'; });
+  return '<div class="gx-alerts" id="gx-alerts" data-k="' + escHtml(key) + '" style="--c:' + (danger ? '#ef4444' : '#f59e0b') + '">' +
+    '<div class="h"><i class="fas fa-bell"></i><span style="flex:1">Requiere atención (' + list.length + ')</span><button class="gx-x" onclick="gxClose(\'gx-alerts\')" title="Quitar este aviso">&times;</button></div>' +
+    '<ul>' + list.map(function(a) {
+      return '<li><i class="fas fa-circle" style="color:' + (a.type === 'danger' ? '#ef4444' : '#f59e0b') + '"></i><span>' + escHtml(a.text) + '</span></li>';
+    }).join('') + '</ul></div>';
+}
+
+function gxTheme() {
+  var cs = getComputedStyle(document.documentElement);
+  var g = function(n, d) { return (cs.getPropertyValue(n) || '').trim() || d; };
+  return { grid: g('--border', 'rgba(128,128,128,.25)'), text: g('--gray', '#9ca3af') };
+}
+
+function drawRoleCharts(data) {
+  if (typeof Chart === 'undefined') return;
+  var k = data.kpis || {}, th = gxTheme();
+  var donut = function(id, key, labels, values, colors) {
+    var el = document.getElementById(id); if (!el) return;
+    var total = values.reduce(function(a, b) { return a + b; }, 0);
+    if (!total) { el.parentNode.innerHTML = '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:60px 0">Sin datos todavía</p>'; return; }
+    App.charts[key] = new Chart(el, { type: 'doughnut', data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '62%',
+        plugins: { legend: { position: 'bottom', labels: { color: th.text, boxWidth: 12, font: { size: 11 } } } } } });
+  };
+  donut('task-chart', 'task', ['Pendientes', 'Vencidas', 'Completadas'], [k.pendingCount || 0, k.overdueCount || 0, k.doneCount || 0], ['#3b82f6', '#ef4444', '#22c55e']);
+  donut('maint-chart', 'maint', ['Pendientes', 'En progreso', 'Completados', 'Vencidos'], [k.maintPending || 0, k.maintProgress || 0, k.maintDone || 0, k.maintOverdue || 0], ['#f59e0b', '#3b82f6', '#22c55e', '#ef4444']);
+  if (document.getElementById('health-chart')) {
+    var ev = (data.healthNext || []).concat(data.healthRecent || []), seen = {}, cnt = {};
+    ev.forEach(function(e) { var id = e.id || (e.date + e.description + e.house); if (seen[id]) return; seen[id] = 1; var t = HEALTH_TYPES[e.type] || e.type || 'Otro'; cnt[t] = (cnt[t] || 0) + 1; });
+    var names = Object.keys(cnt);
+    donut('health-chart', 'health', names, names.map(function(n) { return cnt[n]; }), ['#06b6d4', '#ef4444', '#f59e0b', '#22c55e', '#8b5cf6']);
+  }
+}
+
+function drawPzCharts(data) {
+  if (typeof Chart === 'undefined') return;
+  var L = data.pzCampanas || [], th = gxTheme();
+  var c1 = document.getElementById('pz-chart');
+  if (!c1) return;
+  App.charts.pz = new Chart(c1, { type: 'bar', data: { labels: L.map(function(c) { return c.label; }), datasets: [
+    { label: 'Carne Neta (kg)', data: L.map(function(c) { return c.kg || 0; }), backgroundColor: 'rgba(52,211,153,0.85)', borderRadius: 6 },
+    { label: 'Tara Usada (kg)', data: L.map(function(c) { return c.tara || 0; }), backgroundColor: 'rgba(251,191,36,0.85)', borderRadius: 6 }
+  ] }, options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: th.text, boxWidth: 12 } }, tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fmtNum2(c.parsed.y) + ' kg'; } } } },
+    scales: { y: { grid: { color: th.grid }, ticks: { color: th.text, callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false }, ticks: { color: th.text } } } } });
+}
+
+function campaignTable(list, opt) {
+  opt = opt || { ops: true, money: true };
+  list = list || [];
+  if (!list.length) return '<p style="color:var(--gray-light);font-size:13px;text-align:center;padding:24px">Aún no hay campañas registradas (crea lotes en el módulo Aves)</p>';
+  var rows = list.map(function(c) {
+    var pr = opt.pz ? c.profitReal : c.profit; var pc = pr >= 0 ? 'var(--success)' : 'var(--danger)';
+    return '<tr>' +
+      '<td><strong>' + escHtml(c.batch) + '</strong></td><td>' + escHtml(c.house) + '</td>' +
+      '<td>' + fmtDate(c.start) + '</td><td class="num-r">' + fmtNum2(c.days) + '</td>' +
+      '<td class="num-r">' + tip(fmtCompact(c.initial), fmtNum2(c.initial)) + '</td>' + (opt.pz ? '<td class="num-r">' + tip(fmtCompact(c.alive), fmtNum2(c.alive)) + '</td>' : '') +
+      '<td class="num-r"><span style="color:' + mortColor(c.mortalityPct) + ';font-weight:600">' + c.mortalityPct + '%</span> <small style="color:var(--gray)">(' + tip(fmtCompact(c.mortality), fmtNum2(c.mortality)) + ')</small></td>' +
+      (opt.ops ? (opt.sold === false ? '' : '<td class="num-r">' + tip(fmtCompact(c.sold), fmtNum2(c.sold)) + '</td>') + '<td class="num-r">' + tip(fmtCompact(c.feedKg), fmtNum2(c.feedKg) + ' kg') + '</td>' : '') +
+      (opt.pz ? '<td class="num-r">' + fmtNum2(c.kgSold) + '</td><td class="num-r">' + (c.conv || '—') + '</td><td class="num-r">' + (c.pricePerKg ? fmtMoney(c.pricePerKg) : '—') + '</td><td class="num-r">' + tip(fmtMoneyShort(c.sales), fmtMoney(c.sales)) + '</td><td class="num-r" style="color:' + (c.receivable > 0.005 ? 'var(--danger)' : 'inherit') + '">' + tip(fmtMoneyShort(c.receivable), fmtMoney(c.receivable)) + '</td>' : '') +
+      (opt.money ? '<td class="num-r">' + tip(fmtMoneyShort(c.income), fmtMoney(c.income)) + '</td>' +
+        '<td class="num-r">' + tip(fmtMoneyShort(c.expenses), fmtMoney(c.expenses)) + '</td>' +
+        '<td class="num-r" style="color:' + pc + ';font-weight:700">' + tip(fmtMoneyShort(pr), fmtMoney(pr)) + '</td>' : '') +
+      '<td><span class="badge ' + (c.active ? 'badge-success' : 'badge-warning') + '">' + (c.active ? 'Activa' : 'Cerrada') + '</span></td></tr>';
+  }).join('');
+  return '<div class="table-scroll"><table class="data-table"><thead><tr><th>Campaña</th><th>Galpón</th><th>Inicio</th><th>Días</th><th>Aves</th>' + (opt.pz ? '<th>Vivas</th>' : '') + '<th>Mortalidad</th>' +
+    (opt.ops ? (opt.sold === false ? '' : '<th>Vendidos</th>') + '<th>Alimento kg</th>' : '') + (opt.pz ? '<th>Kg vend.</th><th>Conv.</th><th>Precio/kg</th><th>Vendido</th><th>Debe</th>' : '') + (opt.money ? '<th>' + (opt.pz ? 'Cobrado' : 'Ingresos') + '</th><th>Gastos</th><th>Utilidad</th>' : '') +
+    '<th>Estado</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+var CAMP_METRICS = {
+  mortalityPct: { label: 'Mortalidad %',      fmt: function(v) { return v + '%'; } },
+  profit:       { label: 'Utilidad',          fmt: fmtMoney, money: true },
+  feedKg:       { label: 'Alimento (kg)',     fmt: function(v) { return fmtNum2(v) + ' kg'; } },
+  costPerBird:  { label: 'Costo por ave',     fmt: fmtMoney, money: true },
+  sold:         { label: 'Pollos vendidos',   fmt: fmtNum2 },
+  profitReal:   { label: 'Utilidad (vendido − gastos)', fmt: fmtMoney, money: true },
+  kgSold:       { label: 'Kg vendidos',       fmt: function(v) { return fmtNum2(v) + ' kg'; } },
+  conv:         { label: 'Conversión (kg alimento / kg vendido)', fmt: function(v) { return v; } },
+  pricePerKg:   { label: 'Precio por kg',     fmt: fmtMoney, money: true },
+  alive:        { label: 'Aves vivas',        fmt: fmtNum2 }
+};
+
+function drawCampaignChart(metric) {
+  var m = CAMP_METRICS[metric] || CAMP_METRICS.mortalityPct;
+  var list = App._dashCampaigns || [];
+  var th = gxTheme();
+  var ctx = document.getElementById('camp-chart');
+  if (!ctx) return;
+  document.querySelectorAll('#camp-tabs .camp-tab').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-m') === metric); });
+  if (App.charts.camp) { try { App.charts.camp.destroy(); } catch(e) {} }
+  App.charts.camp = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: list.map(function(c) { return c.batch; }),
+      datasets: [{
+        label: m.label, data: list.map(function(c) { return c[metric]; }),
+        backgroundColor: list.map(function(c) {
+          if ((metric === 'profit' || metric === 'profitReal') && c[metric] < 0) return 'rgba(239,68,68,0.75)';
+          return c.active ? 'rgba(232,83,26,0.8)' : 'rgba(156,163,175,0.8)';
+        })
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(c) { return m.label + ': ' + m.fmt(c.parsed.y); } } } },
+      scales: { y: { grid: { color: th.grid }, ticks: { color: th.text, callback: function(v) { return fmtCompact(v); } } }, x: { grid: { display: false }, ticks: { color: th.text } } }
+    }
+  });
+}
+
+// ==================== GALPONES ====================
+function renderHouses() {
+  var searchVal = '';
+  var sEl = document.getElementById('houses-search'); if (sEl) searchVal = sEl.value;
+  apiGet('getHouses', {}, function(houses) {
+    App._cache.houses = houses;
+    var filtered = filterTable(houses, searchVal, ['name', 'status']); (function() { var cb = campCur_('houses') ? campById_(campCur_('houses')) : null; if (cb) filtered = filtered.filter(function(h) { return String(h.id) === String(cb.house_id); }); })(); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
+    var allRows = filtered.map(function(h) {
+      var p = pct(parseInt(h.current_population) || 0, parseInt(h.capacity) || 1);
+      return '<tr>' +
+        '<td><strong>' + escHtml(h.name) + '</strong></td>' +
+        '<td>' + fmtNum(parseInt(h.capacity) || 0) + '</td>' +
+        '<td>' + fmtNum(parseInt(h.current_population) || 0) + '</td>' +
+        '<td><div class="progress-inline"><div class="progress-bar ' + progressClass(p) + '"><div class="progress-fill" style="width:' + p + '%"></div></div><span class="progress-pct">' + p + '%</span></div></td>' +
+        '<td><span class="badge ' + (h.status === 'active' ? 'badge-success' : 'badge-warning') + '">' + (h.status === 'active' ? 'Activo' : 'Inactivo') + '</span></td>' +
+        (canEdit ? '<td class="actions">' +
+          '<button class="btn-icon" onclick="editHouse(\'' + h.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+          (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteHouse(\'' + h.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') +
+        '</td>' : '') + '</tr>';
+    });
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Galpones</h1><div class="page-subtitle">' + houses.length + ' galpones registrados' + (canEdit ? '' : ' · <span class="scope-note"><i class="fas fa-eye"></i> Solo consulta</span>') + '</div></div>' +
+        (canEdit ? '<button class="btn-primary" onclick="showHouseModal()"><i class="fas fa-plus"></i> Nuevo Galpón</button>' : '') +
+      '</div>' +
+      '<div class="filters-bar"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="houses-search" placeholder="Buscar galpón..." value="' + escHtml(searchVal) + '" oninput="renderHouses()"></div>' + campFilterHtml_('houses', 'renderHouses()') + '</div>' +
+      tblBuild('houses', allRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 6 : 5) + '"><i class="fas fa-warehouse" style="font-size:24px;display:block;margin-bottom:8px;color:var(--border)"></i>No se encontraron galpones</td></tr>',
+        '<tr><th>Nombre</th><th>Capacidad</th><th>Población</th><th>Ocupación</th><th>Estado</th>' + (canEdit ? '<th>Acciones</th>' : '') + '</tr>') +
+      (canEdit ? houseModalHtml() : '');
+    document.getElementById('dynamic-content').innerHTML = html;
+    if (canEdit) bindForm('house-form', saveHouseForm);
+    showLoader(false);
+  });
+}
+
+function houseModalHtml() {
+  return '<div id="house-modal" class="modal" style="display:none"><div class="modal-content">' +
+    '<div class="modal-header"><h3 id="house-modal-title">Nuevo Galpón</h3><button class="close-modal" onclick="closeModal(\'house-modal\')">&times;</button></div>' +
+    '<form id="house-form"><input type="hidden" id="h-id" value="new">' +
+    fGroup('Nombre del Galpón', 'text', 'h-name', '', 'required', 'Ej: Galpón A') +
+    fGroup('Capacidad (aves)', 'number', 'h-capacity', '', 'required', 'Ej: 5000') +
+    '<div class="form-group"><label>Estado</label><select id="h-status">' + selOpt(['active:Activo', 'inactive:Inactivo'], 'active') + '</select></div>' +
+    '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'house-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+    '</form></div></div>';
+}
+
+function showHouseModal(h) {
+  h = h || {};
+  document.getElementById('house-modal-title').textContent = h.id ? 'Editar Galpón' : 'Nuevo Galpón';
+  document.getElementById('h-id').value      = h.id       || 'new';
+  document.getElementById('h-name').value    = h.name     || '';
+  document.getElementById('h-capacity').value= h.capacity || '';
+  document.getElementById('h-status').value  = h.status   || 'active';
+  openModal('house-modal');
+}
+
+function editHouse(id) {
+  var h = (App._cache.houses || []).find(function(x) { return x.id === id; });
+  if (h) showHouseModal(h);
+}
+
+function saveHouseForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]');
+  if (btn) btn.disabled = true;
+  api('saveHouse', { id: v('h-id'), name: v('h-name'), capacity: v('h-capacity'), status: v('h-status') }, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) { closeModal('house-modal'); showToast('Galpón guardado', 'success'); App._cache.houses = null; renderHouses(); }
+    else showToast((r && r.error) || 'Error al guardar', 'error');
+  });
+}
+
+function confirmDeleteHouse(id) {
+  confirmDialog('¿Eliminar este galpón? Esta acción no se puede deshacer.', function() {
+    api('deleteHouse', { id: id }, function(r) {
+      if (r && r.success) { showToast('Galpón eliminado', 'success'); App._cache.houses = null; renderHouses(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+// ==================== AVES ====================
+function renderBirds() {
+  var filterHouse = '', searchVal = '';
+  var fEl = document.getElementById('birds-filter-house'); if (fEl) filterHouse = fEl.value;
+  var sEl = document.getElementById('birds-search');       if (sEl) searchVal   = sEl.value;
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 2 en cascada
+  api('getBirdsModule', {}, function(r) {
+    var houses = (r && r.houses) || [];
+    var birds  = (r && r.birds)  || [];
+    App._cache.houses = houses;
+    App._cache.birds  = birds;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+    var filtered = filterHouse ? birds.filter(function(b) { return b.house_id === filterHouse; }) : birds;
+    if (campCur_('birds')) filtered = filtered.filter(function(b) { return String(b.id) === campCur_('birds'); });
+    filtered = filterTable(filtered, searchVal, ['batch_number', 'species', 'status']); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
+    var birdRows = filtered.map(function(b) {
+      return '<tr>' +
+        '<td><strong>' + escHtml(b.batch_number) + '</strong></td>' +
+        '<td>' + escHtml(hMap[b.house_id] || '—') + '</td>' +
+        '<td>' + escHtml(b.species || '') + '</td>' +
+        '<td>' + fmtNum(parseInt(b.quantity) || 0) + '</td>' +
+        '<td>' + fmtDate(b.arrival_date) + '</td>' +
+        '<td><span class="badge ' + ({started:'badge-success',draft:'badge-warning',closed:'badge-gray'}[campStatusFE(b)]) + '">' + ({started:'Iniciada',draft:'Sin iniciar',closed:'Cerrada'}[campStatusFE(b)]) + '</span></td>' +
+        (canEdit ? '<td class="actions">' + (campStatusFE(b) === 'draft' && isMgrFE() ? '<button class="btn-primary" style="padding:4px 10px;font-size:12px" onclick="startCampaignUI(\'' + b.id + '\')"><i class="fas fa-play"></i> Iniciar campaña</button> ' : '') + '<button class="btn-icon" onclick="editBird(\'' + b.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' + (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteBird(\'' + b.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') + '</td>' : '') + '</tr>';
+    });
+    var hOpts = '<option value="">Todos los galpones</option>' + houses.map(function(h) { return '<option value="' + h.id + '"' + (filterHouse === h.id ? ' selected' : '') + '>' + escHtml(h.name) + '</option>'; }).join('');
+    var hModalOpts = '<option value="">Seleccionar galpón</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Aves</h1><div class="page-subtitle">' + filtered.length + ' lotes registrados' + (canEdit ? '' : ' · <span class="scope-note"><i class="fas fa-eye"></i> Solo consulta</span>') + '</div></div>' +
+        (canEdit ? '<button class="btn-primary" onclick="showBirdModal()"><i class="fas fa-plus"></i> Nuevo Lote</button>' : '') +
+      '</div>' +
+      '<div class="filters-bar">' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="birds-search" placeholder="Buscar lote, especie..." value="' + escHtml(searchVal) + '" oninput="renderBirds()"></div>' + campFilterHtml_('birds', 'renderBirds()') +
+        '<select id="birds-filter-house" onchange="renderBirds()">' + hOpts + '</select>' +
+      '</div>' +
+      tblBuild('birds', birdRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 7 : 6) + '">No se encontraron lotes de aves</td></tr>',
+        '<tr><th>Lote</th><th>Galpón</th><th>Especie</th><th>Cantidad</th><th>Fecha Ingreso</th><th>Campaña</th>' + (canEdit ? '<th></th>' : '') + '</tr>') +
+      (canEdit ? '<div id="bird-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3 id="bird-modal-title">Nuevo Lote</h3><button class="close-modal" onclick="closeModal(\'bird-modal\')">&times;</button></div>' +
+        '<form id="bird-form"><input type="hidden" id="b-id" value="new">' +
+        '<div class="form-group"><label>Galpón *</label><select id="b-house-id" required>' + hModalOpts + '</select></div>' +
+        fGroup('Número de Lote', 'text', 'b-batch', '', 'required', 'Ej: L-2026-10-A') +
+        '<div class="form-group"><label>Especie</label><select id="b-species">' + selOpt(['Pollo:Pollo', 'Gallina:Gallina', 'Pavo:Pavo', 'Pato:Pato'], 'Pollo') + '</select></div>' +
+        fGroup('Cantidad de Aves', 'number', 'b-quantity', '', 'required', 'Ej: 4800 (pollitos recibidos)') +
+        fGroup('Fecha de Ingreso',  'date', 'b-arrival', today(), 'required') +
+        '<div class="form-group"><label>Estado</label><select id="b-status">' + selOpt(['active:Activo', 'inactive:Inactivo'], 'active') + '</select></div>' +
+        (isMgrFE() ? '<div class="form-group"><small class="field-hint">La campaña se crea sin iniciar. Solo un administrador o gerente puede iniciarla (botón <span class="btn-chip"><i class="fas fa-play"></i> Iniciar campaña</span> en la tabla de Aves, después de guardar); recién entonces se habilitan tareas, registros y archivos.</small></div>' : '') +
+        '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'bird-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+        '</form></div></div>' : '');
+    document.getElementById('dynamic-content').innerHTML = html;
+    if (canEdit) bindForm('bird-form', saveBirdForm);
+    showLoader(false);
+  });
+}
+
+function startCampaignUI(id) {
+  confirmDialog('¿Iniciar esta campaña? Desde ahora se activan tareas, registros, vencimientos y archivos.', function() {
+    api('startCampaign', { id: id }, function(r) {
+      if (r && r.success) {
+        showToast('Campaña iniciada: todas las secciones empiezan en cero', 'success');
+        App.camp = ''; App._taskCamp = String(id); App._campMeta = null;
+        App._cache.birds = null; campMetaLoad_(function() { renderBirds(); });
+      }
+      else showToast((r && r.error) || 'No se pudo iniciar la campaña', 'error');
+    });
+  }, { okText: 'Iniciar campaña', icon: 'fa-play' });
+}
+
+function showBirdModal(b) {
+  b = b || {};
+  document.getElementById('bird-modal-title').textContent = b.id ? 'Editar Lote' : 'Nuevo Lote';
+  document.getElementById('b-id').value       = b.id           || 'new';
+  document.getElementById('b-house-id').value = b.house_id     || '';
+  document.getElementById('b-batch').value    = b.batch_number || '';
+  document.getElementById('b-species').value  = b.species      || 'Pollo';
+  document.getElementById('b-quantity').value = b.quantity     || '';
+  document.getElementById('b-arrival').value  = b.arrival_date || today();
+  document.getElementById('b-status').value   = b.status       || 'active';
+  openModal('bird-modal');
+}
+
+function editBird(id) {
+  var b = (App._cache.birds || []).find(function(x) { return x.id === id; });
+  if (b) showBirdModal(b);
+}
+
+function saveBirdForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  api('saveBird', {
+    id: v('b-id'), house_id: v('b-house-id'), batch_number: v('b-batch'),
+    species: v('b-species'), quantity: v('b-quantity'),
+    arrival_date: v('b-arrival'), status: v('b-status')
+  }, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) { closeModal('bird-modal'); showToast(r.reopened ? 'Campaña reabierta' : 'Lote guardado', 'success'); App._cache.birds = null; renderBirds(); }
+    else showToast((r && r.error) || 'Error al guardar', 'error');
+  });
+}
+
+// ==================== PRODUCCIÓN ====================
+function renderProduction() {
+  var filterHouse = '', startDate = '', endDate = '', searchVal = '';
+  var fH = document.getElementById('prod-filter-house'); if (fH) filterHouse = fH.value;
+  var fS = document.getElementById('prod-start');        if (fS) startDate   = fS.value;
+  var fE = document.getElementById('prod-end');          if (fE) endDate     = fE.value;
+  var sEl= document.getElementById('prod-search');       if (sEl) searchVal  = sEl.value;
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 3 en cascada
+  api('getProductionModule', {house_id: filterHouse, start_date: startDate, end_date: endDate}, function(r) {
+    var houses     = (r && r.houses)     || [];
+    var birds      = (r && r.birds)      || [];
+    var production = (r && r.production) || [];
+    App._cache.houses     = houses;
+    App._cache.birds      = birds;
+    App._cache.production = production;
+    {
+        var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+        var bMap = {}; birds.forEach(function(b) { bMap[b.id] = b; });
+        var filtered = production.filter(function(p) {
+          if (!campKeep_(p, 'bird')) return false;
+          if (filterHouse && p.house_id !== filterHouse) return false;
+          if (startDate  && String(p.date).slice(0,10) < startDate) return false;
+          if (endDate    && String(p.date).slice(0,10) > endDate)   return false;
+          return true;
+        });
+        if (searchVal) filtered = filtered.filter(function(p) {
+          return (hMap[p.house_id] || '').toLowerCase().indexOf(searchVal.toLowerCase()) > -1 ||
+                 ((bMap[p.bird_id] && bMap[p.bird_id].batch_number) || '').toLowerCase().indexOf(searchVal.toLowerCase()) > -1;
+        });
+        var canExits = canExitsFE();   // pollos vendidos / descartados: solo administración
+        var totalEggs = filtered.reduce(function(s, p) { return s + (parseInt(p.eggs_count) || 0); }, 0);
+        var totalMort = filtered.reduce(function(s, p) { return s + (parseInt(p.mortality) || 0); }, 0);
+        var prodRows = filtered.map(function(p) {
+          var brd = bMap[p.bird_id];
+          return '<tr>' +
+            '<td>' + fmtDate(p.date) + '</td>' +
+            '<td>' + escHtml(hMap[p.house_id] || '—') + '</td>' +
+            '<td>' + campBadge_(brd ? brd.batch_number : '') + '</td>' +
+            (canExits ? '<td><strong>' + fmtNum(parseInt(p.eggs_count) || 0) + '</strong></td>' : '') +
+            (canExits ? '<td><span style="color:var(--warning);font-weight:600">' + fmtNum(parseInt(p.damaged) || 0) + '</span></td>' : '') +
+            '<td><span style="color:var(--danger);font-weight:600">'  + fmtNum(parseInt(p.mortality) || 0) + '</span></td>' +
+            '<td style="color:var(--gray-light);font-size:12px">' + (p.mortality_cause ? '<b style="color:var(--danger)">Causa:</b> ' + escHtml(p.mortality_cause) + (p.notes ? ' · ' : '') : '') + escHtml(p.notes || (p.mortality_cause ? '' : '—')) + '</td>' +
+            '<td class="actions"><button class="btn-icon" onclick="editProduction(\'' + p.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' + (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteProduction(\'' + p.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') + '</td></tr>';
+        });
+        var hOpts = '<option value="">Todos</option>' + houses.map(function(h) { return '<option value="' + h.id + '"' + (filterHouse === h.id ? ' selected' : '') + '>' + escHtml(h.name) + '</option>'; }).join('');
+        var hModalOpts = '<option value="">Seleccionar galpón</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+        var html =
+          '<div class="module-header">' +
+            '<div><h1 class="page-title">Registro Diario</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' registros — Mortalidad: ' + fmtNum2(totalMort) + ' aves' + (canExits ? ' · Vendidos: ' + fmtNum2(totalEggs) : '') + '</div></div>' +
+            (seeAllFE() ? '' : '<button class="btn-primary" onclick="showProductionModal()"><i class="fas fa-plus"></i> Registrar del día</button>') +
+          '</div>' +
+          '<div class="filters-bar">' +
+            '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="prod-search" placeholder="Buscar galpón, lote..." value="' + escHtml(searchVal) + '" oninput="renderProduction()"></div>' +
+            '<select id="prod-filter-house" onchange="renderProduction()">' + hOpts + '</select>' +
+            campFilterHtml_('production', 'renderProduction()') +
+            '<input type="date" id="prod-start" value="' + startDate + '" onchange="renderProduction()">' +
+            '<input type="date" id="prod-end"   value="' + endDate   + '" onchange="renderProduction()">' +
+          '</div>' +
+          tblBuild('production', prodRows, '<tr class="empty-row"><td colspan="' + (canExits ? 8 : 6) + '">No se encontraron registros de producción</td></tr>',
+            '<tr><th>Fecha</th><th>Galpón</th><th>Campaña</th>' + (canExits ? '<th>Pollos Vendidos</th><th>Descartados</th>' : '') + '<th>Mort.</th><th>Notas</th><th></th></tr>') +
+          '<div id="prod-modal" class="modal" style="display:none"><div class="modal-content">' +
+            '<div class="modal-header"><h3 id="prod-modal-title">Nuevo Registro</h3><button class="close-modal" onclick="closeModal(\'prod-modal\')">&times;</button></div>' +
+            '<form id="prod-form"><input type="hidden" id="pr-id" value="new">' +
+            '<div class="form-group"><label>Galpón *</label><select id="pr-house" required onchange="loadBirdsForProd()">' + hModalOpts + '</select></div>' +
+            '<div class="form-group"><label>Lote *</label><select id="pr-bird" required><option value="">— Selecciona galpón primero —</option></select></div>' +
+            fGroup('Fecha del registro', 'date', 'pr-date', today(), 'required') +
+            '<div class="form-section" id="pr-mort-section"><div class="form-section-title"><i class="fas fa-heart-crack"></i> Mortalidad del día' + (seeAllFE() ? ' <small style="font-weight:500;color:var(--gray)">(solo para corregir lo que registró el operador)</small>' : '') + '</div>' +
+              '<div class="form-row">' + fGroup('Aves muertas', 'number', 'pr-mortality', '', '', 'Ej: 5 (vacío si hoy no murió ninguna)') +
+              '<div class="form-group"><label>Causa probable</label><input type="text" id="pr-cause" list="pr-cause-list" placeholder="Ej: calor, aplastamiento, enfermedad">' +
+              '<datalist id="pr-cause-list"><option value="Calor / estrés térmico"><option value="Enfermedad"><option value="Aplastamiento / hacinamiento"><option value="Accidente"><option value="Depredador"><option value="Desconocida"></datalist></div></div>' +
+            '</div>' +
+            (seeAllFE() ? '<input type="hidden" id="pr-eggs" value=""><input type="hidden" id="pr-damaged" value="">' +
+              '<div class="info-box" style="margin:0 0 12px"><i class="fas fa-circle-info"></i> Los <b>pollos vendidos y descartados</b> se registran en <b>Pesaje y Liquidación</b>. Aquí solo se corrige la mortalidad que registró el operador.</div>' : '') +
+            '<div class="form-group"><label>Notas</label><textarea id="pr-notes" rows="2" placeholder="Ej: Ola de calor en la tarde; se reforzó ventilación y agua fresca."></textarea></div>' +
+            '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'prod-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+            '</form></div></div>';
+        document.getElementById('dynamic-content').innerHTML = html;
+        bindForm('prod-form', saveProductionForm);
+        showLoader(false);
+    }
+  });
+}
+
+function loadBirdsForProd(selectedBirdId) {
+  var houseId = v('pr-house');
+  var sel = document.getElementById('pr-bird');
+  if (!sel) return;
+  if (!houseId) { sel.innerHTML = '<option value="">— Selecciona galpón primero —</option>'; return; }
+  var birds = (App._cache.birds || []).filter(function(b) { return b.house_id === houseId && b.status === 'active' && campStatusFE(b) === 'started'; });
+  sel.innerHTML = '<option value="">Seleccionar lote</option>' + birds.map(function(b) {
+    return '<option value="' + b.id + '"' + (selectedBirdId === b.id ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' (' + fmtNum(parseInt(b.quantity) || 0) + ' aves)</option>';
+  }).join('');
+}
+
+function showProductionModal(p) {
+  p = p || {};
+  document.getElementById('prod-modal-title').textContent = p.id ? 'Editar Registro' : (seeAllFE() ? 'Registrar salida de pollos' : 'Registrar del día');
+  document.getElementById('pr-id').value       = p.id         || 'new';
+  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && campStatusFE(b) === 'started'; })[0] : null;
+  document.getElementById('pr-house').value    = p.house_id   || (defB ? defB.house_id : '');
+  loadBirdsForProd(p.bird_id || (defB ? defB.id : ''));
+  document.getElementById('pr-date').value     = p.date       || today();
+  if (document.getElementById('pr-eggs')) document.getElementById('pr-eggs').value = p.eggs_count || '';
+  if (document.getElementById('pr-damaged')) document.getElementById('pr-damaged').value = p.damaged || '';
+  document.getElementById('pr-mortality').value= p.mortality  || '';
+  document.getElementById('pr-cause').value    = p.mortality_cause || '';
+  document.getElementById('pr-notes').value    = p.notes      || '';
+  // La mortalidad diaria es del OPERADOR. Admin / gerente solo la ven al editar (para corregirla).
+  if (seeAllFE()) {
+    var ms = document.getElementById('pr-mort-section'); if (ms) ms.style.display = p.id ? '' : 'none';
+    var mn = document.getElementById('pr-mort-note');    if (mn) mn.style.display = p.id ? 'none' : '';
+  }
+  openModal('prod-modal');
+}
+
+function editProduction(id) {
+  var cached = App._cache.production || [];
+  var p = cached.find(function(x) { return x.id === id; });
+  if (p) { showProductionModal(p); return; }
+  apiGet('getProduction', {}, function(prods) {
+    App._cache.production = prods;
+    var q = prods.find(function(x) { return x.id === id; });
+    if (q) showProductionModal(q);
+  });
+}
+
+function saveProductionForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  api('saveProduction', {
+    id: v('pr-id'), house_id: v('pr-house'), bird_id: v('pr-bird'),
+    date: v('pr-date'), eggs_count: document.getElementById('pr-eggs') ? v('pr-eggs') : '',
+    damaged: document.getElementById('pr-damaged') ? v('pr-damaged') : '', mortality: v('pr-mortality'), mortality_cause: v('pr-cause'), notes: v('pr-notes')
+  }, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) {
+      closeModal('prod-modal');
+      if (r.warning) showToast('Registro guardado. ' + r.warning, 'warning');
+      else showToast('Registro guardado', 'success');
+      renderProduction();
+    }
+    else showToast((r && r.error) || 'Error al guardar', 'error');
+  });
+}
+
+// ==================== ALIMENTACIÓN ====================
+
+
+
+
+
+
+
+
+// ==================== FINANZAS ====================
+
+
+
+
+
+
+
+
+
+
+// ===== Helpers v7 =====
+function scopeTag() {
+  return (!seeAllFE())
+    ? '<span class="scope-note"><i class="fas fa-user-lock"></i> Solo ves lo que tú registraste</span> '
+    : '';
+}
+
+// Deudas y retiros personales: bajan la Caja, no la Utilidad ni el costo de la campaña (solo admin)
+var FIN_OUTFLOW = ['Pago de préstamo / deuda', 'Retiro del dueño (personal)'];
+
+function finCatsFor(type) {
+  var egr = ['Mano de obra', 'Servicios', 'Transporte', 'Impuestos', 'Otros egresos'];
+  if (App.user && App.user.role === 'admin') egr = egr.concat(FIN_OUTFLOW);
+  return type === 'income'
+    ? ['Capital de campaña', 'Venta de pollos', 'Venta de aves', 'Subsidios', 'Otros ingresos']
+    : egr;
+}
+
+function campaignOpts(birds, houses, selected, emptyLabel) {
+  var hMap = {}; (houses || []).forEach(function(h) { hMap[h.id] = h.name; });
+  return '<option value="">' + (emptyLabel || '— Sin campaña —') + '</option>' + (birds || []).map(function(b) {
+    var act = String(b.status).trim().toLowerCase() === 'active';
+    return '<option value="' + b.id + '"' + (selected === b.id ? ' selected' : '') + '>' +
+      escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (act ? '' : ' (cerrada)') + '</option>';
+  }).join('');
+}
+
+var SOURCE_LABELS = {
+  feeding: ['Alimentación', 'feeding', 'fa-seedling'],
+  health: ['Salud', 'health', 'fa-syringe'],
+  maintenance: ['Mantenimiento', 'maintenance', 'fa-screwdriver-wrench'],
+  payment: ['Pagos', 'payments', 'fa-receipt'],
+  staff_payment: ['Pago a empleado', 'staff', 'fa-user'],
+  buyer_payment: ['Cobro de comprador', 'buyerdebts', 'fa-hand-holding-dollar']
+};
+
+// ==================== ALIMENTACIÓN ====================
+function renderFeeding() {
+  var filterHouse = '', searchVal = '';
+  var fH  = document.getElementById('feed-filter-house'); if (fH)  filterHouse = fH.value;
+  var sEl = document.getElementById('feed-search');       if (sEl) searchVal   = sEl.value;
+  api('getFeedingModule', {house_id: filterHouse}, function(r) {
+    var houses  = (r && r.houses)  || [];
+    var feeding = (r && r.feeding) || [];
+    var stock   = (r && r.stock)   || {};
+    App._cache.houses  = houses;
+    App._cache.feeding = feeding;
+    App._cache.feedStock = stock;
+    var fCamps = (r && r.campaigns) || [];
+    App._cache.feedCamps = fCamps;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+    var cMap = {}; fCamps.forEach(function(c) { cMap[c.id] = c; });
+    var filtered = filterTable(feeding.filter(function(f) { return campKeep_(f); }), searchVal, ['feed_type', 'notes', 'supplier']);
+    var movBadge = { purchase: '<span class="badge badge-success"><i class="fas fa-cart-shopping"></i> Compra</span>',
+                     consumption: '<span class="badge badge-info"><i class="fas fa-utensils"></i> Consumo</span>' };
+    var feedRows = filtered.map(function(f) {
+      var mv = String(f.movement || '').trim();
+      var kg = parseFloat(f.quantity_kg) || 0;
+      var bags = parseFloat(f.bags) || 0;
+      var qty = fmtNum2(kg) + ' kg' + (bags ? ' <small style="color:var(--gray-light)">(' + fmtNum2(bags) + ' sacos)</small>' : '');
+      var costCell = mv === 'purchase'
+        ? '<strong>' + fmtMoney(f.cost) + '</strong> <small style="color:var(--gray-light)">pagado</small><div style="margin-top:3px">' +
+            (f.voucher_url ? voucherLinkHtml(f.voucher_url) : '<span class="voucher-missing">sin comprobante</span>') + '</div>'
+        : mv === 'consumption'
+          ? '<span title="Costo estimado = kg × costo promedio por kg de las compras" style="color:var(--gray)">≈ ' + fmtMoney(f.cost) + '</span>'
+          : fmtMoney(f.cost) + ' <small style="color:var(--gray-light)">histórico</small>';
+      return '<tr>' +
+        '<td>' + fmtDate(f.date) + '</td>' +
+        '<td>' + (mv === 'purchase' ? (cMap[f.campaign_id] ? campBadge_(cMap[f.campaign_id].batch_number) : '<span class="badge badge-gray">Stock general</span>') : campBadge_(campNameOf_(f))) + '</td>' +
+        '<td>' + (movBadge[mv] || '<span class="badge badge-gray">Histórico</span>') + '</td>' +
+        '<td>' + (mv === 'purchase'
+          ? '<span style="color:var(--gray-light)">' + escHtml(f.supplier || '—') + '</span><div style="margin-top:3px">' +
+            (cMap[f.campaign_id] ? '<span class="badge badge-purple">' + escHtml(cMap[f.campaign_id].batch_number) + '</span>' : '<span class="badge badge-gray">Stock general</span>') + '</div>'
+          : escHtml(hMap[f.house_id] || '—')) + '</td>' +
+        '<td><span class="badge badge-info">' + escHtml(f.feed_type || '') + '</span></td>' +
+        '<td>' + qty + '</td>' +
+        '<td>' + costCell + '</td>' +
+        '<td style="color:var(--gray-light);font-size:12px">' + escHtml(f.notes || '—') + '</td>' +
+        '<td class="actions"><button class="btn-icon" onclick="editFeeding(\'' + f.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' + (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteFeeding(\'' + f.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') + '</td></tr>';
+    });
+    var stockKg = parseFloat(stock.stock_kg) || 0;
+    var bagsAprox = stockKg / 50;
+    var hOpts = '<option value="">Todos los galpones</option>' + houses.map(function(h) { return '<option value="' + h.id + '"' + (filterHouse === h.id ? ' selected' : '') + '>' + escHtml(h.name) + '</option>'; }).join('');
+    var hModalOpts = '<option value="">Seleccionar galpón</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Alimentación</h1><div class="page-subtitle">' + scopeTag() + '' + (isMgrFE() ? 'La compra se registra una vez (con costo). El consumo diario solo lleva cantidad.' : 'Registra aquí el consumo diario (solo cantidad). Las compras las registra el administrador o el gerente.') + '</div></div>' +
+        '<div class="btn-group-row">' +
+          (isMgrFE() ? '<button class="btn-secondary" onclick="showFeedingModal(null,\'purchase\')"><i class="fas fa-cart-shopping"></i> Registrar compra</button>' : '') +
+          (seeAllFE() ? '' : '<button class="btn-primary" onclick="showFeedingModal(null,\'consumption\')"><i class="fas fa-utensils"></i> Registrar consumo diario</button>') +
+        '</div>' +
+      '</div>' +
+      '<div class="stock-grid">' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-warehouse"></i> STOCK ACTUAL</div><div class="val" style="color:' + (stockKg < 0 ? 'var(--danger)' : 'var(--dark)') + '">' + fmtNumCard(stockKg, ' kg') + '</div><div class="sub">≈ ' + fmtNum2(Math.round(bagsAprox * 10) / 10) + ' sacos de 50 kg</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-coins"></i> COSTO PROMEDIO</div><div class="val">' + fmtMoneyCard(stock.avg_cost_kg || 0) + '</div><div class="sub">por kg (compras acumuladas)</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-cart-shopping"></i> COMPRADO</div><div class="val">' + fmtNumCard(stock.purchased_kg || 0, ' kg') + '</div><div class="sub">' + fmtMoneyCard(stock.purchased_cost || 0) + ' → egreso en Finanzas</div></div>' +
+        '<div class="stock-card"><div class="lbl"><i class="fas fa-utensils"></i> CONSUMIDO</div><div class="val">' + fmtNumCard(stock.consumed_kg || 0, ' kg') + '</div><div class="sub">valor en stock ' + fmtMoneyCard(stock.stock_value || 0) + '</div></div>' +
+      '</div>' +
+      '<div class="filters-bar">' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="feed-search" placeholder="Buscar tipo, proveedor, notas..." value="' + escHtml(searchVal) + '" oninput="renderFeeding()"></div>' +
+        '<select id="feed-filter-house" onchange="renderFeeding()">' + hOpts + '</select>' +
+        campFilterHtml_('feeding', 'renderFeeding()') +
+      '</div>' +
+      tblBuild('feeding', feedRows, '<tr class="empty-row"><td colspan="9">Aún no hay movimientos de alimentación</td></tr>',
+        '<tr><th>Fecha</th><th>Campaña</th><th>Movimiento</th><th>Galpón / Proveedor</th><th>Tipo</th><th>Cantidad</th><th>Costo</th><th>Notas</th><th></th></tr>') +
+      '<div id="feed-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3 id="feed-modal-title">Registrar consumo</h3><button class="close-modal" onclick="closeModal(\'feed-modal\')">&times;</button></div>' +
+        '<form id="feed-form"><input type="hidden" id="fe-id" value="new"><input type="hidden" id="fe-mov" value="consumption">' +
+        '<div class="form-group" id="fe-house-group"><label>Galpón donde se usó *</label><select id="fe-house">' + hModalOpts + '</select></div>' +
+        fGroup('Fecha', 'date', 'fe-date', today(), 'required') +
+        '<div class="form-group"><label>Tipo de Alimento</label><select id="fe-type">' + selOpt(['Pre Inicio:Pre Inicio','Inicio:Inicio','Crecimiento:Crecimiento','Engorde:Engorde','Acabado:Acabado'], 'Engorde') + '</select></div>' +
+        '<div class="form-row">' +
+          fGroup('Cantidad *', 'number', 'fe-qty', '', 'required', 'Ej: 50') +
+          '<div class="form-group"><label>Unidad</label><select id="fe-unit" onchange="feedPreview()">' + selOpt(['bags:Sacos','kg:Kilos'], 'kg') + '</select></div>' +
+        '</div>' +
+        fGroup('Peso por saco (kg)', 'number', 'fe-kgbag', '50', '', 'Ej: 50', 'Se usa para convertir sacos a kilos.') +
+        '<div id="fe-purchase-fields">' +
+          fGroup('Costo total de la compra (S/) *', 'number', 'fe-cost', '', '', 'Ej: 6000 (lo que pagaste por TODA la compra)', 'Se registra solo aquí y pasa automáticamente a Finanzas como egreso "Alimento".') +
+          fGroup('Proveedor', 'text', 'fe-supplier', '', '', 'Ej: Molinos San Jorge') +
+          '<div class="form-group"><label>Campaña (lote)</label><select id="fe-camp"></select>' +
+            '<small class="field-hint">Elige la campaña para la que compraste el alimento, o déjalo en «Stock general» si es para varias.</small></div>' +
+          voucherFieldHtml('fe', 'Boleta / factura de la compra') +
+        '</div>' +
+        '<div id="fe-consume-info" class="info-box"><i class="fas fa-circle-info"></i> No se pide costo: el sistema lo calcula con el costo promedio por kg de tus compras.</div>' +
+        '<div id="fe-preview" class="info-box" style="display:none"></div>' +
+        '<div class="form-group"><label>Notas</label><textarea id="fe-notes" rows="2" placeholder="Ej: Se terminó el lote de saco anterior; se abrió saco nuevo."></textarea></div>' +
+        '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'feed-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+        '</form></div></div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    bindForm('feed-form', saveFeedingForm);
+    ['fe-qty', 'fe-kgbag', 'fe-cost'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.addEventListener('input', feedPreview);
+    });
+    showLoader(false);
+  });
+}
+
+function feedPreview() {
+  var box = document.getElementById('fe-preview'); if (!box) return;
+  var mv = v('fe-mov'), qty = parseFloat(v('fe-qty')) || 0, unit = v('fe-unit'), kgb = parseFloat(v('fe-kgbag')) || 50;
+  var kg = unit === 'bags' ? qty * kgb : qty;
+  if (qty <= 0) { box.style.display = 'none'; return; }
+  var st = App._cache.feedStock || {};
+  var txt = '<i class="fas fa-calculator"></i> ' + fmtNum2(kg) + ' kg';
+  if (mv === 'purchase') {
+    var cost = parseFloat(v('fe-cost')) || 0;
+    if (cost > 0 && kg > 0) txt += ' · ' + fmtMoney(cost / kg) + ' por kg · ' + fmtMoney(cost / (unit === 'bags' ? qty : kg / kgb)) + ' por saco';
+  } else {
+    txt += ' · costo estimado ≈ ' + fmtMoney(kg * (parseFloat(st.avg_cost_kg) || 0));
+    if ((parseFloat(st.stock_kg) || 0) - kg < 0) txt += ' · <b style="color:var(--danger)">supera el stock registrado</b>';
+  }
+  box.innerHTML = txt; box.style.display = 'block';
+}
+
+function showFeedingModal(f, movement) {
+  f = f || {};
+  var mv = f.id ? (String(f.movement || '').trim() || 'consumption') : (movement || 'consumption');
+  var isP = mv === 'purchase';
+  document.getElementById('feed-modal-title').textContent = (f.id ? 'Editar ' : 'Registrar ') + (isP ? 'compra de alimento' : 'consumo diario');
+  document.getElementById('fe-id').value    = f.id          || 'new';
+  document.getElementById('fe-mov').value   = mv;
+  document.getElementById('fe-house').value = f.house_id    || '';
+  document.getElementById('fe-date').value  = f.date ? String(f.date).slice(0, 10) : today();
+  document.getElementById('fe-type').value  = f.feed_type   || 'Engorde';
+  var kgb = parseFloat(f.kg_per_bag) || 50;
+  document.getElementById('fe-kgbag').value = kgb;
+  if (isP) {
+    document.getElementById('fe-unit').value = 'bags';
+    document.getElementById('fe-qty').value  = f.id ? (parseFloat(f.bags) || Math.round((parseFloat(f.quantity_kg) || 0) / kgb * 100) / 100) : '';
+  } else {
+    document.getElementById('fe-unit').value = 'kg';
+    document.getElementById('fe-qty').value  = f.quantity_kg || '';
+  }
+  document.getElementById('fe-cost').value     = isP ? (f.cost || '') : '';
+  document.getElementById('fe-supplier').value = f.supplier || '';
+  (function() {
+    var camps = App._cache.feedCamps || [], hm = {};
+    (App._cache.houses || []).forEach(function(h) { hm[h.id] = h.name; });
+    var cur = (isP && f.campaign_id) ? f.campaign_id : '';
+    var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur; });
+    var pick = cur || ((!f.id && App.camp && list.some(function(c) { return String(c.id) === String(App.camp); })) ? String(App.camp) : '') || ((!f.id && list.length === 1) ? list[0].id : '');
+    document.getElementById('fe-camp').innerHTML = '<option value="">Stock general (varias campañas)</option>' + list.map(function(c) {
+      return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + '</option>';
+    }).join('');
+  })();
+  document.getElementById('fe-notes').value    = f.notes    || '';
+  document.getElementById('fe-house-group').style.display      = isP ? 'none' : '';
+  document.getElementById('fe-purchase-fields').style.display  = isP ? '' : 'none';
+  document.getElementById('fe-consume-info').style.display     = isP ? 'none' : '';
+  document.getElementById('fe-qty').placeholder = isP ? 'Ej: 50 (sacos comprados)' : 'Ej: 120 (kg echados hoy) — o cambia la unidad a Sacos';
+  document.getElementById('fe-house').required = !isP;
+  document.getElementById('fe-cost').required  = isP;
+  voucherReset('fe', isP ? (f.voucher_url || '') : '');
+  feedPreview();
+  openModal('feed-modal');
+}
+
+function editFeeding(id) {
+  var x = (App._cache.feeding || []).find(function(a) { return a.id === id; });
+  if (!x) return;
+  if (!String(x.movement || '').trim()) {
+    confirmDialog('', function() { showFeedingModal(x); }, {
+      title: 'Registro histórico',
+      message: 'Este es un registro histórico con costo propio. Al editarlo pasará al nuevo esquema: el costo se calculará con el costo promedio de tus compras. ¿Continuar?',
+      okText: 'Continuar', type: 'primary', icon: 'fa-history'
+    });
+    return;
+  }
+  showFeedingModal(x);
+}
+
+function saveFeedingForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  var mv = v('fe-mov');
+  // Solo la COMPRA lleva comprobante; el consumo diario no tiene costo propio.
+  var doSave = function(vUrl) {
+    api('saveFeeding', {
+      id: v('fe-id'), movement: mv, house_id: mv === 'purchase' ? '' : v('fe-house'), date: v('fe-date'),
+      feed_type: v('fe-type'), quantity: v('fe-qty'), unit: v('fe-unit'), kg_per_bag: v('fe-kgbag'),
+      cost: mv === 'purchase' ? v('fe-cost') : 0, supplier: v('fe-supplier'), notes: v('fe-notes'),
+      campaign_id: mv === 'purchase' ? v('fe-camp') : '',
+      voucher_url: vUrl
+    }, function(r) {
+      if (btn) btn.disabled = false;
+      if (r && r.success) {
+        closeModal('feed-modal');
+        showToast(mv === 'purchase' ? 'Compra registrada y enviada a Finanzas con su comprobante' : 'Consumo registrado', 'success');
+        if (r.warning) showToast(r.warning, 'warning');
+        renderFeeding();
+      } else showToast((r && r.error) || 'Error al guardar', 'error');
+    });
+  };
+  if (mv !== 'purchase') { doSave(''); return; }
+  voucherUpload('fe', function(err, vUrl) {
+    if (err) { if (btn) btn.disabled = false; showToast(err, 'error'); return; }
+    doSave(vUrl);
+  });
+}
+
+// ==================== FINANZAS ====================
+var _finTimer = null;
+function finFilter() {   // filtra con los datos ya cargados: sin pedir nada al servidor y sin perder el foco del buscador
+  clearTimeout(_finTimer);
+  _finTimer = setTimeout(function() { renderFinance(true); }, 120);
+}
+function renderFinance(fromCache) {
+  var filterType = '', startDate = '', endDate = '', searchVal = '';
+  var fT  = document.getElementById('fin-type-filter'); if (fT)  filterType = fT.value;
+  var fS  = document.getElementById('fin-start');       if (fS)  startDate  = fS.value;
+  var fE  = document.getElementById('fin-end');         if (fE)  endDate    = fE.value;
+  var sEl = document.getElementById('fin-search');      if (sEl) searchVal  = sEl.value;
+  var buildFinance = function(r, deuda, partial) {
+    var houses   = (r && r.houses)   || [];
+    var birds    = (r && r.birds)    || [];
+    var finances = (r && r.finances) || [];
+    var canIncome = !!(r && r.canIncome);
+    App._cache.houses = houses; App._cache.finBirds = birds; App._cache.finances = finances; App._cache.finCanIncome = canIncome;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+    var bMap = {}; birds.forEach(function(b) { bMap[b.id] = b; });
+    var filtered = finances.filter(function(f) {
+      if (!campKeep_(f)) return false;
+      if (filterType && f.type !== filterType) return false;
+      if (startDate  && String(f.date).slice(0,10) < startDate) return false;
+      if (endDate    && String(f.date).slice(0,10) > endDate)   return false;
+      return true;
+    });
+    filtered = filterTable(filtered, searchVal, ['description', 'category']);
+    filtered.sort(function(a, b) { return String(b.date).localeCompare(String(a.date)); });
+    var totalCap = 0, totalInc = 0, totalExp = 0, totalOut = 0;
+    filtered.forEach(function(f) {
+      var a = parseFloat(f.amount) || 0;
+      if (f.type === 'income') { if (f.category === 'Capital de campaña') totalCap += a; else totalInc += a; }
+      else if (FIN_OUTFLOW.indexOf(f.category) > -1) totalOut += a;
+      else totalExp += a;
+    });
+    var profit = totalInc - totalExp, caja = totalCap + totalInc - totalExp - totalOut;
+    // Deudas de compradores: filas "Por cobrar" fijas arriba de la MISMA tabla (no suman a Ingresos/Egresos)
+    var debtRows = [], totalDebe = 0;
+    if (canIncome && deuda && deuda.success !== false) {
+      var deb = (deuda.rows || []).filter(function(x) { return x.saldo > 0.005 && (!campCur_('finance') || String(x.lote || '') === campCur_('finance')); }).sort(function(a, b) { return b.saldo - a.saldo; });
+      deb.forEach(function(x) { totalDebe += x.saldo; });
+      var debShow = (filterType === '' || filterType === 'debt') ? deb : [];
+      debShow = filterTable(debShow.map(function(x) {
+        x._txt = x.comprador + ' ' + bdCampLabel(x.campana) + ' por cobrar deuda debe venta de pollos';
+        return x;
+      }), searchVal, ['_txt']);
+      debtRows = debShow.map(function(x) {
+        var b = bMap[x.lote];
+        var where = b ? escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') : escHtml(bdCampLabel(x.campana));
+        return '<tr style="background:rgba(239,68,68,.05)">' +
+          '<td style="box-shadow:inset 3px 0 0 #ef4444;white-space:nowrap">' + (x.ultimo_cobro ? fmtDate(x.ultimo_cobro) : '—') + '</td>' +
+          '<td><span class="badge badge-danger" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:5px 10px"><i class="fas fa-clock" style="font-size:11px;line-height:1"></i><span>Por cobrar</span></span></td>' +
+          '<td>Venta de pollos</td>' +
+          '<td><strong>' + escHtml(x.comprador) + '</strong> · ' + escHtml(bdCampLabel(x.campana)) + ' · Vendido ' + fmtMoney(x.vendido) + ' · Cobrado ' + fmtMoney(x.cobrado) + '</td>' +
+          '<td><span class="badge badge-purple" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap"><i class="fas fa-hand-holding-dollar" style="font-size:11px"></i><span>Deuda de comprador</span></span></td>' +
+          '<td class="text-danger"><strong>' + fmtMoney(x.saldo) + '</strong></td>' +
+          '<td>' + where + '</td>' +
+          '<td class="actions"><button class="btn-icon" onclick="loadModule(\'buyerdebts\')" title="Registrar cobro"><i class="fas fa-hand-holding-dollar"></i></button></td></tr>';
+      });
+    }
+    var finRows = filtered.map(function(f) {
+      var src = SOURCE_LABELS[f.source];
+      var legacyPay = f.source === 'payment';   // pago antiguo: el módulo de pagos ya no existe
+      var auto = !!src && !legacyPay;
+      var b = bMap[f.campaign_id];
+      var where = b ? escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') : (f.source === 'feeding' ? 'Stock general' : escHtml(hMap[f.house_id] || '—'));
+      var voucher = f.voucher_url ? ' ' + voucherLinkHtml(f.voucher_url, 'Comprobante') : '';
+      var actions = legacyPay
+        ? (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteFinance(\'' + f.id + '\')" title="Pago antiguo: solo se puede eliminar"><i class="fas fa-trash"></i></button>' : '<i class="fas fa-lock" style="color:var(--gray-light)" title="Pago antiguo"></i>')
+        : auto
+        ? '<button class="btn-icon" onclick="loadModule(\'' + src[1] + '\')" title="Automático: se edita en ' + src[0] + '"><i class="fas fa-lock"></i></button>'
+        : '<button class="btn-icon" onclick="editFinance(\'' + f.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+          (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteFinance(\'' + f.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '');
+      return '<tr>' +
+        '<td>' + fmtDate(f.date) + '</td>' +
+        '<td><span class="badge ' + (f.type === 'income' ? 'badge-success' : 'badge-danger') + '">' + (f.type === 'income' ? '↑ Ingreso' : '↓ Egreso') + '</span></td>' +
+        '<td>' + escHtml(f.category || '') + '</td>' +
+        '<td>' + escHtml(f.description || '') + voucher + '</td>' +
+        '<td>' + (src ? '<span class="badge badge-purple"><i class="fas ' + src[2] + '"></i> ' + src[0] + '</span>' : '<span class="badge badge-gray">Manual</span>') + '</td>' +
+        '<td class="' + (f.type === 'income' ? 'text-success' : 'text-danger') + '">' + fmtMoney(f.amount) + '</td>' +
+        '<td>' + where + '</td>' +
+        '<td class="actions">' + actions + '</td></tr>';
+    });
+    finRows = debtRows.concat(filterType === 'debt' ? [] : finRows);
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Finanzas</h1><div class="page-subtitle">' + scopeTag() + finances.length + ' movimientos · todo costo y todo ingreso del sistema se concentra aquí</div></div>' +
+        '<button class="btn-primary" onclick="showFinanceModal()"><i class="fas fa-plus"></i> Nuevo Movimiento</button>' +
+      '</div>' +
+      '<div class="finance-summary" id="fin-summary">' +
+        '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-piggy-bank"></i></div><div><h3>Capital recibido</h3><p>' + fmtMoneyCard(totalCap) + '</p><small>Con lo que empezó</small></div></div>' +
+        '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-arrow-down"></i></div><div><h3>Egresos</h3><p>' + fmtMoneyCard(totalExp + totalOut) + '</p></div></div>' +
+        (function() { var rest = totalCap - (totalExp + totalOut), ok = rest >= 0;
+          return '<div class="summary-card ' + (ok ? 'positive' : 'negative') + '"><div class="summary-icon ' + (ok ? 'income' : 'expense') + '"><i class="fas fa-scale-balanced"></i></div><div><h3>Capital − Egresos</h3><p>' + fmtMoneyCard(rest) + '</p><small>' + (ok ? 'Capital que te queda' : 'Egresos superan el capital') + '</small></div></div>'; })() +
+        '<div class="summary-card positive"><div class="summary-icon income"><i class="fas fa-wallet"></i></div><div><h3>Dinero que ya cobré</h3><p>' + fmtMoneyCard(totalInc) + '</p></div></div>' +
+        (canIncome ? '<div class="summary-card" style="cursor:pointer" onclick="loadModule(\'buyerdebts\')" title="Ver Deuda de compradores"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Me deben los compradores</h3><p id="fin-porcobrar">Calculando…</p><small>Vendido sin cobrar</small></div></div>' : '') +
+      '</div>' +
+      '<div class="filters-bar">' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="fin-search" placeholder="Buscar descripción, categoría..." value="' + escHtml(searchVal) + '" oninput="finFilter()"></div>' +
+        '<select id="fin-type-filter" onchange="finFilter()"><option value="">Todos</option><option value="income"' + (filterType === 'income' ? ' selected' : '') + '>Ingresos</option><option value="expense"' + (filterType === 'expense' ? ' selected' : '') + '>Egresos</option>' + (canIncome ? '<option value="debt"' + (filterType === 'debt' ? ' selected' : '') + '>Por cobrar (deudas)</option>' : '') + '</select>' +
+        campFilterHtml_('finance', 'finFilter()') +
+        '<input type="date" id="fin-start" value="' + startDate + '" onchange="finFilter()">' +
+        '<input type="date" id="fin-end"   value="' + endDate   + '" onchange="finFilter()">' +
+      '</div>' +
+      '<div id="fin-table-wrap">' + tblBuild('finance', finRows, '<tr class="empty-row"><td colspan="8">No se encontraron movimientos financieros</td></tr>',
+        '<tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Origen</th><th>Monto</th><th>Campaña / Galpón</th><th></th></tr>') + '</div>' +
+      '<div id="fin-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3 id="fin-modal-title">Nuevo Movimiento</h3><button class="close-modal" onclick="closeModal(\'fin-modal\')">&times;</button></div>' +
+        '<form id="fin-form"><input type="hidden" id="fi-id" value="new">' +
+        '<div class="form-group"><label>Tipo *</label><select id="fi-type" onchange="updateFinCats()">' +
+          (canIncome ? selOpt(['income:Ingreso', 'expense:Egreso'], 'expense') : selOpt(['expense:Egreso'], 'expense')) + '</select>' +
+          (canIncome ? '' : '<small class="field-hint">Solo el administrador registra ingresos (capital, ventas de campaña u otros).</small>') + '</div>' +
+        '<div class="form-group"><label>Categoría *</label><select id="fi-cat" required onchange="finCatChanged()"></select></div>' +
+        '<div class="form-group"><label id="fi-camp-label">Campaña (lote)</label><select id="fi-camp" onchange="finCatChanged()">' + campaignOpts(birds, houses, '') + '</select></div>' +
+        fGroup('Fecha', 'date', 'fi-date', today(), 'required') +
+        fGroup('Descripción', 'text', 'fi-desc', '', 'required', 'Ej: Pago de luz — septiembre') +
+        fGroup('Monto (S/)', 'number', 'fi-amount', '', 'required', 'Ej: 250.00') +
+        voucherFieldHtml('fi', 'Boleta / comprobante (obligatorio en egresos, salvo administrador)') +
+        '<div class="form-group" id="fi-house-group"><label>Galpón (opcional)</label><select id="fi-house"><option value="">— Sin galpón —</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="form-group" id="fi-close-group" style="display:none"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="fi-close" style="width:auto"> Cerrar esta campaña (el lote pasa a inactivo)</label><small class="field-hint">Úsalo al registrar la venta final del lote.</small></div>' +
+        '<div id="fi-note" class="info-box"><i class="fas fa-circle-info"></i> Alimento, medicinas y mantenimiento no se registran aquí: se cargan solos desde Alimentación, Salud y Mantenimiento.</div>' +
+        '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'fin-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+        '</form></div></div>';
+    if (partial && document.getElementById('fin-table-wrap')) {
+      var tmp = document.createElement('div'); tmp.innerHTML = html;
+      ['fin-summary', 'fin-table-wrap'].forEach(function(id) {
+        var a = document.getElementById(id), b = tmp.querySelector('#' + id);
+        if (a && b) a.innerHTML = b.innerHTML;
+      });
+    } else {
+      document.getElementById('dynamic-content').innerHTML = html;
+      bindForm('fin-form', saveFinanceForm);
+      updateFinCats();
+      showLoader(false);
+    }
+    var pc = document.getElementById('fin-porcobrar');
+    if (pc && deuda) { pc.textContent = (deuda.success !== false) ? fmtMoneyShort(totalDebe, 10000) : '—'; pc.title = (deuda.success !== false) ? fmtMoney(totalDebe) : ''; }
+  };
+  // Filtros: usan lo ya cargado (instantáneo)
+  if (fromCache && App._cache.finData) { buildFinance(App._cache.finData, App._cache.finDeuda || null, true); return; }
+  api('getFinanceModule', {}, function(r0) {
+    App._cache.finData = r0;
+    buildFinance(r0, App._cache.finDeuda || null);          // se dibuja ya, sin esperar a Pesaje
+    if (r0 && r0.canIncome) api('pesajeDeudas', {}, function(d) {   // deudas = vendido en Pesaje − cobros (llegan después)
+      App._cache.finDeuda = d;
+      if (document.getElementById('fin-table-wrap')) renderFinance(true);
+    });
+  });
+}
+
+function updateFinCats(selectedCat) {
+  var type = v('fi-type');
+  var sel = document.getElementById('fi-cat');
+  if (!sel) return;
+  sel.innerHTML = finCatsFor(type).map(function(c) { return '<option value="' + c + '"' + (selectedCat === c ? ' selected' : '') + '>' + c + '</option>'; }).join('');
+  finCatChanged();
+}
+
+function finCatChanged() {
+  var type = v('fi-type'), cat = v('fi-cat'), camp = v('fi-camp');
+  var needCamp = type === 'income' && (cat === 'Capital de campaña' || cat === 'Venta de pollos');
+  var lbl = document.getElementById('fi-camp-label'); if (lbl) lbl.textContent = needCamp ? 'Campaña (lote) *' : 'Campaña (lote) — opcional';
+  var cs = document.getElementById('fi-camp'); if (cs) cs.required = needCamp;
+  var cg = document.getElementById('fi-close-group');
+  if (cg) cg.style.display = (type === 'income' && cat === 'Venta de pollos' && camp) ? '' : 'none';
+  var hg = document.getElementById('fi-house-group'); if (hg) hg.style.display = camp ? 'none' : '';
+  var ph = {
+    'Capital de campaña': 'Ej: Capital inicial campaña octubre — 5,000 pollos',
+    'Venta de pollos': 'Ej: Venta total lote L-2026-10 (4,850 pollos a S/ 9.50)',
+    'Venta de aves': 'Ej: Venta de gallinas de descarte',
+    'Subsidios': 'Ej: Bono sanitario del mes',
+    'Otros ingresos': 'Ej: Venta de gallinaza / sacos vacíos',
+    'Mano de obra': 'Ej: Pago quincena — Juan Pérez',
+    'Servicios': 'Ej: Pago de luz — septiembre',
+    'Transporte': 'Ej: Flete de pollos al mercado',
+    'Impuestos': 'Ej: SUNAT — pago mensual',
+    'Otros egresos': 'Ej: Compra de escobas y desinfectante',
+    'Pago de préstamo / deuda': 'Ej: Cuota Caja Trujillo — capital',
+    'Retiro del dueño (personal)': 'Ej: Retiro personal del dueño'
+  };
+  var isOut = (type === 'expense' && FIN_OUTFLOW.indexOf(cat) > -1);
+  if (isOut && cs) { cs.value = ''; cs.required = false; }
+  if (cs) cs.disabled = isOut;
+  if (lbl && isOut) lbl.textContent = 'Campaña (lote) — no aplica';
+  if (hg && isOut) hg.style.display = 'none';
+  var d = document.getElementById('fi-desc'); if (d) d.placeholder = ph[cat] || 'Describe el movimiento';
+  var note = document.getElementById('fi-note');
+  if (note) {
+    var isVenta = (type === 'income' && cat === 'Venta de pollos');
+    if (isVenta) {
+      note.innerHTML = '<i class="fas fa-circle-info"></i> Si esta venta se pesó en <b>Pesaje y Liquidación</b>, no la registres aquí: entra sola a Finanzas cuando registras el cobro en «Deuda de compradores». Así no se registra dos veces.';
+    } else if (isOut) {
+      note.innerHTML = '<i class="fas fa-circle-info"></i> Esta salida baja la Caja pero no cuenta como costo: no afecta la utilidad ni la campaña.';
+    } else {
+      note.innerHTML = '<i class="fas fa-circle-info"></i> Alimento, medicinas y mantenimiento no se registran aquí: se cargan solos desde Alimentación, Salud y Mantenimiento.';
+    }
+    note.style.display = (type === 'expense' || isVenta) ? '' : 'none';
+  }
+}
+
+function showFinanceModal(f) {
+  f = f || {};
+  document.getElementById('fin-modal-title').textContent = f.id ? 'Editar Movimiento' : 'Nuevo Movimiento';
+  document.getElementById('fi-id').value     = f.id          || 'new';
+  document.getElementById('fi-type').value   = f.type        || 'expense';
+  if (document.getElementById('fi-type').value !== (f.type || 'expense')) document.getElementById('fi-type').selectedIndex = 0;
+  document.getElementById('fi-camp').value   = f.campaign_id || (f.id ? '' : (App.camp || ''));
+  updateFinCats(f.category);
+  document.getElementById('fi-date').value   = f.date ? String(f.date).slice(0, 10) : today();
+  document.getElementById('fi-desc').value   = f.description || '';
+  document.getElementById('fi-amount').value = f.amount      || '';
+  document.getElementById('fi-house').value  = f.house_id    || '';
+  document.getElementById('fi-close').checked = false;
+  voucherReset('fi', f.voucher_url || '');
+  finCatChanged();
+  openModal('fin-modal');
+}
+
+function editFinance(id) {
+  var f = (App._cache.finances || []).find(function(x) { return x.id === id; });
+  if (f) showFinanceModal(f);
+}
+
+function saveFinanceForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  voucherUpload('fi', function(err, vUrl) {
+    if (err) { if (btn) btn.disabled = false; showToast(err, 'error'); return; }
+    var finPayload = {
+      id: v('fi-id'), type: v('fi-type'), category: v('fi-cat'),
+      date: v('fi-date'), description: v('fi-desc'),
+      amount: v('fi-amount'), house_id: v('fi-house'), campaign_id: v('fi-camp'),
+      voucher_url: vUrl,
+      close_campaign: !!(document.getElementById('fi-close') && document.getElementById('fi-close').checked)
+    };
+    api('saveFinance', finPayload, function finSaved(r) {
+      if (r && r.duplicate) {
+        if (confirm(r.error + '\n\n¿Es otro gasto distinto? Aceptar = guardarlo igual · Cancelar = no guardar (evita duplicados).')) {
+          finPayload.force = true; api('saveFinance', finPayload, finSaved); return;
+        }
+      }
+      if (btn) btn.disabled = false;
+      if (r && r.success) {
+        closeModal('fin-modal');
+        showToast(r.campaignClosed ? 'Movimiento guardado y campaña cerrada' : 'Movimiento guardado', 'success');
+        renderFinance();
+      } else showToast((r && r.error) || 'Error al guardar', 'error');
+    });
+  });
+}
+
+// ==================== PERSONAL ====================
+function renderStaff() {
+  // Carga una sola vez la lista de usuarios del sistema (para vincular empleado ↔ usuario)
+  if (!App._cache.staffUsers) {
+    api('getUsers', {}, function(ur) {
+      App._cache.staffUsers = (ur && ur.success && Array.isArray(ur.data)) ? ur.data : [];
+      renderStaffMain();
+    });
+    return;
+  }
+  renderStaffMain();
+}
+function renderStaffMain() {
+  var searchVal = '', filterStatus = '';
+  var sEl = document.getElementById('staff-search');        if (sEl) searchVal    = sEl.value;
+  var fEl = document.getElementById('staff-status-filter'); if (fEl) filterStatus = fEl.value;
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 2 en cascada
+  api('getStaffModule', {}, function(r) {
+    var houses = (r && r.houses) || [];
+    var staff  = (r && r.staff)  || [];
+    App._cache.houses = houses;
+    App._cache.staff  = staff;
+    App._cache.staffPay = { entries: (r && r.entries) || [], summary: (r && r.summary) || {} };
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+      var filtered = filterStatus ? staff.filter(function(s) { return s.status === filterStatus; }) : staff;
+      (function() { var cb = campCur_('staff') ? campById_(campCur_('staff')) : null; if (cb) filtered = filtered.filter(function(x) { return String(x.house_id) === String(cb.house_id); }); })();
+      filtered = filterTable(filtered, searchVal, ['name', 'position', 'email', 'phone']);
+      var uMapSt = {}; (App._cache.staffUsers || []).forEach(function(u) { uMapSt[u.id] = u.username || u.full_name || ''; });
+      var staffRows = filtered.map(function(s) {
+        var initials = (s.name || 'XX').split(' ').map(function(w) { return w[0] || ''; }).join('').substring(0, 2).toUpperCase();
+        return '<tr>' +
+          '<td><div style="display:flex;align-items:center;gap:10px">' +
+            '<div style="width:36px;height:36px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;flex-shrink:0">' + escHtml(initials) + '</div>' +
+            '<div><strong>' + escHtml(s.name) + '</strong>' + (s.linked_user_id && uMapSt[s.linked_user_id] ? '<br><small style="color:var(--gray)"><i class="fas fa-user-lock"></i> usuario: ' + escHtml(uMapSt[s.linked_user_id]) + '</small>' : '') + '</div></div></td>' +
+          '<td>' + escHtml(s.position || '—') + '</td>' +
+          '<td>' + escHtml(hMap[s.house_id] || 'Sin asignar') + '</td>' +
+          '<td>' + escHtml(s.phone || '—') + '</td>' +
+          '<td>' + fmtMoney(s.salary) + '</td>' +
+          '<td>' + staffBalanceBadge(spSum(s.id)) + '</td>' +
+          '<td>' + fmtDate(s.hire_date) + '</td>' +
+          '<td><span class="badge ' + (s.status === 'active' ? 'badge-success' : 'badge-warning') + '">' + (s.status === 'active' ? 'Activo' : 'Inactivo') + '</span></td>' +
+          '<td class="actions">' +
+            '<button class="btn-icon" onclick="showStaffPayModal(\'' + s.id + '\',\'payment\')" title="Registrar pago o deuda"><i class="fas fa-money-bill-wave"></i></button>' +
+            '<button class="btn-icon" onclick="showStaffPayHistory(\'' + s.id + '\')" title="Pagos y deudas"><i class="fas fa-list-ul"></i></button>' +
+            '<button class="btn-icon" onclick="editStaff(\'' + s.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+            (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteStaff(\'' + s.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') +
+          '</td></tr>';
+      });
+      var hModalOpts = '<option value="">Sin asignar</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+      var html =
+        '<div class="module-header">' +
+          '<div><h1 class="page-title">Empleados</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' empleados de planilla (no confundir con Usuarios del sistema)</div></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="btn-secondary" onclick="generateStaffSalaries()"><i class="fas fa-calendar-plus"></i> Generar sueldos del mes</button>' +
+            '<button class="btn-primary" onclick="showStaffModal()"><i class="fas fa-user-plus"></i> Nuevo Empleado</button>' +
+          '</div>' +
+        '</div>' +
+        staffPaySummaryHtml(staff) +
+        '<div class="filters-bar">' +
+          '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="staff-search" placeholder="Buscar nombre, cargo..." value="' + escHtml(searchVal) + '" oninput="renderStaff()"></div>' +
+          '<select id="staff-status-filter" onchange="renderStaff()"><option value="">Todos</option><option value="active"' + (filterStatus === 'active' ? ' selected' : '') + '>Activos</option><option value="inactive"' + (filterStatus === 'inactive' ? ' selected' : '') + '>Inactivos</option></select>' + campFilterHtml_('staff', 'renderStaff()') +
+        '</div>' +
+        tblBuild('staff', staffRows, '<tr class="empty-row"><td colspan="9">No se encontró personal registrado</td></tr>',
+          '<tr><th>Nombre</th><th>Cargo</th><th>Galpón</th><th>Teléfono</th><th>Salario</th><th>Saldo</th><th>Ingreso</th><th>Estado</th><th>Acciones</th></tr>') +
+        '<div id="staff-modal" class="modal" style="display:none"><div class="modal-content modal-lg">' +
+          '<div class="modal-header"><h3 id="staff-modal-title">Nuevo Empleado</h3><button class="close-modal" onclick="closeModal(\'staff-modal\')">&times;</button></div>' +
+          '<form id="staff-form"><input type="hidden" id="st-id" value="new">' +
+          fGroup('Nombre completo *', 'text', 'st-name', '', 'required', 'Ej: Juan Pérez Quispe') +
+          '<div class="form-row">' + fGroup('Cargo / Puesto *', 'text', 'st-position', '', 'required', 'Ej: Operario de galpón') + fGroup('Teléfono', 'tel', 'st-phone', '', '', 'Ej: 987654321') + '</div>' +
+          fGroup('Email', 'email', 'st-email', '', '', 'Ej: juan@correo.com') +
+          '<div class="form-row"><div class="form-group"><label>Galpón Asignado</label><select id="st-house">' + hModalOpts + '</select></div>' + fGroup('Salario (S/)', 'number', 'st-salary', '', 'required', 'Ej: 1200') + '</div>' +
+          fGroup('Fecha de Ingreso', 'date', 'st-hire', today(), 'required') +
+          '<div class="form-group"><label>Estado</label><select id="st-status">' + selOpt(['active:Activo', 'inactive:Inactivo'], 'active') + '</select></div>' +
+          ((App._cache.staffUsers || []).length ? '<div class="form-group"><label>Usuario del sistema <small style="font-weight:400;color:var(--gray)">(opcional)</small></label><select id="st-user"><option value="">— No tiene acceso al sistema —</option>' + (App._cache.staffUsers || []).map(function(u) { return '<option value="' + escHtml(u.id) + '">' + escHtml(u.full_name || u.username) + ' (' + escHtml(u.username || '') + ' · ' + escHtml(u.role || '') + ')</option>'; }).join('') + '</select><small class="field-hint">Vincula a este empleado con su cuenta de acceso, si la tiene.</small></div>' : '') +
+          '<div class="form-group"><label>Notas</label><textarea id="st-notes" rows="2" placeholder="Observaciones..."></textarea></div>' +
+          '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'staff-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+          '</form></div></div>' + staffPayModalsHtml();
+      document.getElementById('dynamic-content').innerHTML = html;
+      bindForm('staff-form', saveStaffForm);
+      bindForm('spay-form', saveStaffPayForm);
+      showLoader(false);
+      if (_spReopen) { var _rid = _spReopen; _spReopen = ''; showStaffPayHistory(_rid); }
+  });
+}
+
+function showStaffModal(s) {
+  s = s || {};
+  document.getElementById('staff-modal-title').textContent = s.id ? 'Editar Empleado' : 'Nuevo Empleado';
+  document.getElementById('st-id').value       = s.id        || 'new';
+  document.getElementById('st-name').value     = s.name      || '';
+  document.getElementById('st-position').value = s.position  || '';
+  document.getElementById('st-phone').value    = s.phone     || '';
+  document.getElementById('st-email').value    = s.email     || '';
+  document.getElementById('st-house').value    = s.house_id  || '';
+  document.getElementById('st-salary').value   = s.salary    || '';
+  document.getElementById('st-hire').value     = s.hire_date || today();
+  document.getElementById('st-status').value   = s.status    || 'active';
+  var stU = document.getElementById('st-user'); if (stU) stU.value = s.linked_user_id || '';
+  document.getElementById('st-notes').value    = s.notes     || '';
+  openModal('staff-modal');
+}
+
+function editStaff(id) {
+  var s = (App._cache.staff || []).find(function(x) { return x.id === id; });
+  if (s) showStaffModal(s);
+}
+
+function confirmDeleteStaff(id) {
+  confirmDialog('¿Eliminar este empleado?', function() {
+    api('deleteStaff', { id: id }, function(r) {
+      if (r && r.success) { showToast('Empleado eliminado', 'success'); App._cache.staff = null; renderStaff(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+function saveStaffForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  api('saveStaff', {
+    id: v('st-id'), name: v('st-name'), position: v('st-position'),
+    phone: v('st-phone'), email: v('st-email'), house_id: v('st-house'),
+    salary: v('st-salary'), hire_date: v('st-hire'),
+    status: v('st-status'), notes: v('st-notes'),
+    linked_user_id: (document.getElementById('st-user') ? v('st-user') : undefined)
+  }, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) { closeModal('staff-modal'); showToast('Empleado guardado', 'success'); App._cache.staff = null; renderStaff(); }
+    else showToast((r && r.error) || 'Error al guardar', 'error');
+  });
+}
+
+function staffPaySummaryHtml(staff) {
+  var sm = (App._cache.staffPay || {}).summary || {};
+  var owed = 0, nOwed = 0, paid = 0;
+  (staff || []).forEach(function(s) {
+    var x = sm[s.id]; if (!x) return;
+    paid += parseFloat(x.paid) || 0;
+    if ((parseFloat(x.balance) || 0) > 0.005) { owed += parseFloat(x.balance); nOwed++; }
+  });
+  return '<div class="finance-summary">' +
+    '<div class="summary-card ' + (owed > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Deuda con empleados</h3><p>' + fmtMoneyCard(owed) + '</p><small>' + nOwed + ' empleado' + (nOwed === 1 ? '' : 's') + ' con deuda</small></div></div>' +
+    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado a empleados</h3><p>' + fmtMoneyCard(paid) + '</p><small>Total registrado</small></div></div>' +
+  '</div>';
+}
+
+// ==================== PAGOS Y DEUDAS DE EMPLEADOS ====================
+// Saldo = deudas − pagos. Se calcula en el servidor; aquí solo se muestra.
+var _spReopen = '';
+
+function spSum(id) { return ((App._cache.staffPay || {}).summary || {})[id] || null; }
+function spBalance(id) { var s = spSum(id); return s ? (parseFloat(s.balance) || 0) : 0; }
+
+function staffBalanceBadge(sum) {
+  var b = sum ? (parseFloat(sum.balance) || 0) : 0;
+  if (b > 0.005)  return '<span class="badge badge-danger" title="Deuda pendiente con el empleado: ' + fmtMoney(b) + '">Se le debe ' + fmtMoneyShort(b, 10000) + '</span>';
+  if (b < -0.005) return '<span class="badge badge-warning" title="Se le pagó más de lo adeudado (adelanto): ' + fmtMoney(-b) + '">Adelanto ' + fmtMoneyShort(-b, 10000) + '</span>';
+  return '<span class="badge badge-success">Al día</span>';
+}
+
+function staffPayModalsHtml() {
+  var concepts = ['Sueldo', 'Adelanto', 'Bono', 'Gratificación', 'Liquidación', 'Otro'];
+  return '<div id="spay-modal" class="modal" style="display:none"><div class="modal-content">' +
+    '<div class="modal-header"><h3 id="spay-title">Registrar pago al empleado</h3><button class="close-modal" onclick="closeModal(\'spay-modal\')">&times;</button></div>' +
+    '<form id="spay-form"><input type="hidden" id="sp-staff" value="">' +
+    '<div id="sp-info" class="modal-note"></div>' +
+    '<div class="form-row">' +
+      '<div class="form-group"><label>Qué registras</label><select id="sp-kind" onchange="spKindChanged()">' + selOpt(['payment:Pago al empleado', 'debt:Deuda con el empleado'], 'payment') + '</select></div>' +
+      '<div class="form-group"><label>Concepto</label><select id="sp-concept">' + selOpt(concepts.map(function(c) { return c + ':' + c; }), 'Sueldo') + '</select></div>' +
+    '</div>' +
+    '<div class="form-row">' + fGroup('Monto (S/) *', 'number', 'sp-amount', '', 'required', 'Ej: 600') + fGroup('Fecha *', 'date', 'sp-date', today(), 'required') + '</div>' +
+    fGroup('Mes al que corresponde', 'month', 'sp-period', today().slice(0, 7), '') +
+    '<div class="form-group"><label>Nota</label><textarea id="sp-notes" rows="2" placeholder="Opcional"></textarea></div>' +
+    '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'spay-modal\')">Cancelar</button><button type="submit" class="btn-primary" id="sp-submit"><i class="fas fa-save"></i> Guardar</button></div>' +
+    '</form></div></div>' +
+    '<div id="shist-modal" class="modal" style="display:none"><div class="modal-content modal-lg">' +
+    '<div class="modal-header"><h3 id="shist-title">Pagos y deudas</h3><button class="close-modal" onclick="closeModal(\'shist-modal\')">&times;</button></div>' +
+    '<div id="shist-body"></div></div></div>';
+}
+
+function spKindChanged() {
+  var t = document.getElementById('spay-title');
+  if (t) t.textContent = v('sp-kind') === 'debt' ? 'Registrar deuda con el empleado' : 'Registrar pago al empleado';
+}
+
+function showStaffPayModal(id, kind) {
+  var s = (App._cache.staff || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  var bal = spBalance(id);
+  kind = kind || 'payment';
+  document.getElementById('sp-staff').value   = id;
+  document.getElementById('sp-kind').value    = kind;
+  document.getElementById('sp-concept').value = 'Sueldo';
+  document.getElementById('sp-date').value    = today();
+  document.getElementById('sp-period').value  = today().slice(0, 7);
+  document.getElementById('sp-notes').value   = '';
+  document.getElementById('sp-amount').value  = (kind !== 'debt' && bal > 0.005) ? bal.toFixed(2) : '';
+  document.getElementById('sp-info').innerHTML = '<strong>' + escHtml(s.name) + '</strong> &nbsp;' + staffBalanceBadge(spSum(id));
+  spKindChanged();
+  openModal('spay-modal');
+}
+
+function saveStaffPayForm(e) {
+  e.preventDefault();
+  var btn = document.getElementById('sp-submit');
+  var id = v('sp-staff'), kind = v('sp-kind'), concept = v('sp-concept');
+  var amount = parseFloat(v('sp-amount')) || 0;
+  if (amount <= 0) { showToast('Indica el monto', 'error'); return; }
+  function send() {
+    if (btn) btn.disabled = true;
+    api('saveStaffPayment', {
+      staff_id: id, kind: kind, concept: concept, amount: amount,
+      date: v('sp-date'), period: v('sp-period'), notes: v('sp-notes')
+    }, function(r) {
+      if (btn) btn.disabled = false;
+      if (r && r.success) {
+        closeModal('spay-modal');
+        showToast(kind === 'debt' ? 'Deuda registrada' : 'Pago registrado', 'success');
+        App._cache.staff = null; renderStaff();
+      } else showToast((r && r.error) || 'Error al guardar', 'error');
+    });
+  }
+  var bal = spBalance(id);
+  if (kind === 'payment' && concept !== 'Adelanto' && amount > bal + 0.005) {
+    confirmDialog('¿Registrar el pago de todas formas? ' + (bal > 0.005
+      ? 'El monto (' + fmtMoney(amount) + ') es mayor a la deuda actual (' + fmtMoney(bal) + '). La diferencia quedará como adelanto.'
+      : 'Este empleado no tiene deuda pendiente. El pago quedará como adelanto.'), send, { type: 'primary', okText: 'Registrar' });
+  } else send();
+}
+
+function showStaffPayHistory(id) {
+  var s = (App._cache.staff || []).find(function(x) { return x.id === id; });
+  if (!s) return;
+  var pay = App._cache.staffPay || { entries: [], summary: {} };
+  var sum = pay.summary[id] || { debt: 0, paid: 0, balance: 0 };
+  var list = (pay.entries || []).filter(function(e) { return String(e.staff_id) === String(id); });
+  var isAdmin = App.user && App.user.role === 'admin';
+  var rows = list.map(function(e) {
+    var isPay = String(e.kind) === 'payment';
+    return '<tr>' +
+      '<td>' + fmtDate(e.date) + '</td>' +
+      '<td><span class="badge ' + (isPay ? 'badge-success' : 'badge-danger') + '">' + (isPay ? 'Pago' : 'Deuda') + '</span></td>' +
+      '<td>' + escHtml(e.concept || '') + '</td>' +
+      '<td>' + escHtml(e.period || '—') + '</td>' +
+      '<td>' + fmtMoney(e.amount) + '</td>' +
+      '<td>' + escHtml(e.notes || '') + '</td>' +
+      '<td class="actions">' + (isAdmin ? '<button class="btn-icon danger" onclick="deleteStaffPay(\'' + e.id + '\',\'' + id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') + '</td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('shist-title').textContent = 'Pagos y deudas — ' + (s.name || '');
+  document.getElementById('shist-body').innerHTML =
+    '<div class="finance-summary" style="margin-bottom:12px">' +
+      '<div class="summary-card"><div class="summary-icon expense"><i class="fas fa-file-invoice-dollar"></i></div><div><h3>Deuda registrada</h3><p>' + fmtMoneyCard(sum.debt) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-money-bill-wave"></i></div><div><h3>Pagado</h3><p>' + fmtMoneyCard(sum.paid) + '</p></div></div>' +
+      '<div class="summary-card ' + (sum.balance > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon balance"><i class="fas fa-scale-balanced"></i></div><div><h3>Saldo</h3><p>' + staffBalanceBadge(sum) + '</p></div></div>' +
+    '</div>' +
+    (list.length
+      ? '<div class="table-card"><div class="table-scroll"><table class="data-table"><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Mes</th><th>Monto</th><th>Nota</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>'
+      : '<p style="padding:16px;color:var(--gray);text-align:center">Aún no hay pagos ni deudas registrados</p>') +
+    '<div class="form-actions">' +
+      '<button type="button" class="btn-secondary" onclick="spFromHist(\'' + id + '\',\'debt\')"><i class="fas fa-file-invoice-dollar"></i> Registrar deuda</button>' +
+      '<button type="button" class="btn-primary" onclick="spFromHist(\'' + id + '\',\'payment\')"><i class="fas fa-money-bill-wave"></i> Registrar pago</button>' +
+    '</div>';
+  openModal('shist-modal');
+}
+
+function spFromHist(id, kind) { closeModal('shist-modal'); showStaffPayModal(id, kind); }
+
+function deleteStaffPay(entryId, staffId) {
+  var e = ((App._cache.staffPay || {}).entries || []).find(function(x) { return String(x.id) === String(entryId); });
+  var isPay = e && String(e.kind) === 'payment';
+  confirmDialog('¿Eliminar este registro? ' + (isPay ? 'También se quitará su egreso de Finanzas.' : 'Se reducirá la deuda registrada con el empleado.'), function() {
+    api('deleteStaffPayment', { id: entryId }, function(r) {
+      if (r && r.success) { showToast('Registro eliminado', 'success'); _spReopen = staffId; App._cache.staff = null; renderStaff(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+function generateStaffSalaries() {
+  var period = today().slice(0, 7);
+  var parts = period.split('-');
+  var label = new Date(+parts[0], +parts[1] - 1, 1).toLocaleDateString('es-PE', { month: 'long', year: 'numeric' });
+  confirmDialog('¿Generar los sueldos de ' + label + '? Se registrará como deuda el sueldo de cada empleado activo que aún no lo tenga en ese mes.', function() {
+    api('generateStaffSalaries', { period: period }, function(r) {
+      if (r && r.success) {
+        showToast(r.created ? ('Sueldos generados: ' + r.created + (r.skipped ? ' (ya existían ' + r.skipped + ')' : '')) : 'Los sueldos de este mes ya estaban generados', 'success');
+        App._cache.staff = null; renderStaff();
+      } else showToast((r && r.error) || 'Error al generar los sueldos', 'error');
+    });
+  }, { type: 'primary', okText: 'Generar' });
+}
+
+// ==================== DEUDA DE COMPRADORES (solo administrador) ====================
+// Deuda = vendido en «Pesaje y Liquidación» − cobros registrados. Los datos vienen de Pesaje.
+var _bdReopen = null;
+
+function bdCampLabel(c) { return String(c || '').replace(/_/g, ' '); }
+
+function bdBadge(r) {
+  if (r.saldo > 0.005)  return '<span class="badge badge-danger" title="' + escHtml(fmtMoney(r.saldo)) + '">Debe ' + fmtMoneyShort(r.saldo, 10000) + '</span>';
+  if (r.saldo < -0.005) return '<span class="badge badge-warning" title="' + escHtml(fmtMoney(-r.saldo)) + '">A favor ' + fmtMoneyShort(-r.saldo, 10000) + '</span>';
+  if (r.vendido > 0)    return '<span class="badge badge-success">Pagado</span>';
+  return '<span class="badge badge-gray">Sin ventas</span>';
+}
+
+function renderBuyerDebts() {
+  var prevCamp = v('bd-camp'), prevQ = v('bd-search');
+  var prevOnly = !!(document.getElementById('bd-only') && document.getElementById('bd-only').checked);
+  showLoader(true);
+  api('pesajeDeudas', {}, function(r) {
+    showLoader(false);
+    var box = document.getElementById('dynamic-content');
+    if (!box) return;
+    if (!r || r.success === false) {
+      box.innerHTML = '<p style="padding:20px;color:var(--danger)">' + escHtml((r && r.error) || 'No se pudo cargar la deuda de compradores.') + '</p>';
+      return;
+    }
+    var rows = (r.rows || []).slice();
+    rows.sort(function(a, b) { return (b.saldo - a.saldo) || String(a.comprador).localeCompare(String(b.comprador)); });
+    App._cache.buyerDebts = { rows: rows, cobros: r.cobros || [], lotes: r.lotes || [], overrides: r.overrides || {} };
+    var camps = (r.campanas || []).slice();
+    rows.forEach(function(x) { if (camps.indexOf(x.campana) < 0) camps.push(x.campana); });
+    camps.sort();
+    var campOpts = '<option value="">Todas las campañas</option>' + camps.map(function(c) {
+      return '<option value="' + escHtml(c) + '"' + (c === prevCamp ? ' selected' : '') + '>' + escHtml(bdCampLabel(c)) + '</option>';
+    }).join('');
+    box.innerHTML =
+      '<div class="module-header"><div><h1 class="page-title">Deuda de compradores</h1>' +
+        '<div class="page-subtitle">Lo vendido en Pesaje y Liquidación menos lo que cada comprador ya pagó</div></div></div>' +
+      '<div id="bd-summary" class="finance-summary"></div>' +
+      '<div class="filters-bar">' +
+        '<select id="bd-camp" onchange="drawBuyerDebts()">' + campOpts + '</select>' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="bd-search" placeholder="Buscar comprador..." value="' + escHtml(prevQ) + '" oninput="drawBuyerDebts()"></div>' +
+        '<label style="display:flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap"><input type="checkbox" id="bd-only" onchange="drawBuyerDebts()"' + (prevOnly ? ' checked' : '') + '> Solo con deuda</label>' +
+      '</div>' +
+      '<div id="bd-camp-state"></div>' +
+      '<div id="bd-table"></div>' +
+      '<div id="bpay-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3>Registrar cobro</h3><button class="close-modal" onclick="closeModal(\'bpay-modal\')">&times;</button></div>' +
+        '<form id="bpay-form"><input type="hidden" id="bp-idx" value="">' +
+        '<div id="bp-info" class="modal-note"></div>' +
+        '<div class="form-group"><label>Lote (campaña del sistema) *</label><select id="bp-lote" required></select><small class="field-hint">El cobro entra a Finanzas como ingreso de este lote.</small></div>' +
+        '<div class="form-row">' + fGroup('Monto cobrado (S/) *', 'number', 'bp-amount', '', 'required', 'Ej: 1500') + fGroup('Fecha *', 'date', 'bp-date', today(), 'required') + '</div>' +
+        '<div class="form-group"><label>Forma de pago</label><select id="bp-method">' + selOpt(['Efectivo:Efectivo', 'Transferencia:Transferencia', 'Yape:Yape', 'Plin:Plin', 'Cheque:Cheque', 'Otro:Otro'], 'Efectivo') + '</select></div>' +
+        '<div class="form-group"><label>Nota</label><textarea id="bp-notes" rows="2" placeholder="Opcional"></textarea></div>' +
+        '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'bpay-modal\')">Cancelar</button><button type="submit" class="btn-primary" id="bp-submit"><i class="fas fa-save"></i> Guardar cobro</button></div>' +
+        '</form></div></div>' +
+      '<div id="bhist-modal" class="modal" style="display:none"><div class="modal-content modal-lg">' +
+        '<div class="modal-header"><h3 id="bhist-title">Cobros</h3><button class="close-modal" onclick="closeModal(\'bhist-modal\')">&times;</button></div>' +
+        '<div id="bhist-body"></div></div></div>';
+    bindForm('bpay-form', saveBuyerPayForm);
+    drawBuyerDebts();
+    if (_bdReopen) {
+      var re = _bdReopen; _bdReopen = null;
+      var ix = -1;
+      rows.forEach(function(x, i) { if (x.campana === re.campana && x.clave === re.clave) ix = i; });
+      if (ix > -1) showBuyerHistory(ix);
+    }
+  });
+}
+
+function drawBuyerDebts() {
+  var d = App._cache.buyerDebts || { rows: [], cobros: [] };
+  var camp = v('bd-camp'), q = v('bd-search').toLowerCase().trim();
+  var only = !!(document.getElementById('bd-only') && document.getElementById('bd-only').checked);
+  var tv = 0, tc = 0, ts = 0, nDeb = 0, htmlRows = [];
+  d.rows.forEach(function(x, idx) {
+    if (camp && x.campana !== camp) return;
+    if (q && String(x.comprador).toLowerCase().indexOf(q) < 0) return;
+    if (only && !(x.saldo > 0.005)) return;
+    tv += x.vendido; tc += x.cobrado;
+    if (x.saldo > 0.005) { ts += x.saldo; nDeb++; }
+    var orphan = x.vendido <= 0 && x.cobrado > 0;
+    htmlRows.push('<tr>' +
+      '<td>' + escHtml(bdCampLabel(x.campana)) + '</td>' +
+      '<td><strong>' + escHtml(x.comprador) + '</strong>' + (orphan ? '<br><small style="color:var(--gray)">Sin ventas en Pesaje (comprador eliminado)</small>' : '') + '</td>' +
+      '<td>' + x.entregas + '</td>' +
+      '<td>' + fmtMoney(x.vendido) + '</td>' +
+      '<td>' + fmtMoney(x.cobrado) + '</td>' +
+      '<td>' + bdBadge(x) + '</td>' +
+      '<td>' + (x.ultimo_cobro ? fmtDate(x.ultimo_cobro) : '—') + '</td>' +
+      '<td class="actions">' +
+        ((orphan || x.manual) ? '' : '<button class="btn-icon" onclick="showBuyerPayModal(' + idx + ')" title="Registrar cobro"><i class="fas fa-hand-holding-dollar"></i></button>') +
+        (x.manual ? '' : '<button class="btn-icon" onclick="showBuyerHistory(' + idx + ')" title="Ver cobros"><i class="fas fa-list-ul"></i></button>') +
+      '</td></tr>');
+  });
+  var sum = document.getElementById('bd-summary');
+  if (sum) sum.innerHTML =
+    '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Total vendido</h3><p>' + fmtMoneyCard(tv) + '</p></div></div>' +
+    '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Total cobrado</h3><p>' + fmtMoneyCard(tc) + '</p></div></div>' +
+    '<div class="summary-card ' + (ts > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Por cobrar</h3><p>' + fmtMoneyCard(ts) + '</p><small>' + nDeb + ' comprador' + (nDeb === 1 ? '' : 'es') + ' con deuda</small></div></div>';
+  var stBox = document.getElementById('bd-camp-state');
+  if (stBox) {
+    if (!camp) stBox.innerHTML = '<div style="margin:8px 0;font-size:12px;color:var(--gray)">Elige una campaña para marcarla como <b>saldada</b> o registrar una <b>deuda manual</b>.</div>';
+    else {
+      var ov = (d.overrides || {})[camp] || { modo: 'auto', monto: 0 };
+      stBox.innerHTML = '<div class="modal-note" style="margin:8px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center">' +
+        '<span>Estado de cobro de <b>' + escHtml(bdCampLabel(camp)) + '</b>:</span>' +
+        '<select id="bd-modo" onchange="document.getElementById(\'bd-monto\').style.display=this.value===\'manual\'?\'\':\'none\'">' +
+          '<option value="auto"' + (ov.modo === 'auto' ? ' selected' : '') + '>Automático (vendido − cobros registrados)</option>' +
+          '<option value="saldada"' + (ov.modo === 'saldada' ? ' selected' : '') + '>Saldada (no debe nada)</option>' +
+          '<option value="manual"' + (ov.modo === 'manual' ? ' selected' : '') + '>Deuda manual (monto conocido)</option></select>' +
+        '<input type="number" step="any" min="0" id="bd-monto" placeholder="Monto S/" value="' + (ov.modo === 'manual' ? ov.monto : '') + '" style="width:110px;' + (ov.modo === 'manual' ? '' : 'display:none') + '">' +
+        '<button type="button" class="btn-primary" onclick="bdSaveSaldo(\'' + escHtml(camp) + '\')"><i class="fas fa-save"></i> Guardar</button></div>';
+    }
+  }
+  var tb = document.getElementById('bd-table');
+  if (tb) tb.innerHTML = tblBuild('bdebts', htmlRows, '<tr class="empty-row"><td colspan="8">No hay compradores para mostrar</td></tr>',
+    '<tr><th>Campaña</th><th>Comprador</th><th>Entregas</th><th>Vendido</th><th>Cobrado</th><th>Saldo</th><th>Último cobro</th><th>Acciones</th></tr>');
+}
+
+function bdSaveSaldo(camp) {
+  var modo = v('bd-modo'), monto = parseFloat(v('bd-monto')) || 0;
+  if (modo === 'manual' && monto <= 0) { showToast('Indica el monto de la deuda', 'error'); return; }
+  api('pesajeFijarSaldo', { campana: camp, modo: modo, monto: monto }, function(r) {
+    if (r && r.success) { showToast('Estado de cobro guardado', 'success'); renderBuyerDebts(); }
+    else showToast((r && r.error) || 'No se pudo guardar', 'error');
+  });
+}
+
+function showBuyerPayModal(idx) {
+  var row = ((App._cache.buyerDebts || {}).rows || [])[idx];
+  if (!row) return;
+  document.getElementById('bp-idx').value = idx;
+  document.getElementById('bp-amount').value = row.saldo > 0.005 ? row.saldo.toFixed(2) : '';
+  document.getElementById('bp-date').value = today();
+  document.getElementById('bp-method').value = 'Efectivo';
+  document.getElementById('bp-notes').value = '';
+  var lotes = (App._cache.buyerDebts || {}).lotes || [];
+  var activos = lotes.filter(function(l) { return l.activo; });
+  var sugerido = row.lote || (activos.length === 1 ? activos[0].id : '');
+  document.getElementById('bp-lote').innerHTML = '<option value="">— Elegir lote —</option>' + lotes.map(function(l) {
+    return '<option value="' + escHtml(l.id) + '"' + (l.id === sugerido ? ' selected' : '') + '>' + escHtml(l.nombre) + '</option>';
+  }).join('');
+  document.getElementById('bp-info').innerHTML = '<strong>' + escHtml(row.comprador) + '</strong> · ' + escHtml(bdCampLabel(row.campana)) +
+    '<div class="mn-sub"><span>Vendido ' + fmtMoney(row.vendido) + '</span><span>· Cobrado ' + fmtMoney(row.cobrado) + '</span>' + bdBadge(row) + '</div>';
+  openModal('bpay-modal');
+}
+
+function saveBuyerPayForm(e) {
+  e.preventDefault();
+  var row = ((App._cache.buyerDebts || {}).rows || [])[parseInt(v('bp-idx'), 10)];
+  if (!row) { showToast('Comprador no encontrado', 'error'); return; }
+  var amount = parseFloat(v('bp-amount')) || 0;
+  if (amount <= 0) { showToast('Indica el monto cobrado', 'error'); return; }
+  if (!v('bp-lote')) { showToast('Elige el lote al que pertenece este cobro', 'error'); return; }
+  var btn = document.getElementById('bp-submit');
+  function send() {
+    if (btn) btn.disabled = true;
+    api('pesajeCobroGuardar', { payload: {
+      campana: row.campana, clave: row.clave, comprador: row.comprador,
+      monto: amount, fecha: v('bp-date'), metodo: v('bp-method'), nota: v('bp-notes'), lote: v('bp-lote')
+    } }, function(r) {
+      if (btn) btn.disabled = false;
+      if (r && r.success) { closeModal('bpay-modal'); showToast('Cobro registrado e ingreso enviado a Finanzas', 'success'); renderBuyerDebts(); }
+      else showToast((r && r.error) || 'Error al guardar el cobro', 'error');
+    });
+  }
+  if (amount > row.saldo + 0.005) {
+    confirmDialog('¿Registrar el cobro de todas formas? El monto (' + fmtMoney(amount) + ') es mayor a lo que debe (' + fmtMoney(Math.max(0, row.saldo)) + '). La diferencia quedará como saldo a favor del comprador.', send, { type: 'primary', okText: 'Registrar' });
+  } else send();
+}
+
+function showBuyerHistory(idx) {
+  var d = App._cache.buyerDebts || { rows: [], cobros: [] };
+  var row = d.rows[idx];
+  if (!row) return;
+  var list = d.cobros.filter(function(c) { return c.campana === row.campana && c.clave === row.clave; });
+  var orphan = row.vendido <= 0 && row.cobrado > 0;
+  var rows = list.map(function(c) {
+    return '<tr>' +
+      '<td>' + fmtDate(c.fecha) + '</td>' +
+      '<td>' + fmtMoney(c.monto) + '</td>' +
+      '<td>' + escHtml(c.metodo || '—') + '</td>' +
+      '<td>' + escHtml(c.nota || '') + '</td>' +
+      '<td>' + escHtml(c.por || '') + '</td>' +
+      '<td class="actions"><button class="btn-icon danger" onclick="deleteBuyerPay(\'' + c.id + '\',' + idx + ')" title="Eliminar"><i class="fas fa-trash"></i></button></td>' +
+      '</tr>';
+  }).join('');
+  document.getElementById('bhist-title').textContent = 'Cobros — ' + row.comprador + ' · ' + bdCampLabel(row.campana);
+  document.getElementById('bhist-body').innerHTML =
+    '<div class="finance-summary" style="margin-bottom:12px">' +
+      '<div class="summary-card"><div class="summary-icon income"><i class="fas fa-truck-ramp-box"></i></div><div><h3>Vendido</h3><p>' + fmtMoneyCard(row.vendido) + '</p></div></div>' +
+      '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-money-bill-wave"></i></div><div><h3>Cobrado</h3><p>' + fmtMoneyCard(row.cobrado) + '</p></div></div>' +
+      '<div class="summary-card ' + (row.saldo > 0.005 ? 'negative' : 'positive') + '"><div class="summary-icon expense"><i class="fas fa-hand-holding-dollar"></i></div><div><h3>Saldo</h3><p>' + bdBadge(row) + '</p></div></div>' +
+    '</div>' +
+    (list.length
+      ? '<div class="table-card"><div class="table-scroll"><table class="data-table"><thead><tr><th>Fecha</th><th>Monto</th><th>Forma</th><th>Nota</th><th>Registró</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div></div>'
+      : '<p style="padding:16px;color:var(--gray);text-align:center">Aún no hay cobros registrados</p>') +
+    (orphan ? '' : '<div class="form-actions"><button type="button" class="btn-primary" onclick="closeModal(\'bhist-modal\');showBuyerPayModal(' + idx + ')"><i class="fas fa-hand-holding-dollar"></i> Registrar cobro</button></div>');
+  openModal('bhist-modal');
+}
+
+function deleteBuyerPay(id, idx) {
+  var row = ((App._cache.buyerDebts || {}).rows || [])[idx];
+  confirmDialog('¿Eliminar este cobro? La deuda del comprador volverá a subir por ese monto y se quitará su ingreso de Finanzas.', function() {
+    api('pesajeCobroEliminar', { id: id }, function(r) {
+      if (r && r.success) {
+        showToast('Cobro eliminado', 'success');
+        if (row) _bdReopen = { campana: row.campana, clave: row.clave };
+        renderBuyerDebts();
+      } else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+// ==================== ASISTENCIA ====================
+function renderAttendance() {
+  var dateFilter = '';
+  var dEl = document.getElementById('att-date'); if (dEl) dateFilter = dEl.value;
+  if (!dateFilter) dateFilter = today();
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 2 en cascada
+  api('getAttendanceModule', {date: dateFilter}, function(r) {
+    var staff      = (r && r.staff)      || [];
+    var attendance = (r && r.attendance) || [];
+    App._cache.staff = staff;
+    var attMap = {};
+      attendance.forEach(function(a) { attMap[String(a.user_id)] = a; });
+      var activeStaff = staff.filter(function(s) { return s.status === 'active'; });
+      var present = 0, late = 0, absent = 0, noRecord = 0;
+      activeStaff.forEach(function(s) {
+        var a = attMap[s.id];
+        if (!a) { noRecord++; return; }
+        if (a.status === 'present') present++;
+        else if (a.status === 'late') late++;
+        else if (a.status === 'absent') absent++;
+      });
+      var cards = activeStaff.map(function(s) {
+        var initials = (s.name || 'XX').split(' ').map(function(w) { return w[0] || ''; }).join('').substring(0, 2).toUpperCase();
+        var a = attMap[s.id] || {};
+        return '<div class="attendance-card">' +
+          '<div class="att-avatar">' + escHtml(initials) + '</div>' +
+          '<div class="att-info">' +
+            '<h4>' + escHtml(s.name) + '</h4>' +
+            '<p>' + escHtml(s.position || '') + (a.check_in ? ' — Entrada: <strong>' + a.check_in + '</strong>' : '') + '</p>' +
+            '<div class="att-actions">' +
+              '<button class="att-btn present' + (a.status === 'present' ? ' active' : '') + '" onclick="markAttendance(\'' + s.id + '\',\'present\',\'' + dateFilter + '\')"><i class="fas fa-check"></i> Presente</button>' +
+              '<button class="att-btn late'    + (a.status === 'late'    ? ' active' : '') + '" onclick="markAttendance(\'' + s.id + '\',\'late\',\''    + dateFilter + '\')"><i class="fas fa-clock"></i> Tardanza</button>' +
+              '<button class="att-btn absent'  + (a.status === 'absent'  ? ' active' : '') + '" onclick="markAttendance(\'' + s.id + '\',\'absent\',\''  + dateFilter + '\')"><i class="fas fa-times"></i> Ausente</button>' +
+            '</div>' +
+          '</div></div>';
+      }).join('');
+      var html =
+        '<div class="module-header"><div><h1 class="page-title">Asistencia</h1><div class="page-subtitle">' + activeStaff.length + ' empleados activos</div></div></div>' +
+        '<div class="kpi-grid" style="margin-bottom:20px">' +
+          kpiCard('fa-user-check', 'Presentes',  present,  '#22c55e', '') +
+          kpiCard('fa-clock',      'Tardanzas',  late,     '#f59e0b', '') +
+          kpiCard('fa-user-times', 'Ausentes',   absent,   '#ef4444', '') +
+          kpiCard('fa-question',   'Sin Marcar', noRecord, '#6b7280', '') +
+        '</div>' +
+        '<div class="filters-bar"><label style="font-weight:600;font-size:13px;color:var(--dark)">Fecha:</label><input type="date" id="att-date" value="' + dateFilter + '" onchange="renderAttendance()"></div>' +
+        '<div class="attendance-grid">' + (cards || '<p style="color:var(--gray-light);padding:20px">No hay empleados activos</p>') + '</div>';
+      document.getElementById('dynamic-content').innerHTML = html;
+      showLoader(false);
+  });
+}
+
+function markAttendance(staffId, status, date) {
+  var now = new Date();
+  var checkIn = status !== 'absent' ? (String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0')) : '';
+  api('saveAttendance', { user_id: staffId, date: date, check_in: checkIn, check_out: '', status: status, notes: '' }, function(r) {
+    if (r && r.success) { showToast('Asistencia: ' + status, 'success'); renderAttendance(); }
+    else showToast((r && r.error) || 'Error', 'error');
+  });
+}
+
+// ==================== TAREAS ====================
+var TASK_AREAS_FE = ['Producción', 'Salud/Veterinaria', 'Mantenimiento', 'Alimentación', 'Otros'];
+var TASK_ST     = { pending: 'Pendiente', in_progress: 'En proceso', done: 'Completada', overdue: 'Vencida', cancelled: 'Cancelada' };
+var TASK_ST_CLS = { pending: 'badge-warning', in_progress: 'badge-info', done: 'badge-success', overdue: 'badge-danger', cancelled: 'badge-gray' };
+var TASK_FIELD_LBL = { title: 'Actividad', description: 'Observaciones', status: 'Estado', assigned_to: 'Responsable', area: 'Área', start_at: 'Inicio', due_at: 'Fecha/hora límite', priority: 'Prioridad', campaign_id: 'Campaña', completed_by: 'Finalizada por', completed_late: 'Fuera de plazo', overdue_detected_at: 'Vencimiento detectado', started_at: 'Iniciada', escalated_at: 'Último aviso a administración', escalation_level: 'Nivel de escalamiento' };
+
+function isMgrFE() { return !!(App.user && (App.user.role === 'admin' || App.user.role === 'manager')); }
+
+function renderTasks() {
+  if (!isMgrFE()) { renderMyTasks(); return; }   // operador / vet / mantenimiento: vista básica
+  var searchVal = ''; var sEl = document.getElementById('task-search'); if (sEl) searchVal = sEl.value;
+  api('getTasksModule', {}, function(r) {
+    var houses = (r && r.houses) || [], tasks = (r && r.tasks) || [], tUsers = (r && r.users) || [], camps = (r && r.campaigns) || [];
+    App._cache.houses = houses; App._cache.tasks = tasks; App._cache.users = tUsers; App._cache.campaigns = camps;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+    var uMap = {}; tUsers.forEach(function(u) { uMap[u.id] = u; });
+    var shown   = camps.filter(function(c) { return c.campaign_status !== 'draft'; });
+    var started = camps.filter(function(c) { return c.campaign_status === 'started'; });
+    var cMapT = {}; camps.forEach(function(c) { cMapT[c.id] = c.batch_number; });
+    var inCamp = tasks;
+    var serList = (r && r.series) || [];
+    var tdy = today();
+    // Las tareas diarias ya cerradas de días anteriores salen del tablero (su evidencia queda en Comprobantes)
+    var filtered = filterTable(inCamp, searchVal, ['title', 'description', 'area']).filter(function(t) {
+      return !(t.series_id && (t.status === 'done' || t.status === 'cancelled') && String(t.start_at || '').slice(0, 10) < tdy);
+    });
+    var canCreate = isMgrFE() && started.length > 0;
+    var TK_COL = { pending: '#3b82f6', in_progress: '#f59e0b', done: '#22c55e', overdue: '#ef4444', cancelled: '#9ca3af' };
+    var TK_ICO = { pending: 'fa-hourglass-half', in_progress: 'fa-spinner', done: 'fa-circle-check', overdue: 'fa-triangle-exclamation', cancelled: 'fa-ban' };
+    var statsHtml = '<div class="tk-stats">' + ['pending', 'in_progress', 'done', 'overdue', 'cancelled'].map(function(st) {
+      var n = filtered.filter(function(t) { return t.status === st; }).length;
+      return '<div class="tk-stat" style="--kc:' + TK_COL[st] + '"><div class="ic"><i class="fas ' + TK_ICO[st] + '"></i></div><div><b>' + n + '</b><small>' + TASK_ST[st] + '</small></div></div>';
+    }).join('') + '</div>';
+    var cols = ['pending', 'in_progress', 'done', 'overdue', 'cancelled'].map(function(st) {
+      var stTasks = filtered.filter(function(t) { return t.status === st; }).sort(function(a, b) { return String(taskDueFE(a) || '9999').localeCompare(String(taskDueFE(b) || '9999')); });
+      var cards = stTasks.map(function(t) {
+        var u = uMap[t.assigned_to], due = t.due_at || t.due_date;
+        var mine = isMgrFE() || String(t.assigned_to) === String(App.user && App.user.id);
+        return '<div class="task-card priority-' + (t.priority || 'normal') + '">' +
+          '<h4>' + escHtml(t.title) + '</h4>' +
+          areaBigHtml(t.area, true) +
+          (t.series_id ? ' <span class="chip-daily"><i class="fas fa-rotate"></i> Diaria</span>' : '') +
+          (t.description ? '<p>' + escHtml(t.description) + '</p>' : '') +
+          '<div class="task-meta">' + (cMapT[t.campaign_id] ? '<span class="badge badge-purple" style="font-size:10px">' + escHtml(cMapT[t.campaign_id]) + '</span>' : '') + '<span class="badge ' + TASK_ST_CLS[t.status] + '" style="font-size:10px">' + (TASK_ST[t.status] || t.status) + '</span></div>' +
+          (taskTimeChip(t) ? '<div style="margin-top:6px">' + taskTimeChip(t) + '</div>' : '') +
+          '<div class="tk-foot"><div class="tk-user">' + (u ? '<span class="av">' + escHtml(String(u.full_name || '?').charAt(0).toUpperCase()) + '</span><span class="nm">' + escHtml(u.full_name) + (t.role ? ' · ' + escHtml(t.role) : '') + '</span>' : '<span class="nm">Sin asignar</span>') + '</div>' +
+            (due ? '<span class="tk-due"><i class="fas fa-clock" style="margin-right:4px"></i>' + fmtDateTime(taskDueFE(t)) + '</span>' : '') + '</div>' +
+          (t.status === 'done' && t.completed_at ? '<div style="font-size:11px;color:var(--success);margin-top:4px">Finalizada ' + fmtDateTime(t.completed_at) + (uMap[t.completed_by] ? ' por ' + escHtml(uMap[t.completed_by].full_name) : '') + (t.completed_late === 'yes' ? ' (fuera de plazo)' : '') + '</div>' : '') +
+          (t.status === 'done' && parseInt(t.proof_count, 10) > 0 ? '<div style="font-size:11px;color:var(--success);margin-top:4px"><i class="fas fa-camera"></i> ' + t.proof_count + ' foto(s) de evidencia</div>' : '') +
+          (t.status === 'overdue' && t.overdue_detected_at ? '<div style="font-size:11px;color:var(--danger);margin-top:4px">Detectada ' + fmtDateTime(t.overdue_detected_at) + '</div>' : '') +
+          '<div class="actions" style="margin-top:10px">' +
+            (mine ? '<button class="btn-icon" onclick="editTask(\'' + t.id + '\')" title="Abrir / editar"><i class="fas fa-edit"></i></button>' : '') +
+            (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteTask(\'' + t.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') +
+            (isMgrFE() && (t.status === 'pending' || t.status === 'in_progress' || t.status === 'overdue') ? '<button class="btn-icon" onclick="markTaskDone(\'' + t.id + '\')" title="Cerrar sin foto (solo administración)"><i class="fas fa-check" style="color:var(--success)"></i></button>' : '') +
+          '</div>' +
+          (mine && (t.status === 'pending' || t.status === 'in_progress' || t.status === 'overdue') ? taskActionsHtml(t) : '') +
+          '</div>';
+      }).join('');
+      return '<div class="kanban-col" style="--kc:' + TK_COL[st] + '"><div class="kanban-col-header"><span class="kc-title"><i class="kc-dot"></i>' + TASK_ST[st] + '</span><span class="kc-count">' + stTasks.length + '</span></div>' +
+        '<div class="kanban-col-body">' + (cards || '<div class="kc-empty"><i class="fas ' + TK_ICO[st] + '"></i>Sin tareas</div>') + '</div></div>';
+    }).join('');
+    var titles = {}; tasks.forEach(function(t) { if (t.title) titles[t.title] = 1; });
+    var html =
+      '<div class="module-header"><div><h1 class="page-title">Tareas</h1><div class="page-subtitle">' + scopeTag() + inCamp.length + ' tareas</div></div>' +
+        (canCreate ? '<button class="btn-primary" onclick="showTaskModal()"><i class="fas fa-plus"></i> Nueva Tarea</button>' : '') + '</div>' +
+      '<div class="filters-bar">' +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="task-search" placeholder="Buscar tarea..." value="' + escHtml(searchVal) + '" oninput="renderTasks()"></div></div>' +
+      (!started.length ? '<div class="card" style="padding:12px;margin-bottom:12px">No hay campañas iniciadas. El administrador debe presionar «Iniciar campaña» en Aves para activar las tareas.</div>' : '') +
+      seriesPanelHtml(serList, uMap) +
+      '<div class="tasks-kanban tk-3" style="margin-top:12px">' + cols + '</div>' +
+      '<datalist id="tk-title-list">' + Object.keys(titles).map(function(t) { return '<option value="' + escHtml(t) + '">'; }).join('') + '</datalist>' +
+      '<datalist id="tk-user-list">' + tUsers.map(function(u) { return '<option value="' + escHtml(u.full_name) + '" label="' + escHtml(u.role || '') + '">'; }).join('') + '</datalist>' +
+      '<div id="task-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3 id="task-modal-title">Nueva Tarea</h3><button class="close-modal" onclick="closeModal(\'task-modal\')">&times;</button></div>' +
+        '<form id="task-form"><input type="hidden" id="tk-id" value="new"><input type="hidden" id="tk-assigned" value="">' +
+        '<div class="form-group"><label>Campaña *</label><select id="tk-camp" required></select></div>' +
+        '<div class="form-group"><label>Actividad *</label><input type="text" id="tk-title" list="tk-title-list" required placeholder="Ej: Revisar bebederos del galpón B" autocomplete="off"></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label>Área * <small style="font-weight:400;color:var(--gray)">(marca una o varias)</small></label><input type="hidden" id="tk-area">' +
+            '<div class="chk-grid">' + TASK_AREAS_FE.map(function(a) { return '<label class="chk-opt"><input type="checkbox" class="tk-area-chk" value="' + a + '" onchange="syncTaskArea()"> ' + a + '</label>'; }).join('') + '</div>' +
+            '<input type="text" id="tk-area-other" maxlength="60" placeholder="Escribe cuál (Otros)" style="display:none;margin-top:8px" oninput="syncTaskArea()"></div>' +
+          '<div class="form-group"><label>Prioridad</label><select id="tk-priority">' + selOpt(['high:Alta', 'normal:Normal', 'low:Baja'], 'normal') + '</select></div>' +
+        '</div>' +
+        '<div class="form-group"><label>¿Cómo se cumple? <small style="font-weight:400;color:var(--gray)">(opcional)</small></label><select id="tk-link">' + selOpt(['', 'feeding:Se cumple sola al registrar el consumo de Alimentación', 'production:Se cumple sola al registrar el día en Producción', 'health:Se cumple sola al registrar un evento de Salud', 'maintenance:Se cumple sola al registrar un Mantenimiento'].map(function(x) { return x === '' ? ':Con foto de evidencia (como siempre)' : x; }), '') + '</select>' +
+          '<small class="field-hint">Si eliges un registro, el operador no sube foto: al guardar ese registro la tarea se marca cumplida. El responsable debe ser quien lo registra.</small></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label>Responsable *</label><input type="text" id="tk-assigned-name" list="tk-user-list" placeholder="Escribe y elige de la lista" autocomplete="off" oninput="onTaskUserInput()"></div>' +
+          '<div class="form-group"><label>Rol</label><input type="text" id="tk-role" readonly placeholder="Según el responsable"></div>' +
+        '</div>' +
+        '<div class="rep-box" id="tk-rep-wrap" style="display:none">' +
+          '<div class="form-group" style="margin-bottom:8px"><label><i class="fas fa-rotate"></i> ¿Se repite?</label><select id="tk-repeat" onchange="onTaskRepeatChange()">' +
+            '<option value="none">No, se hace una sola vez</option>' +
+            '<option value="times">Sí, todos los días a horas fijas</option>' +
+            '<option value="interval">Sí, todos los días cada cierto tiempo</option></select></div>' +
+          '<div id="tk-rep-times" style="display:none"><div class="form-group"><label>Horas del día *</label><input type="text" id="tk-times" placeholder="Ej: 08:00, 14:00, 18:00" autocomplete="off"><div class="sug-hint">Separa las horas con coma. Se crea una tarea por cada hora, todos los días.</div></div></div>' +
+          '<div id="tk-rep-int" style="display:none"><div class="form-row" style="grid-template-columns:minmax(0,1fr)">' +
+            '<div class="form-group"><label>Cada *</label><div style="display:flex;gap:8px;align-items:center"><input type="text" id="tk-every" inputmode="numeric" pattern="[0-9]*" maxlength="4" value="1" autocomplete="off" placeholder="1" style="flex:0 0 90px;width:90px;text-align:center;font-weight:700" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" onfocus="this.select()"><select id="tk-every-unit" style="flex:1;min-width:0"><option value="60">hora(s)</option><option value="1">minuto(s)</option></select></div></div>' +
+            '<div class="form-group"><label>Desde / Hasta *</label><div style="display:flex;gap:8px;align-items:center"><input type="time" id="tk-from" value="06:00" style="flex:1;min-width:0"><span style="color:var(--gray)">a</span><input type="time" id="tk-to" value="18:00" style="flex:1;min-width:0"></div></div></div></div>' +
+          '<div id="tk-rep-common" style="display:none"><div class="form-row">' +
+            '<div class="form-group"><label>Tiempo para hacerla (min) *</label><input type="number" id="tk-window" min="5" max="1440" value="60"></div>' +
+            '<div class="form-group"><label>Repetir hasta (opcional)</label><input type="date" id="tk-enddate"></div></div>' +
+          '<div class="sug-hint"><i class="fas fa-circle-info"></i> Cada día el sistema crea la tarea nueva y el operador debe subir su foto. Lo que no se haga ese día queda como «No realizada».</div></div>' +
+        '</div>' +
+        '<div class="form-row" id="tk-dates-row">' +
+          '<div class="form-group"><label>Inicio</label><input type="datetime-local" id="tk-start"></div>' +
+          '<div class="form-group"><label>Fecha y hora límite *</label><input type="datetime-local" id="tk-due"></div>' +
+        '</div>' +
+        '<div class="form-group"><label>Estado</label><select id="tk-status"></select></div>' +
+        '<div class="form-group"><label>Observaciones</label><textarea id="tk-desc" rows="2" placeholder="Escribe una nota nueva o elige una sugerencia"></textarea><div id="tk-desc-sug" class="sug-box"></div><div class="sug-hint">Las sugerencias vienen de notas anteriores; solo se usan si las eliges.</div></div>' +
+        '<div class="form-group"><label>Evidencias / archivos</label><input type="file" id="tk-files" accept="image/*,application/pdf" multiple><div id="tk-evid" style="margin-top:6px"></div><div class="sug-hint">Para TERMINAR la tarea toma la foto de lo realizado con el botón verde «Subir foto y terminar». Sin foto no se puede cerrar.</div></div>' +
+        '<div class="form-group" id="tk-hist-wrap" style="display:none"><label>Historial</label><div id="tk-hist" class="task-hist"></div></div>' +
+        '<div class="form-actions"><button type="button" class="btn-success" id="tk-proof-btn" style="display:none" onclick="taskProof(v(\'tk-id\'))"><i class="fas fa-camera"></i> Subir foto y terminar</button><button type="button" class="btn-secondary" onclick="closeModal(\'task-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+        '</form></div></div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    bindForm('task-form', saveTaskForm);
+    attachSuggest('tk-desc', 'tk-desc-sug', function() {
+      var seen = {}, out = [], area = v('tk-area'), cid = v('tk-camp');
+      (App._cache.tasks || []).slice().sort(function(a, b) {
+        return (String(b.campaign_id) === cid ? 2 : 0) + (b.area === area ? 1 : 0) - ((String(a.campaign_id) === cid ? 2 : 0) + (a.area === area ? 1 : 0));
+      }).forEach(function(t) { var d = String(t.description || '').trim(); if (d && !seen[d]) { seen[d] = 1; out.push(d); } });
+      return out;
+    });
+    showLoader(false);
+  });
+}
+
+// Área = casillas + texto libre para «Otros». Se guarda en el campo oculto #tk-area como "Producción, Otros: Limpieza".
+function syncTaskArea() {
+  var sel = [], other = document.getElementById('tk-area-other'), otros = false;
+  document.querySelectorAll('.tk-area-chk').forEach(function(c) {
+    if (!c.checked) return;
+    if (c.value === 'Otros') otros = true; else sel.push(c.value);
+  });
+  other.style.display = otros ? '' : 'none';
+  if (otros) { var t = other.value.replace(/[,|]/g, ' ').replace(/\s+/g, ' ').trim(); sel.push(t ? 'Otros: ' + t : 'Otros'); }
+  document.getElementById('tk-area').value = sel.join(', ');
+}
+function setTaskArea(val) {
+  var parts = String(val || '').split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+  var other = document.getElementById('tk-area-other'); other.value = '';
+  document.querySelectorAll('.tk-area-chk').forEach(function(c) {
+    var hit = c.value === 'Otros'
+      ? parts.some(function(p) { return p.indexOf('Otros') === 0; })
+      : parts.indexOf(c.value) > -1;
+    c.checked = hit;
+    if (hit && c.value === 'Otros') other.value = parts.filter(function(p) { return p.indexOf('Otros') === 0; })[0].replace(/^Otros:?\s*/, '');
+  });
+  syncTaskArea();
+}
+
+function taskDueFE(t) {
+  if (t.due_at) return t.due_at;
+  return t.due_date ? String(t.due_date).slice(0, 10) + ' 23:59' : '';
+}
+
+function onTaskRepeatChange() {
+  var m = v('tk-repeat') || 'none', rep = m !== 'none';
+  document.getElementById('tk-rep-times').style.display  = m === 'times' ? '' : 'none';
+  document.getElementById('tk-rep-int').style.display    = m === 'interval' ? '' : 'none';
+  document.getElementById('tk-rep-common').style.display = rep ? '' : 'none';
+  document.getElementById('tk-dates-row').style.display  = rep ? 'none' : '';
+  var isNew = v('tk-id') === 'new';
+  document.getElementById('tk-due').required = isMgrFE() && isNew && !rep;
+}
+function seriesWhenText(sr) {
+  if (sr.mode === 'interval') {
+    var e = parseInt(sr.every_min, 10) || 0;
+    return 'Cada ' + (e % 60 === 0 ? (e / 60) + (e === 60 ? ' hora' : ' horas') : e + ' min') + ' de ' + sr.from_time + ' a ' + sr.to_time;
+  }
+  return 'A las ' + (sr.slots || []).join(', ');
+}
+function seriesPanelHtml(list, uMap) {
+  if (!list.length) return '';
+  var isAdm = App.user && App.user.role === 'admin';
+  return '<details class="ser-box" open><summary><i class="fas fa-rotate" style="color:var(--primary)"></i> Tareas diarias (' + list.length + ')' +
+      '<small style="font-weight:500;color:var(--gray)">· se crean solas cada día</small></summary>' +
+    list.map(function(sr) {
+      var u = uMap[sr.assigned_to], paused = sr.status === 'paused';
+      return '<div class="ser-item' + (paused ? ' paused' : '') + '"><div><h5>' + escHtml(sr.title) + (paused ? ' <span class="badge badge-gray">Pausada</span>' : '') + '</h5>' +
+        '<div class="ser-meta"><i class="fas fa-clock"></i> ' + escHtml(seriesWhenText(sr)) + ' · ' + sr.window_min + ' min para hacerla' +
+          (sr.end_date ? ' · hasta ' + escHtml(sr.end_date) : '') + (u ? ' · <i class="fas fa-user"></i> ' + escHtml(u.full_name) : '') + '</div></div>' +
+        '<div class="actions">' +
+          '<button type="button" class="btn-secondary" onclick="toggleSeries(\'' + sr.id + '\',\'' + (paused ? 'active' : 'paused') + '\')"><i class="fas fa-' + (paused ? 'play' : 'pause') + '"></i> ' + (paused ? 'Reanudar' : 'Pausar') + '</button>' +
+          (isAdm ? '<button type="button" class="btn-icon danger" onclick="confirmDeleteSeries(\'' + sr.id + '\')" title="Eliminar tarea diaria"><i class="fas fa-trash"></i></button>' : '') +
+        '</div></div>';
+    }).join('') + '</details>';
+}
+function toggleSeries(id, status) {
+  api('setTaskSeriesStatus', { id: id, status: status }, function(r) {
+    if (r && r.success) { showToast(status === 'paused' ? 'Tarea diaria pausada' : 'Tarea diaria reanudada', 'success'); renderTasks(); }
+    else showToast((r && r.error) || 'Error', 'error');
+  });
+}
+function confirmDeleteSeries(id) {
+  confirmDialog('¿Eliminar esta tarea diaria? Dejará de crearse; lo ya realizado se conserva.', function() {
+    api('deleteTaskSeries', { id: id }, function(r) {
+      if (r && r.success) { showToast('Tarea diaria eliminada', 'success'); renderTasks(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+function onTaskUserInput() {
+  var name = v('tk-assigned-name').trim().toLowerCase();
+  var u = (App._cache.users || []).filter(function(x) { return String(x.full_name).toLowerCase() === name; })[0];
+  document.getElementById('tk-assigned').value = u ? u.id : '';
+  document.getElementById('tk-role').value = u ? (u.role || '') : '';
+}
+
+function showTaskModal(t) {
+  t = t || {};
+  var mgr = isMgrFE(), isNew = !t.id;
+  var camps = App._cache.campaigns || [], houses = {}; (App._cache.houses || []).forEach(function(h) { houses[h.id] = h.name; });
+  var campList = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === t.campaign_id; });
+  document.getElementById('tk-camp').innerHTML = '<option value="">Seleccionar campaña</option>' + campList.map(function(c) {
+    return '<option value="' + c.id + '">' + escHtml(c.batch_number) + ' · ' + escHtml(houses[c.house_id] || '—') + (c.campaign_status !== 'started' ? ' (' + (c.campaign_status === 'closed' ? 'cerrada' : 'sin iniciar') + ')' : '') + '</option>';
+  }).join('');
+  document.getElementById('task-modal-title').textContent = isNew ? 'Nueva Tarea' : 'Editar Tarea';
+  document.getElementById('tk-id').value       = t.id || 'new';
+  document.getElementById('tk-camp').value     = t.campaign_id || App._taskCamp || '';
+  document.getElementById('tk-title').value    = t.title || '';
+  setTaskArea(t.area || '');
+  document.getElementById('tk-link').value = t.link_module || '';
+  document.getElementById('tk-priority').value = t.priority || 'normal';
+  var u = (App._cache.users || []).filter(function(x) { return String(x.id) === String(t.assigned_to); })[0];
+  document.getElementById('tk-assigned').value = u ? u.id : '';
+  document.getElementById('tk-assigned-name').value = u ? u.full_name : '';
+  document.getElementById('tk-role').value     = u ? (u.role || '') : (t.role || '');
+  document.getElementById('tk-start').value    = toInputDT(t.start_at);
+  document.getElementById('tk-due').value      = t.due_at ? toInputDT(t.due_at) : (t.due_date ? toInputDT(String(t.due_date).slice(0, 10) + ' 23:59') : '');
+  document.getElementById('tk-desc').value     = t.description || '';
+  document.getElementById('tk-files').value    = '';
+  var st = isNew ? ['pending', 'in_progress'] : ['pending', 'in_progress'].concat((mgr || t.status === 'done') ? ['done'] : []).concat(mgr ? ['cancelled'] : []);
+  if (t.status === 'overdue') st.splice(2, 0, 'overdue');
+  document.getElementById('tk-status').innerHTML = st.map(function(k) { return '<option value="' + k + '"' + (k === 'overdue' ? ' disabled' : '') + '>' + TASK_ST[k] + '</option>'; }).join('');
+  document.getElementById('tk-status').value = t.status || 'pending';
+  document.getElementById('tk-status').closest('.form-group').style.display = mgr ? '' : 'none';   // el inicio es automático; se termina subiendo la foto
+  // El responsable (no administrador) solo actualiza estado, observaciones y evidencias
+  ['tk-camp', 'tk-title', 'tk-area', 'tk-area-other', 'tk-priority', 'tk-link', 'tk-assigned-name', 'tk-start', 'tk-due'].forEach(function(id) { document.getElementById(id).disabled = !mgr; });
+  document.querySelectorAll('.tk-area-chk').forEach(function(c) { c.disabled = !mgr; });
+  document.getElementById('tk-due').required = mgr && isNew;
+  var rw = document.getElementById('tk-rep-wrap');
+  if (rw) { rw.style.display = (mgr && isNew) ? '' : 'none'; document.getElementById('tk-repeat').value = 'none'; onTaskRepeatChange(); }
+  document.getElementById('tk-hist-wrap').style.display = isNew ? 'none' : 'block';
+  var pb = document.getElementById('tk-proof-btn');
+  if (pb) pb.style.display = (!isNew && ['pending', 'in_progress', 'overdue'].indexOf(t.status) > -1) ? 'inline-flex' : 'none';
+  document.getElementById('tk-evid').innerHTML = '';
+  if (!isNew) loadTaskExtras(t.id);
+  openModal('task-modal');
+}
+
+function loadTaskExtras(id) {
+  var uMap = {}; (App._cache.users || []).forEach(function(x) { uMap[x.id] = x.full_name; });
+  var ev = document.getElementById('tk-evid'), hi = document.getElementById('tk-hist');
+  ev.innerHTML = '<span class="sug-hint">Cargando evidencias…</span>'; hi.innerHTML = '<span class="sug-hint">Cargando historial…</span>';
+  api('getAttachments', { entity: 'task', entity_id: id }, function(r) {
+    var list = (r && r.data) || [];
+    ev.innerHTML = list.length ? list.map(function(a) {
+      return '<div>' + voucherLinkHtml(a.url, a.file_name) + ' <span class="sug-hint">' + escHtml(a.uploader_name) + ' (' + escHtml(a.uploader_role) + ') · ' + fmtDateTime(a.uploaded_at) + '</span></div>';
+    }).join('') : '<span class="sug-hint">Sin evidencias cargadas</span>';
+  });
+  api('getHistory', { entity: 'task', entity_id: id }, function(r) {
+    var rows = (r && r.data) || [];
+    hi.innerHTML = rows.length ? rows.map(function(h) {
+      var ch = {}; try { ch = JSON.parse(h.changes || '{}'); } catch (e) {}
+      var lines = Object.keys(ch).map(function(k) {
+        var f = function(x) { return k === 'status' ? (TASK_ST[x] || x) : (k === 'assigned_to' || k === 'completed_by') ? (uMap[x] || x) : (k === 'campaign_id' ? x : x); };
+        var a = ch[k][0], b = ch[k][1];
+        if (/_at$/.test(k)) { a = a ? fmtDateTime(a) : '—'; b = b ? fmtDateTime(b) : '—'; } else { a = f(a) || '—'; b = f(b) || '—'; }
+        return (TASK_FIELD_LBL[k] || k) + ': ' + escHtml(a) + ' → ' + escHtml(b);
+      }).join('<br>');
+      return '<div><b>' + fmtDateTime(h.timestamp) + '</b> · ' + escHtml(h.user_name || 'Sistema') + (h.user_role ? ' (' + escHtml(h.user_role) + ')' : '') + '<br>' + lines + '</div>';
+    }).join('') : '<span class="sug-hint">Sin cambios registrados</span>';
+  });
+}
+
+function editTask(id) {
+  var t = (App._cache.tasks || []).find(function(x) { return x.id === id; });
+  if (t) showTaskModal(t);
+}
+
+
+
+// ==================== MIS TAREAS (vista básica para operador / vet / mantenimiento) ====================
+// Área de la tarea en GRANDE (el operador debe ver de un vistazo qué área es).
+// El área puede traer varias opciones separadas por coma; «Otros: texto» muestra el texto.
+var AREA_STYLE_FE = {
+  'Producción':        { ic: 'fa-drumstick-bite',     cls: 'a-prod' },
+  'Salud/Veterinaria': { ic: 'fa-syringe',            cls: 'a-salud' },
+  'Mantenimiento':     { ic: 'fa-screwdriver-wrench', cls: 'a-mant' },
+  'Alimentación':      { ic: 'fa-wheat-awn',          cls: 'a-alim' }
+};
+function areaHeadInfo(area) {
+  var parts = String(area || '').split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+  if (!parts.length) return { label: 'Sin área', ic: 'fa-clipboard-list', cls: 'a-none' };
+  var first = AREA_STYLE_FE[parts[0]] || { ic: 'fa-star', cls: 'a-otro' };
+  return { label: parts.map(function(p) { var m = p.match(/^Otros:\s*(.+)$/); return m ? m[1] : p; }).join('  +  '), ic: first.ic, cls: first.cls };
+}
+function areaBigHtml(area, small) {
+  var parts = String(area || '').split(',').map(function(p) { return p.trim(); }).filter(Boolean);
+  if (!parts.length) return '';
+  return '<div class="area-big' + (small ? ' sm' : '') + '">' + parts.map(function(p) {
+    var m = p.match(/^Otros:\s*(.+)$/), label = m ? m[1] : p, st = AREA_STYLE_FE[p] || { ic: 'fa-star', cls: 'a-otro' };
+    return '<div class="ab ' + st.cls + '"><i class="fas ' + st.ic + '"></i><span>' + escHtml(label) + '</span></div>';
+  }).join('') + '</div>';
+}
+
+function renderMyTasks() {
+  api('getTasksModule', {}, function(r) {
+    var tasks = (r && r.tasks) || [], camps = (r && r.campaigns) || [];
+    App._cache.tasks = tasks; App._cache.campaigns = camps; App._cache.users = (r && r.users) || []; App._cache.houses = (r && r.houses) || [];
+    var me = String(App.user && App.user.id), canAct = !!(App.user && App.user.role !== 'viewer');
+    var cMap = {}; camps.forEach(function(c) { cMap[c.id] = c; });
+    var mine = tasks.filter(function(t) {
+      return String(t.assigned_to) === me && cMap[t.campaign_id] && cMap[t.campaign_id].campaign_status === 'started' && t.status !== 'cancelled';
+    });
+    var tdyMy = today();
+    function hmOf(s) { var m = String(s || '').match(/(\d{2}):(\d{2})/); return m ? m[1] + ':' + m[2] : ''; }
+    // Estado de cada hora/tarea para el operador: done = hecha · now = toca ahora · late = atrasada · later = más tarde
+    function slotState(t) {
+      if (t.status === 'done') return 'done';
+      if (t.status === 'overdue') return 'late';
+      if (taskIsScheduled(t)) return 'later';
+      var d = taskDueFE(t), dd = d ? parseLocal(d) : null;
+      if (dd && !isNaN(dd.getTime()) && dd.getTime() <= Date.now()) return 'late';
+      return 'now';
+    }
+    // Lo que se muestra: tareas sueltas (como antes) y tareas diarias AGRUPADAS en una sola tarjeta con sus horas
+    var groups = {}, order = [];
+    mine.forEach(function(t) {
+      var isOpen = ['pending', 'in_progress', 'overdue'].indexOf(t.status) > -1;
+      var isDoneToday = t.status === 'done' && String(t.completed_at || '').slice(0, 10) === tdyMy;
+      if (t.series_id) {
+        // tareas diarias: solo las horas de hoy (o las que siguen abiertas)
+        if (!(isOpen || (t.status === 'done' && (String(t.start_at || '').slice(0, 10) === tdyMy || isDoneToday)))) return;
+      } else if (!(isOpen || isDoneToday)) return;
+      var key = t.series_id ? 's:' + t.series_id : 't:' + t.id;
+      if (!groups[key]) { groups[key] = []; order.push(key); }
+      groups[key].push(t);
+    });
+    order.forEach(function(k) { groups[k].sort(function(a, b) { return String(a.start_at || a.due_at || '').localeCompare(String(b.start_at || b.due_at || '')); }); });
+
+    function descBox(t, label) {
+      return t.description ? '<div class="mt-desc"><div class="mt-desc-h"><i class="fas fa-clipboard-list"></i> ' + label + '</div><div class="mt-desc-t">' + escHtml(t.description) + '</div></div>' : '';
+    }
+    var PHOTO_NOTE = '<div class="mt-alert"><i class="fas fa-camera"></i><div><b>Al terminar, toma la foto de lo que hiciste.</b><span>Sin la foto, la tarea NO queda como hecha.</span></div></div>';
+
+    // Una fila por hora: hora grande · estado · UNA sola acción (foto) solo si toca ahora o está atrasada.
+    function timeRow(t, s) {
+      var id = escHtml(t.id), h = hmOf(t.start_at) || hmOf(taskDueFE(t)), lim = hmOf(taskDueFE(t));
+      var dayTag = (String(t.start_at || '').slice(0, 10) && String(t.start_at).slice(0, 10) !== tdyMy) ? ' · ' + fmtDateTime(t.start_at).split(' ')[0] : '';
+      var d = taskDueFE(t), dd = d ? parseLocal(d) : null, mins = dd && !isNaN(dd.getTime()) ? (dd.getTime() - Date.now()) / 60000 : 0;
+      var mid, right;
+      if (s === 'done') {
+        mid = '<b>Hecha</b>' + fmtDateTime(t.completed_at) + (t.completed_late === 'yes' ? ' · fuera de plazo' : '');
+        right = parseInt(t.proof_count, 10) > 0 ? '<span class="tk-pill ok" onclick="myViewProof(\'' + id + '\')"><i class="fas fa-image"></i> Ver foto</span>' : '<span class="tk-pill ok"><i class="fas fa-check"></i> Hecha</span>';
+      } else if (s === 'late') {
+        mid = '<b>Atrasada' + dayTag + '</b>Debía estar lista a las ' + escHtml(lim);
+        right = canAct ? '<button type="button" class="tk-btn" onclick="myProofPick(\'' + id + '\',\'cam\')"><i class="fas fa-camera"></i> Tomar foto</button>' : '';
+      } else if (s === 'now') {
+        mid = '<b>Te toca ahora' + dayTag + '</b>Hasta las ' + escHtml(lim) + ' · quedan ' + fmtMins(mins);
+        right = canAct ? '<button type="button" class="tk-btn" onclick="myProofPick(\'' + id + '\',\'cam\')"><i class="fas fa-camera"></i> Tomar foto</button>' : '';
+      } else {
+        var sd = t.start_at ? parseLocal(t.start_at) : null, wait = sd && !isNaN(sd.getTime()) ? (sd.getTime() - Date.now()) / 60000 : 0;
+        mid = '<b>Más tarde' + dayTag + '</b>Se activa sola' + (wait > 0 ? ' en ' + fmtMins(wait) : '');
+        right = '<span class="tk-pill"><i class="fas fa-lock"></i> Foto desde las ' + escHtml(h) + '</span>';
+      }
+      return '<div class="tk-t ' + s + '"><div class="h">' + escHtml(h) + '</div><div class="s">' + mid + '</div><div class="r">' + right + '</div></div>' +
+        (s === 'done' ? '<div class="tk-ev" id="my-ev-' + id + '"></div>' : '');
+    }
+    // Tarjeta (suelta o diaria): [ÁREA grande] → actividad → qué hacer → horas
+    function taskCard(list, isSeries, sts) {
+      var f = list[0], c = cMap[f.campaign_id] || {}, ar = areaHeadInfo(f.area);
+      var nDone = sts.filter(function(x) { return x === 'done'; }).length, all = nDone === list.length;
+      var active = sts.some(function(x) { return (x === 'now' || x === 'late'); }) && canAct;
+      var meta = (isSeries ? '<span class="chip-daily"><i class="fas fa-rotate"></i> Se repite todos los días</span> ' : '') + escHtml(c.batch_number ? 'Lote ' + c.batch_number : '');
+      return '<div class="tk' + (all ? ' is-done' : '') + '">' +
+        '<div class="tk-area ' + ar.cls + '"><i class="fas ' + ar.ic + '"></i><span class="nm">' + escHtml(ar.label) + '</span>' +
+          (isSeries ? '<span class="ct">' + nDone + ' de ' + list.length + ' hechas</span>' : '') + '</div>' +
+        '<div class="tk-body"><h4 class="tk-title">' + escHtml(f.title) + '</h4><div class="tk-meta">' + meta + '</div>' +
+          (f.description ? '<div class="tk-do"><div class="l">' + (all ? 'Observaciones' : 'Qué hay que hacer') + '</div><div class="t">' + escHtml(f.description) + '</div></div>' : '') + '</div>' +
+        '<div class="tk-times"><div class="th">' + (isSeries ? 'Horas de hoy' : 'Hora programada') + '</div>' +
+          list.map(function(t, i) { return timeRow(t, sts[i]); }).join('') + '</div>' +
+        (active ? '<div class="tk-foot"><i class="fas fa-camera"></i> Al terminar, toma la foto de lo realizado. Sin foto la tarea no queda como hecha.</div>' : '') +
+      '</div>';
+    }
+    function singleCard(t) { return taskCard([t], false, [slotState(t)]); }
+    function groupCard(list) { return taskCard(list, true, list.map(slotState)); }
+
+    var nowItems = [], schedItems = [], doneItems = [], nActNow = 0, nLateAll = 0, nDoneAll = 0;
+    order.forEach(function(k) {
+      var list = groups[k], isSeries = k.indexOf('s:') === 0;
+      var sts = list.map(slotState);
+      nActNow += sts.filter(function(s) { return s === 'now' || s === 'late'; }).length;
+      nLateAll += sts.filter(function(s) { return s === 'late'; }).length;
+      nDoneAll += sts.filter(function(s) { return s === 'done'; }).length;
+      var firstDue = String(taskDueFE(list.filter(function(t, i) { return sts[i] !== 'done'; })[0] || list[0]) || '9999');
+      var item = { late: sts.indexOf('late') > -1 ? 0 : 1, due: firstDue, html: isSeries ? groupCard(list) : singleCard(list[0]) };
+      var anyAct = sts.some(function(s) { return s === 'now' || s === 'late'; });
+      if (sts.every(function(s) { return s === 'done'; })) doneItems.push(item);
+      else if (anyAct) nowItems.push(item);
+      else schedItems.push(item);
+    });
+    nowItems.sort(function(a, b) { return a.late !== b.late ? a.late - b.late : String(a.due).localeCompare(String(b.due)); });
+    schedItems.sort(function(a, b) { return String(a.due).localeCompare(String(b.due)); });
+    function sec(title, items, empty) {
+      if (!items.length && !empty) return '';
+      return '<div class="mt-sec">' + title + (items.length ? ' (' + items.length + ')' : '') + '</div>' +
+        (items.length ? items.map(function(i) { return i.html; }).join('') : '<div class="dash-alert ok"><i class="fas fa-circle-check"></i> ' + empty + '</div>');
+    }
+    var anything = order.length > 0;
+    var html =
+      '<div class="module-header"><div><h1 class="page-title">Mis tareas</h1><div class="page-subtitle">Aquí ves lo que debes hacer. <b>No tienes que iniciar nada:</b> todo empieza solo. Cuando termines, toma la foto.</div></div></div>' +
+      '<div class="mt-stats"><div class="mt-stat"><b>' + nActNow + '</b><span>Fotos por tomar ahora</span></div>' +
+        '<div class="mt-stat"><b style="color:' + (nLateAll ? 'var(--danger)' : 'inherit') + '">' + nLateAll + '</b><span>Atrasadas</span></div>' +
+        '<div class="mt-stat"><b style="color:var(--success)">' + nDoneAll + '</b><span>Fotos hechas hoy</span></div></div>' +
+      (!anything ? '<div class="card" style="padding:16px">Todavía no tienes tareas asignadas en una campaña iniciada.</div>' : '') +
+      sec('📌 Haz esto ahora', nowItems, anything ? 'No tienes nada pendiente en este momento. 👍' : '') +
+      sec('⏳ Más tarde', schedItems, '') +
+      sec('✅ Ya terminadas hoy', doneItems.slice(0, 10), '');
+    document.getElementById('dynamic-content').innerHTML = html;
+    showLoader(false);
+  });
+}
+function myViewProof(id) {
+  var box = document.getElementById('my-ev-' + id); if (!box) return;
+  box.innerHTML = '<span class="sug-hint">Cargando…</span>';
+  api('getAttachments', { entity: 'task', entity_id: id }, function(r) {
+    var list = ((r && r.data) || []).filter(function(a) { return String(a.mime_type || '').indexOf('image/') === 0; });
+    box.innerHTML = list.length ? list.map(function(a) { return '<div style="margin-top:6px">' + voucherLinkHtml(a.url, a.file_name || 'Foto') + ' <span class="sug-hint">' + fmtDateTime(a.uploaded_at) + '</span></div>'; }).join('') : '<span class="sug-hint">Sin fotos</span>';
+  });
+}
+
+// ---------- Seguimiento: tiempo restante, iniciar y foto de evidencia ----------
+function fmtMins(m) {
+  m = Math.abs(Math.round(m));
+  if (m < 60) return m + ' min';
+  if (m < 1440) return Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+  return Math.floor(m / 1440) + ' d ' + Math.floor((m % 1440) / 60) + ' h';
+}
+function taskIsScheduled(t) { var s = t.start_at ? parseLocal(t.start_at) : null; return !!(s && !isNaN(s.getTime()) && s.getTime() > Date.now()); }
+function taskTimeChip(t) {
+  if (t.status === 'done' || t.status === 'cancelled') return '';
+  var s = t.start_at ? parseLocal(t.start_at) : null;
+  if (s && !isNaN(s.getTime()) && s.getTime() > Date.now())
+    return '<span class="tu-time" style="color:var(--gray)"><i class="fas fa-hourglass-start"></i> Se inicia sola en ' + fmtMins((s.getTime() - Date.now()) / 60000) + '</span>';
+  var due = taskDueFE(t), d = due ? parseLocal(due) : null;
+  if (!d || isNaN(d.getTime())) return '';
+  var m = (d.getTime() - Date.now()) / 60000;
+  if (m <= 0 || t.status === 'overdue') return '<span class="tu-time" style="color:var(--danger)"><i class="fas fa-circle-exclamation"></i> Vencida hace ' + fmtMins(m) + '</span>';
+  return '<span class="tu-time" style="color:' + (m <= 120 ? '#b45309' : 'var(--gray)') + '"><i class="fas fa-clock"></i> Vence en ' + fmtMins(m) + '</span>';
+}
+function taskActionsHtml(t) {
+  if (taskIsScheduled(t) && !isMgrFE()) return '<div class="sug-hint" style="margin-top:8px">Aún no comienza: se iniciará sola a la hora programada.</div>';
+  var id = escHtml(t.id);
+  return '<div class="tc-actions">' +
+    '<button type="button" class="btn-success" onclick="taskProof(\'' + id + '\')"><i class="fas fa-camera"></i> Subir foto y terminar</button></div>';
+}
+function refreshAfterTaskChange() {
+  if (App._cacheTs) { App._cacheTs.dashboard = 0; App._cacheTs.tasks = 0; }
+  if (App.currentModule === 'dashboard') renderDashboard();
+  else if (App.currentModule === 'tasks') renderTasks();
+  pollTaskAlerts();
+}
+function startTask(id) {
+  api('saveTask', { id: id, status: 'in_progress' }, function(r) {
+    if (r && r.success) { showToast('Tarea iniciada. Al terminar sube la foto de lo realizado.', 'success'); refreshAfterTaskChange(); }
+    else showToast((r && r.error) || 'No se pudo iniciar la tarea', 'error');
+  });
+}
+function taskProof(id) { myProofPick(id, 'cam'); }
+
+// Elegir la evidencia: 'cam' abre la cámara, 'file' abre la galería / archivos. Luego se confirma con vista previa.
+function myProofPick(id, mode) {
+  if (!id || id === 'new') return;
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+  if (mode === 'cam') inp.setAttribute('capture', 'environment');
+  inp.onchange = function() {
+    var f = inp.files && inp.files[0];
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (f) myProofPreview(id, f);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+function myProofPreview(id, file) {
+  if (String(file.type).indexOf('image/') !== 0) { showToast('La evidencia debe ser una foto o imagen', 'warning'); return; }
+  if (file.size > 10 * 1024 * 1024) { showToast('La imagen es muy grande (máx 10 MB)', 'warning'); return; }
+  var old = document.getElementById('my-proof-modal'); if (old) old.remove();
+  var t = (App._cache.tasks || []).filter(function(x) { return String(x.id) === String(id); })[0] || {};
+  var url = URL.createObjectURL(file);
+  var m = document.createElement('div');
+  m.id = 'my-proof-modal'; m.className = 'modal';
+  m.innerHTML = '<div class="modal-content"><div class="modal-header"><h3>Confirmar evidencia</h3><button type="button" class="close-modal" id="my-proof-x">&times;</button></div>' +
+    '<div style="padding:16px 22px 20px">' +
+      '<div style="font-size:14px;font-weight:700;margin-bottom:8px">' + escHtml(t.title || 'Tarea') + '</div>' +
+      '<img class="proof-prev" src="' + url + '" alt="Vista previa de la evidencia">' +
+      '<div class="form-group"><label>Comentario (opcional)</label><textarea id="my-proof-note" rows="2" maxlength="500" placeholder="Ej: Bebederos limpios y llenos"></textarea></div>' +
+      '<div class="sug-hint" style="margin-bottom:12px">Revisa que la foto muestre lo que realizaste. Al enviar, la tarea se marca como completada.</div>' +
+      '<div class="form-actions"><button type="button" class="btn-secondary" id="my-proof-cancel">Cambiar foto</button><button type="button" class="btn-success" id="my-proof-send"><i class="fas fa-paper-plane"></i> Enviar y terminar</button></div>' +
+    '</div></div>';
+  document.body.appendChild(m);
+  var close = function() { URL.revokeObjectURL(url); if (m.parentNode) m.parentNode.removeChild(m); };
+  document.getElementById('my-proof-x').onclick = close;
+  document.getElementById('my-proof-cancel').onclick = function() { close(); myProofPick(id, 'cam'); };
+  document.getElementById('my-proof-send').onclick = function() {
+    var b = this; b.disabled = true;
+    taskProofSend(id, file, document.getElementById('my-proof-note').value, function(ok) {
+      if (ok) close(); else b.disabled = false;
+    });
+  };
+}
+function taskProofSend(id, file, noteArg, onDone) {
+  if (!file || String(file.type).indexOf('image/') !== 0) { showToast('La evidencia debe ser una foto', 'warning'); return; }
+  showToast('Subiendo foto…', 'info'); showLoader(true);
+  _voucherCompress(file, function(f) {
+    var fr = new FileReader();
+    fr.onerror = function() { showLoader(false); showToast('No se pudo leer la foto', 'error'); if (onDone) onDone(false); };
+    fr.onload = function(ev) {
+      var modal = document.getElementById('task-modal');
+      var note = (noteArg !== undefined) ? noteArg : ((modal && modal.style.display === 'flex' && v('tk-id') === id) ? v('tk-desc') : '');
+      api('submitTaskProof', { id: id, base64: ev.target.result, mimeType: f.type || 'image/jpeg', fileName: 'evidencia_' + id + '_' + Date.now() + '.jpg', note: note }, function(r) {
+        showLoader(false);
+        if (r && r.success) { showToast('✅ Tarea completada con foto de evidencia', 'success'); closeModal('task-modal'); if (onDone) onDone(true); refreshAfterTaskChange(); }
+        else { showToast((r && r.error) || 'No se pudo completar la tarea', 'error'); if (onDone) onDone(false); }
+      });
+    };
+    fr.readAsDataURL(f);
+  });
+}
+
+// Barra permanente: mientras haya tareas vencidas o por vencer, el usuario no puede ignorarlas.
+function pollTaskAlerts() {
+  if (!App.user || App.user.role === 'viewer' || !App.token) return;
+  api('getTaskAlert', { campaign_id: App.camp || '' }, function(r) {
+    if (!r || r.success === false) return;
+    renderTaskAlertBar(r);
+  });
+}
+function renderTaskAlertBar(a) {
+  var el = document.getElementById('task-alert-bar'), mgr = isMgrFE();
+  if (!a || (!a.late && !a.soon)) { if (el) el.style.display = 'none'; return; }
+  if (!el) {
+    el = document.createElement('div'); el.id = 'task-alert-bar';
+    el.onclick = function() { loadModule('tasks'); };
+    document.body.appendChild(el);
+  }
+  el.className = 'task-alert-bar ' + (a.late ? 'late' : 'soon');
+  el.innerHTML = a.late
+    ? '<i class="fas fa-triangle-exclamation"></i> ' + (mgr ? a.late + ' tarea(s) vencida(s) sin cumplir' : 'Tienes ' + a.late + ' tarea(s) VENCIDA(S): sube la foto ahora') + ' <i class="fas fa-chevron-right"></i>'
+    : '<i class="fas fa-clock"></i> ' + (mgr ? a.soon + ' tarea(s) por vencer' : 'Tienes ' + a.soon + ' tarea(s) por vencer') + ' <i class="fas fa-chevron-right"></i>';
+  el.style.display = 'flex';
+}
+
+function taskUrgentHtml(list) {
+  list = list || [];
+  var me = String(App.user && App.user.id), mgr = isMgrFE();
+  var late = list.filter(function(x) { return x.late; }).length;
+  var title = 'Tareas que requieren acción' + (late ? ' <span class="badge badge-danger" style="margin-left:6px">' + late + ' vencida(s)</span>' : '');
+  var body;
+  if (!list.length) body = '<div class="dash-alert ok"><i class="fas fa-circle-check"></i> No hay tareas pendientes.</div>';
+  else body = list.map(function(x) {
+    var t = { status: x.status, start_at: x.start, due_at: x.due };
+    var soon = !x.late && !x.scheduled && x.due && (parseLocal(x.due).getTime() - Date.now()) <= 2 * 3600000;
+    var mineT = String(x.assigned_to) === me, id = escHtml(x.id);
+    return '<div class="tu-row ' + (x.late ? 'late' : x.scheduled ? 'sched' : soon ? 'soon' : '') + '">' +
+      '<div class="tu-main">' + areaBigHtml(x.area, true) + '<div class="tu-title">' + escHtml(x.title) + '</div>' +
+      '<div class="tu-sub">' + escHtml(x.campaign) + (mgr && x.assigned_name ? ' · ' + escHtml(x.assigned_name) : '') + (x.due ? ' · límite ' + fmtDateTime(x.due) : '') + '</div></div>' +
+      taskTimeChip(t) +
+      (mineT && !x.scheduled ? '<div class="tu-actions">' +
+        '<button type="button" class="btn-success" onclick="taskProof(\'' + id + '\')"><i class="fas fa-camera"></i> Foto y terminar</button></div>' : '') +
+      '</div>';
+  }).join('') + '<div style="text-align:right"><button type="button" class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="loadModule(\'tasks\')">Ver todas las tareas <i class="fas fa-arrow-right" style="margin-left:4px"></i></button></div>';
+  return secCard('fa-list-check', title, body);
+}
+
+function markTaskDone(id) {
+  api('saveTask', { id: id, status: 'done' }, function(r) {
+    if (r && r.success) { showToast('Tarea completada', 'success'); renderTasks(); }
+    else showToast((r && r.error) || 'Error', 'error');
+  });
+}
+
+function uploadTaskFiles(taskId, campId, files, i, done) {
+  if (!files || i >= files.length) { done(); return; }
+  var f = files[i], reader = new FileReader();
+  reader.onload = function(ev) {
+    showToast('Subiendo ' + f.name + '…', 'info');
+    api('uploadFile', {
+      base64: ev.target.result, mimeType: f.type,
+      fileName: 'evidencia_' + Date.now() + '_' + f.name.replace(/[^a-zA-Z0-9._-]/g, '_'),
+      campaign_id: campId, entity: 'task', entity_id: taskId
+    }, function(r) {
+      if (!r || !r.success) showToast('No se pudo subir ' + f.name + ': ' + ((r && r.error) || 'error'), 'error');
+      uploadTaskFiles(taskId, campId, files, i + 1, done);
+    });
+  };
+  reader.readAsDataURL(f);
+}
+
+function saveTaskForm(e) {
+  e.preventDefault();
+  var mgr = isMgrFE(), btn = e.target.querySelector('[type="submit"]');
+  if (mgr && !v('tk-assigned')) { showToast('Elige al responsable de la lista de sugerencias', 'error'); return; }
+  var p = { id: v('tk-id'), description: v('tk-desc'), status: v('tk-status') };
+  if (mgr) {
+    syncTaskArea();
+    var ar = v('tk-area');
+    if (!ar) { showToast('Marca al menos un área', 'error'); return; }
+    if (/(^|, )Otros$/.test(ar)) { showToast('Escribe cuál es el área en «Otros»', 'error'); document.getElementById('tk-area-other').focus(); return; }
+    p.campaign_id = v('tk-camp'); p.title = v('tk-title'); p.area = v('tk-area'); p.assigned_to = v('tk-assigned');
+    p.priority = v('tk-priority'); p.start_at = v('tk-start'); p.due_at = v('tk-due'); p.link_module = v('tk-link');
+  }
+  var rep = (mgr && v('tk-id') === 'new') ? (v('tk-repeat') || 'none') : 'none';
+  if (rep !== 'none') {
+    var sp = { campaign_id: p.campaign_id, title: p.title, area: p.area, assigned_to: p.assigned_to, priority: p.priority,
+               description: p.description, link_module: p.link_module, mode: rep, window_min: v('tk-window'), end_date: v('tk-enddate') };
+    if (rep === 'times') {
+      sp.times = v('tk-times');
+      if (!sp.times.trim()) { showToast('Escribe al menos una hora, por ejemplo 08:00', 'error'); return; }
+    } else {
+      sp.every_min = (parseInt(v('tk-every'), 10) || 0) * (parseInt(v('tk-every-unit'), 10) || 1);
+      sp.from_time = v('tk-from'); sp.to_time = v('tk-to');
+      if (!sp.every_min) { showToast('Escribe cada cuánto se repite (por ejemplo 1 hora)', 'error'); document.getElementById('tk-every').focus(); return; }
+      if (!sp.from_time || !sp.to_time || sp.to_time <= sp.from_time) { showToast('La hora «Hasta» debe ser posterior a «Desde»', 'error'); return; }
+    }
+    if (btn) btn.disabled = true;
+    api('saveTaskSeries', sp, function(r) {
+      if (btn) btn.disabled = false;
+      if (!r || !r.success) { showToast((r && r.error) || 'Error al guardar', 'error'); return; }
+      closeModal('task-modal');
+      showToast('🔁 Tarea diaria creada' + (r.created ? ': ' + r.created + ' tarea(s) generada(s) para hoy' : '. Empezará a generarse según su horario'), 'success');
+      renderTasks();
+    });
+    return;
+  }
+  if (btn) btn.disabled = true;
+  var files = document.getElementById('tk-files').files, campId = v('tk-camp');
+  api('saveTask', p, function(r) {
+    if (!r || !r.success) { if (btn) btn.disabled = false; showToast((r && r.error) || 'Error al guardar', 'error'); return; }
+    uploadTaskFiles(r.id || p.id, campId, files, 0, function() {
+      if (btn) btn.disabled = false;
+      closeModal('task-modal'); showToast('Tarea guardada', 'success'); renderTasks();
+    });
+  });
+}
+
+// ==================== SALUD ====================
+function renderHealth() {
+  var filterHouse = ''; var fH = document.getElementById('health-filter-house'); if (fH) filterHouse = fH.value;
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 2 en cascada
+  api('getHealthModule', {house_id: filterHouse}, function(r) {
+    var houses = (r && r.houses) || [];
+    var events = (r && r.events) || [];
+    App._cache.houses = houses;
+    App._cache.health = events;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+      var filtered = filterHouse ? events.filter(function(e) { return e.house_id === filterHouse; }) : events;
+      filtered = filtered.filter(function(e) { return campKeep_(e); });
+      filtered = cardSortRecords(filtered, 'health', { house_id: hMap });
+      var typeIcons = { vaccine: 'fa-syringe', disease: 'fa-virus', treatment: 'fa-pills', checkup: 'fa-stethoscope' };
+      var typeLabels = { vaccine: 'Vacuna', disease: 'Enfermedad', treatment: 'Tratamiento', checkup: 'Revisión' };
+      var cards = filtered.map(function(ev) {
+        var icon = typeIcons[ev.type] || 'fa-heartbeat';
+        var typeClass = 'health-type-' + (ev.type || 'treatment');
+        return '<div class="health-card">' +
+          '<div class="health-card-header">' +
+            '<div class="health-type-icon ' + typeClass + '"><i class="fas ' + icon + '"></i></div>' +
+            '<div style="text-align:right">' +
+              '<span class="badge badge-info">' + escHtml(typeLabels[ev.type] || ev.type) + '</span>' +
+              '<div style="font-size:11px;color:var(--gray-light);margin-top:4px">' + fmtDate(ev.date) + '</div>' +
+            '</div>' +
+          '</div>' +
+          reviewTagHtml(ev) +
+          '<h4 style="font-size:13px;font-weight:600;margin-bottom:6px">' + escHtml(ev.description) + '</h4>' +
+          '<p style="font-size:12px;color:var(--gray);margin-bottom:8px"><i class="fas fa-warehouse" style="margin-right:4px"></i>' + escHtml(hMap[ev.house_id] || '—') + '</p>' +
+          (ev.next_date ? '<p style="font-size:12px;color:var(--warning)"><i class="fas fa-calendar-alt" style="margin-right:4px"></i>Próxima: ' + fmtDate(ev.next_date) + '</p>' : '') +
+          (ev.cost > 0  ? '<p style="font-size:12px;color:var(--gray);margin-top:4px"><i class="fas fa-coins" style="margin-right:4px"></i>' + fmtMoney(ev.cost) + ' ' +
+            (ev.voucher_url ? voucherLinkHtml(ev.voucher_url) : '<span class="voucher-missing">sin comprobante</span>') + '</p>' : '') +
+          '<div class="actions" style="margin-top:10px">' + (reviewLockedFE(ev) ? '' : '<button class="btn-icon" onclick="editHealth(\'' + ev.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>') + '' + (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteHealth(\'' + ev.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') + '</div>' +
+        '</div>';
+      }).join('');
+      if (!cards) cards = '<p style="color:var(--gray-light);padding:20px;text-align:center">No se encontraron eventos de salud</p>';
+      var hOpts = '<option value="">Todos</option>' + houses.map(function(h) { return '<option value="' + h.id + '"' + (filterHouse === h.id ? ' selected' : '') + '>' + escHtml(h.name) + '</option>'; }).join('');
+      var hModalOpts = '<option value="">Seleccionar galpón</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+      var html =
+        '<div class="module-header"><div><h1 class="page-title">Salud / Veterinaria</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' eventos registrados</div></div>' +
+        (seeAllFE() ? '' : '<button class="btn-primary" onclick="showHealthModal()"><i class="fas fa-plus"></i> Nuevo Evento</button>') + '</div>' + pendingBannerHtml(filtered) +
+        '<div class="filters-bar"><select id="health-filter-house" onchange="renderHealth()">' + hOpts + '</select>' + cardSortSelectHtml('health', 'renderHealth()') + '</div>' +
+        '<div class="health-grid">' + cards + '</div>' +
+        '<div id="health-modal" class="modal" style="display:none"><div class="modal-content">' +
+          '<div class="modal-header"><h3 id="health-modal-title">Nuevo Evento de Salud</h3><button class="close-modal" onclick="closeModal(\'health-modal\')">&times;</button></div>' +
+          '<form id="health-form"><input type="hidden" id="he-id" value="new">' +
+          '<div class="form-group"><label>Galpón *</label><select id="he-house" required>' + hModalOpts + '</select></div>' +
+          '<div class="form-group"><label>Tipo de Evento</label><select id="he-type">' + selOpt(['vaccine:Vacuna','disease:Enfermedad','treatment:Tratamiento','checkup:Revisión'], 'treatment') + '</select></div>' +
+          fGroup('Fecha del evento (cuándo se hizo) *', 'date', 'he-date', today(), 'required') +
+          '<div class="form-group"><label>Descripción *</label><textarea id="he-desc" rows="3" required placeholder="Ej: Vacuna Newcastle + Gumboro a 4,800 aves, por agua de bebida."></textarea></div>' +
+          fGroup('Costo pagado (S/) — opcional', 'number', 'he-cost', '', '', 'Ej: 150 (vacío si ya se pagó antes)', 'Si lo llenas pasa solo a Finanzas como egreso "Medicinas".') + fGroup('Próxima fecha — opcional (recordatorio)', 'date', 'he-next', '', '', '', 'Día en que toca repetir o hacer seguimiento (ej.: 2.ª dosis de la vacuna). El sistema te avisa unos días antes. Déjala vacía si no hay nada pendiente.') +
+          voucherFieldHtml('he', 'Boleta / factura del gasto (si hubo costo)') +
+          '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'health-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+          '</form></div></div>';
+      document.getElementById('dynamic-content').innerHTML = html;
+      bindForm('health-form', saveHealthForm);
+      showLoader(false);
+  });
+}
+
+function showHealthModal(ev) { ev = ev || {}; document.getElementById('health-modal-title').textContent = ev.id ? 'Editar Evento' : 'Nuevo Evento de Salud'; document.getElementById('he-id').value = ev.id || 'new'; document.getElementById('he-house').value = ev.house_id || ''; document.getElementById('he-type').value = ev.type || 'treatment'; document.getElementById('he-date').value = ev.date || today(); document.getElementById('he-desc').value = ev.description || ''; document.getElementById('he-cost').value = ev.cost || ''; document.getElementById('he-next').value = ev.next_date || ''; voucherReset('he', ev.voucher_url || ''); opHideCostFields('he', 'he-cost'); openModal('health-modal'); }
+function editHealth(id) {
+  var cached = App._cache.health || [];
+  var x = cached.find(function(a) { return a.id === id; });
+  if (x) { showHealthModal(x); return; }
+  apiGet('getHealthEvents', {}, function(arr) { App._cache.health = arr; var y = arr.find(function(a) { return a.id === id; }); if (y) showHealthModal(y); });
+}
+function saveHealthForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  voucherUpload('he', function(err, vUrl) {
+    if (err) { if (btn) btn.disabled = false; showToast(err, 'error'); return; }
+    api('saveHealthEvent', { id: v('he-id'), house_id: v('he-house'), type: v('he-type'), date: v('he-date'), description: v('he-desc'), cost: isOperatorFE() ? '' : v('he-cost'), next_date: v('he-next'), voucher_url: vUrl }, function(r) {
+      if (btn) btn.disabled = false;
+      if (r && r.success) { closeModal('health-modal'); showToast('Evento guardado', 'success'); renderHealth(); refreshPendingBadge(); }
+      else showToast((r && r.error) || 'Error', 'error');
+    });
+  });
+}
+
+// ==================== MANTENIMIENTO ====================
+function renderMaintenance() {
+  var filterStatus = ''; var fEl = document.getElementById('maint-filter-status'); if (fEl) filterStatus = fEl.value;
+  // CORRECCIÓN: 1 sola llamada al GAS en vez de 2 en cascada
+  api('getMaintenanceModule', {status: filterStatus}, function(r) {
+    var houses  = (r && r.houses)  || [];
+    var records = (r && r.records) || [];
+    var mUsers  = (r && r.users) || [];
+    App._cache.houses      = houses;
+    App._cache.maintenance = records;
+    var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
+      var filtered = filterStatus ? records.filter(function(r) { return r.status === filterStatus; }) : records;
+      filtered = filtered.filter(function(r) { return campKeep_(r); });
+      filtered = cardSortRecords(filtered, 'maintenance', { house_id: hMap });
+      var statusLabels = { pending: 'Pendiente', in_progress: 'En Progreso', done: 'Completado' };
+      var statusBadges = { pending: 'badge-warning', in_progress: 'badge-info', done: 'badge-success' };
+      var cards = filtered.map(function(m) {
+        var stClass = 'maint-' + (m.status || 'pending');
+        return '<div class="maint-card ' + stClass + '">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">' +
+            '<span class="badge badge-purple">' + escHtml(m.type || 'General') + '</span>' +
+            '<span class="badge ' + (statusBadges[m.status] || 'badge-gray') + '">' + (statusLabels[m.status] || m.status) + '</span>' +
+          '</div>' +
+          reviewTagHtml(m) +
+          '<h4 style="font-size:13px;font-weight:600;margin-bottom:8px">' + escHtml(m.description) + '</h4>' +
+          '<p style="font-size:12px;color:var(--gray);margin-bottom:4px"><i class="fas fa-warehouse" style="margin-right:4px"></i>' + escHtml(hMap[m.house_id] || '—') + '</p>' +
+          (m.scheduled_date ? '<p style="font-size:12px;color:var(--gray-light)"><i class="fas fa-calendar" style="margin-right:4px"></i>Programado: ' + fmtDate(m.scheduled_date) + '</p>' : '') +
+          (m.completed_date ? '<p style="font-size:12px;color:var(--success)"><i class="fas fa-check" style="margin-right:4px"></i>Completado: ' + fmtDate(m.completed_date) + '</p>' : '') +
+          (m.cost > 0 ? '<p style="font-size:12px;color:var(--gray);margin-top:4px"><i class="fas fa-coins" style="margin-right:4px"></i>' + fmtMoney(m.cost) + ' ' + (m.voucher_url ? voucherLinkHtml(m.voucher_url) : '<span class="voucher-missing">sin comprobante</span>') + '</p>' : '') +
+          '<div class="actions" style="margin-top:12px">' +
+            (reviewLockedFE(m) ? '' : '<button class="btn-icon" onclick="editMaintenance(\'' + m.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>') + (App.user && App.user.role === 'admin' ? '<button class="btn-icon danger" onclick="confirmDeleteMaintenance(\'' + m.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') +
+            (m.status !== 'done' ? '<button class="btn-icon" onclick="markMaintenanceDone(\'' + m.id + '\')" title="Completar"><i class="fas fa-check" style="color:var(--success)"></i></button>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+      if (!cards) cards = '<p style="color:var(--gray-light);padding:20px;text-align:center;grid-column:1/-1">No se encontraron registros de mantenimiento</p>';
+      var hModalOpts = '<option value="">Seleccionar galpón</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('');
+      var html =
+        '<div class="module-header"><div><h1 class="page-title">Mantenimiento</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' registros</div></div>' +
+        (seeAllFE() ? '' : '<button class="btn-primary" onclick="showMaintenanceModal()"><i class="fas fa-plus"></i> Nuevo Registro</button>') + '</div>' + pendingBannerHtml(filtered) +
+        '<div class="filters-bar">' +
+          '<select id="maint-filter-status" onchange="renderMaintenance()"><option value="">Todos los estados</option>' +
+            '<option value="pending"' + (filterStatus === 'pending' ? ' selected' : '') + '>Pendiente</option>' +
+            '<option value="in_progress"' + (filterStatus === 'in_progress' ? ' selected' : '') + '>En Progreso</option>' +
+            '<option value="done"' + (filterStatus === 'done' ? ' selected' : '') + '>Completado</option>' +
+          '</select>' + cardSortSelectHtml('maintenance', 'renderMaintenance()') +
+        '</div>' +
+        '<div class="maint-grid">' + cards + '</div>' +
+        '<div id="maint-modal" class="modal" style="display:none"><div class="modal-content">' +
+          '<div class="modal-header"><h3 id="maint-modal-title">Nuevo Mantenimiento</h3><button class="close-modal" onclick="closeModal(\'maint-modal\')">&times;</button></div>' +
+          '<form id="maint-form"><input type="hidden" id="mn-id" value="new">' +
+          '<div class="form-group"><label>Galpón *</label><select id="mn-house" required>' + hModalOpts + '</select></div>' +
+          '<div class="form-group"><label>Tipo</label><select id="mn-type">' + selOpt(['General:General','Eléctrico:Eléctrico','Infraestructura:Infraestructura','Equipos:Equipos','Plomería:Plomería'], 'General') + '</select></div>' +
+          '<div class="form-group"><label>Descripción *</label><textarea id="mn-desc" rows="3" required placeholder="Ej: Cambiar 12 bebederos de campana del galpón A."></textarea></div>' +
+          '<div class="form-group"><label>Estado</label><select id="mn-status">' + selOpt(['pending:Pendiente','in_progress:En Progreso','done:Completado'], 'pending') + '</select></div>' +
+          '<div class="form-group"><label>Asignar a — opcional (responsable del trabajo)</label><select id="mn-assigned"><option value="">— Sin asignar —</option>' + mUsers.map(function(u) { return '<option value="' + u.id + '">' + escHtml(u.full_name) + '</option>'; }).join('') + '</select><small class="field-hint">Persona que debe hacer el trabajo: lo verá en su lista y podrá marcarlo como completado. Si no asignas a nadie, solo lo ven quien lo crea y la administración.</small></div>' +
+          fGroup('Fecha programada — opcional (¿para cuándo?)', 'date', 'mn-sched', '', '', '', 'Día en que debe hacerse el trabajo. Si sigue «Pendiente» y esa fecha pasa, el sistema lo marca como vencido y avisa a la administración. La fecha de terminado se pone sola al marcarlo Completado.') + fGroup('Costo real (S/)', 'number', 'mn-cost', '', '', 'Ej: 300 (se llena al terminar)', 'Pasa a Finanzas como egreso "Mantenimiento" solo cuando el trabajo se marca Completado.') +
+          voucherFieldHtml('mn', 'Boleta / factura del trabajo (si hubo costo)') +
+          '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'maint-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+          '</form></div></div>';
+      document.getElementById('dynamic-content').innerHTML = html;
+      bindForm('maint-form', saveMaintenanceForm);
+      showLoader(false);
+  });
+}
+
+function showMaintenanceModal(m) { m = m || {}; document.getElementById('maint-modal-title').textContent = m.id ? 'Editar Mantenimiento' : 'Nuevo Mantenimiento'; document.getElementById('mn-id').value = m.id || 'new'; document.getElementById('mn-house').value = m.house_id || ''; document.getElementById('mn-type').value = m.type || 'General'; document.getElementById('mn-desc').value = m.description || ''; document.getElementById('mn-status').value = m.status || 'pending'; document.getElementById('mn-sched').value = m.scheduled_date || ''; document.getElementById('mn-cost').value = m.cost || ''; document.getElementById('mn-assigned').value = m.assigned_to || ''; voucherReset('mn', m.voucher_url || ''); opHideCostFields('mn', 'mn-cost'); openModal('maint-modal'); }
+function editMaintenance(id) {
+  var cached = App._cache.maintenance || [];
+  var x = cached.find(function(a) { return a.id === id; });
+  if (x) { showMaintenanceModal(x); return; }
+  apiGet('getMaintenance', {}, function(arr) { App._cache.maintenance = arr; var y = arr.find(function(a) { return a.id === id; }); if (y) showMaintenanceModal(y); });
+}
+function markMaintenanceDone(id) {
+  var m = (App._cache.maintenance || []).find(function(x) { return x.id === id; });
+  if (!m) return;
+  // Se abre el formulario ya en "Completado": ahí se indica el costo real y se adjunta la boleta.
+  showMaintenanceModal(Object.assign({}, m, { status: 'done' }));
+  showToast('Indica el costo real y adjunta la boleta (si hubo gasto)', 'info');
+}
+function saveMaintenanceForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  voucherUpload('mn', function(err, vUrl) {
+    if (err) { if (btn) btn.disabled = false; showToast(err, 'error'); return; }
+    api('saveMaintenance', { id: v('mn-id'), house_id: v('mn-house'), type: v('mn-type'), description: v('mn-desc'), status: v('mn-status'), scheduled_date: v('mn-sched'), cost: isOperatorFE() ? '' : v('mn-cost'), assigned_to: v('mn-assigned'), voucher_url: vUrl }, function(r) {
+      if (btn) btn.disabled = false;
+      if (r && r.success) { closeModal('maint-modal'); showToast('Registro guardado', 'success'); renderMaintenance(); refreshPendingBadge(); }
+      else showToast((r && r.error) || 'Error', 'error');
+    });
+  });
+}
+
+// ==================== REVISIÓN DEL ADMINISTRADOR ====================
+// El operador registra el hecho (con foto de la boleta, sin costo). El administrador lo revisa,
+// completa el costo (que pasa solo a Finanzas) y queda «Revisado» (el operador ya no lo edita).
+function newBtnClassFE() { return seeAllFE() ? 'btn-secondary' : 'btn-primary'; }
+function reviewLockedFE(rec) { return !seeAllFE() && !!rec && String(rec.review_status || '') === 'reviewed'; }
+function reviewTagHtml(rec) {
+  var st = String((rec && rec.review_status) || '');
+  if (st === 'pending') return '<div style="margin-bottom:6px"><span class="badge badge-warning"><i class="fas fa-hourglass-half"></i> ' + (seeAllFE() ? 'Por revisar' : 'En revisión') + '</span></div>';
+  if (st === 'reviewed' && !seeAllFE()) return '<div style="margin-bottom:6px"><span class="badge badge-success"><i class="fas fa-lock"></i> Revisado</span></div>';
+  return '';
+}
+function pendingBannerHtml(list) {
+  if (!seeAllFE()) return '';
+  var n = (list || []).filter(function(x) { return String(x.review_status || '') === 'pending'; }).length;
+  if (!n) return '';
+  return '<div class="info-box" style="margin:0 0 14px;cursor:pointer" onclick="loadModule(\'pending\')"><i class="fas fa-inbox"></i> Hay <b>' + n + '</b> registro(s) del operador por revisar. <b>Ir a Por revisar →</b></div>';
+}
+function refreshPendingBadge() {
+  if (!seeAllFE()) return;
+  api('getPendingReview', {}, function(r) {
+    var n = (r && r.success) ? (r.count || 0) : 0;
+    var b = document.getElementById('pending-badge');
+    if (b) { b.textContent = n; b.style.display = n > 0 ? 'inline-flex' : 'none'; }
+  });
+}
+function renderPending() {
+  api('getPendingReview', {}, function(r) {
+    var items = (r && r.items) || [];
+    App._cache.pending = items;
+    var typeLbl = { vaccine: 'Vacuna', disease: 'Enfermedad', treatment: 'Tratamiento', checkup: 'Revisión' };
+    var stLbl = { pending: 'Pendiente', in_progress: 'En progreso', done: 'Completado' };
+    var cards = items.map(function(it, i) {
+      var isH = it.entity === 'health';
+      return '<div class="health-card" id="pd-' + i + '">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+          '<span class="badge ' + (isH ? 'badge-info' : 'badge-purple') + '"><i class="fas ' + (isH ? 'fa-heartbeat' : 'fa-tools') + '"></i> ' + (isH ? 'Salud · ' + escHtml(typeLbl[it.type] || it.type) : 'Mantenimiento · ' + escHtml(it.type)) + '</span>' +
+          '<span style="font-size:11px;color:var(--gray-light)">' + (it.date ? fmtDate(it.date) : '') + '</span></div>' +
+        '<h4 style="font-size:13px;font-weight:600;margin-bottom:6px">' + escHtml(it.description) + '</h4>' +
+        '<p style="font-size:12px;color:var(--gray);margin-bottom:4px"><i class="fas fa-warehouse" style="margin-right:4px"></i>' + escHtml(it.house || '—') + ' · <i class="fas fa-user" style="margin:0 4px"></i>' + escHtml(it.who || '—') + '</p>' +
+        (!isH ? '<p style="font-size:12px;color:var(--gray);margin-bottom:4px">Estado del trabajo: <b>' + escHtml(stLbl[it.status] || it.status) + '</b></p>' : '') +
+        '<p style="font-size:12px;margin:6px 0">' + (it.voucher_url ? voucherLinkHtml(it.voucher_url, 'Ver boleta') : '<span class="voucher-missing">sin boleta adjunta</span>') + '</p>' +
+        '<div style="display:flex;gap:8px;align-items:center;margin-top:8px">' +
+          '<input type="number" step="any" min="0" inputmode="decimal" id="pd-cost-' + i + '" value="' + (it.cost > 0 ? it.cost : '') + '" placeholder="Costo S/ (opcional)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">' +
+          '<button class="btn-primary" onclick="reviewPending(' + i + ')"><i class="fas fa-check"></i> Revisar</button>' +
+        '</div>' +
+        '<small class="field-hint">Con costo: pasa solo a Finanzas' + (isH ? '' : ' (cuando el trabajo esté Completado)') + '. Sin costo: solo se marca como revisado.</small>' +
+        '<div class="actions" style="margin-top:8px"><button class="btn-secondary" onclick="loadModule(\'' + it.entity + '\')"><i class="fas fa-edit"></i> Abrir en ' + (isH ? 'Salud' : 'Mantenimiento') + '</button></div>' +
+      '</div>';
+    }).join('');
+    if (!cards) cards = '<p style="color:var(--gray-light);padding:20px;text-align:center;grid-column:1/-1"><i class="fas fa-circle-check" style="color:var(--success)"></i> Todo al día: no hay registros pendientes de revisión.</p>';
+    document.getElementById('dynamic-content').innerHTML =
+      '<div class="module-header"><div><h1 class="page-title">Por revisar</h1><div class="page-subtitle">' + items.length + ' registro(s) del operador esperan tu revisión</div></div></div>' +
+      '<div class="info-box" style="margin:0 0 14px"><i class="fas fa-circle-info"></i> El operador registra el hecho y la foto de la boleta. Tú solo completas el <b>costo</b> y revisas. Para corregir otros datos o eliminar, usa «Abrir en…».</div>' +
+      '<div class="health-grid">' + cards + '</div>' + overdueLinkHtml((r && r.overdue) || []);
+    var b = document.getElementById('pending-badge');
+    if (b) { b.textContent = items.length; b.style.display = items.length > 0 ? 'inline-flex' : 'none'; }
+    showLoader(false);
+  });
+}
+function overdueLinkHtml(list) {
+  // Antes se listaban aquí las tareas vencidas (duplicaba el módulo Tareas). Ahora solo un aviso con enlace.
+  if (!list.length) return '';
+  return '<div class="info-box" style="margin:18px 0 0;cursor:pointer" onclick="loadModule(\'tasks\')"><i class="fas fa-clock" style="color:var(--warning)"></i> Hay <b>' + list.length + '</b> tarea(s) vencida(s) sin cumplir. <b>Verlas en Tareas →</b></div>';
+}
+function overdueHtml(list) {   // (ya no se usa en Por revisar; se conserva por compatibilidad)
+  if (!list.length) return '';
+  return '<h3 style="margin:22px 0 8px;font-size:15px"><i class="fas fa-clock" style="color:var(--warning)"></i> Tareas vencidas sin cumplir (' + list.length + ')</h3>' +
+    '<div class="info-box" style="margin:0 0 10px">Lo que el operador no hizo a tiempo. Para dar seguimiento o cancelarlas, ve a <a href="#" onclick="loadModule(\'tasks\');return false"><b>Tareas</b></a>.</div>' +
+    list.map(function(t) {
+      return '<div class="activity-item"><div style="flex:1"><b style="font-size:13px">' + escHtml(t.title) + '</b>' +
+        '<div style="font-size:12px;color:var(--gray)">' + escHtml(t.who || '—') + (t.house ? ' · ' + escHtml(t.house) : '') + (t.link ? ' · se cumple con ' + escHtml(t.link) : '') + '</div></div>' +
+        '<span class="badge badge-warning">Límite ' + escHtml(String(t.due || '').slice(0, 16)) + '</span></div>';
+    }).join('');
+}
+function reviewPending(i) {
+  var it = (App._cache.pending || [])[i]; if (!it) return;
+  var c = document.getElementById('pd-cost-' + i);
+  var cost = c ? parseFloat(c.value) || 0 : 0;
+  api('reviewRecord', { entity: it.entity, id: it.id, cost: cost > 0 ? cost : '' }, function(r) {
+    if (r && r.success) { showToast('Revisado' + (cost > 0 ? ' · costo enviado a Finanzas' : ''), 'success'); renderPending(); }
+    else showToast((r && r.error) || 'Error', 'error');
+  });
+}
+
+// ==================== COMPROBANTES ====================
+// Muestra todos los comprobantes (imágenes, PDF y otros) que han subido los roles.
+// Cada rol ve solo los suyos; el administrador ve los de todos. Los datos vienen de getVouchers.
+var VOUCHER_ORIGIN = { feeding: 'Alimentación', health: 'Salud', maintenance: 'Mantenimiento', finance: 'Finanzas', payment: 'Pago antiguo' };
+var _vfilter = { section: 'vouchers', kind: 'all', who: 'all', q: '' };
+
+function voucherKind(v) {
+  var m = String(v.mime_type || '').toLowerCase(), u = String(v.url || '');
+  if (m.indexOf('image/') === 0) return 'image';
+  if (m === 'application/pdf' || u.indexOf('/file/d/') > -1) return 'pdf';
+  if (!m && u.indexOf('thumbnail') > -1) return 'image';
+  return 'other';
+}
+
+function renderPayments() {
+  apiGet('getVouchers', {}, function(list) {
+    App._cache.vouchers = list || [];
+    _vfilter = { section: 'vouchers', kind: 'all', who: 'all', q: '' };
+    var isAdmin = isMgrFE();
+    var onlyTasks = isOperatorFE();   // el operador solo ve la evidencia de tareas
+    var chips = [['all', 'Todos'], ['image', 'Imágenes'], ['pdf', 'PDF'], ['other', 'Otros']].map(function(c) {
+      return '<button type="button" class="vch-chip' + (c[0] === 'all' ? ' active' : '') + '" data-kind="' + c[0] + '" onclick="voucherSetKind(\'' + c[0] + '\')">' + c[1] + '</button>';
+    }).join('');
+    var whoSel = '';
+    if (isAdmin) {
+      var seen = {}, opts = '<option value="all">Todos los usuarios</option>';
+      App._cache.vouchers.forEach(function(v) {
+        var k = String(v.uploader_id || '');
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        opts += '<option value="' + escHtml(k) + '">' + escHtml(v.uploader_name || 'Usuario') + (v.uploader_role ? ' (' + escHtml(ROLE_LABELS[v.uploader_role] || v.uploader_role) + ')' : '') + '</option>';
+      });
+      whoSel = '<select id="vch-who" onchange="voucherSetWho(this.value)">' + opts + '</select>';
+    }
+    var html =
+      '<div class="module-header"><div><h1 class="page-title">Boletas y evidencias</h1>' +
+      '<div class="page-subtitle" id="vch-sub"></div></div></div>' +
+      '<div class="vch-tabs">' +
+        (onlyTasks ? '' : '<button type="button" class="vch-tab active" data-sec="vouchers" onclick="voucherSetSection(\'vouchers\')"><i class="fas fa-receipt"></i> Comprobantes <small id="vch-n-v">0</small></button>') +
+        '<button type="button" class="vch-tab" data-sec="tasks" onclick="voucherSetSection(\'tasks\')"><i class="fas fa-camera"></i> Evidencia de tareas <small id="vch-n-t">0</small></button>' +
+      '</div>' +
+      '<div class="vch-toolbar">' + '<span id="vch-chips" style="display:contents">' + chips + '</span>' + whoSel +
+        '<input type="search" id="vch-q" placeholder="Buscar por nombre, usuario u origen..." oninput="voucherSetQuery(this.value)">' +
+      '</div>' +
+      '<div class="vch-grid" id="vch-grid"></div>' +
+      '<div id="lightbox" class="lightbox" style="display:none" onclick="closeLightbox()"><button class="lightbox-close" onclick="closeLightbox()"><i class="fas fa-times"></i></button><button type="button" id="lightbox-del" class="lightbox-del" onclick="event.stopPropagation();confirmDeleteVoucher(window._lbIdx)"><i class="fas fa-trash"></i> Eliminar</button><img id="lightbox-img" src="" alt=""></div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    if (onlyTasks) voucherSetSection('tasks'); else voucherDraw();
+    showLoader(false);
+  });
+}
+
+function voucherSetSection(sec) {
+  _vfilter.section = sec;
+  document.querySelectorAll('.vch-tab').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-sec') === sec); });
+  var ch = document.getElementById('vch-chips'); if (ch) ch.style.display = sec === 'tasks' ? 'none' : 'contents';
+  var q = document.getElementById('vch-q');
+  if (q) q.placeholder = sec === 'tasks' ? 'Buscar por tarea, lote o usuario...' : 'Buscar por nombre, usuario u origen...';
+  voucherDraw();
+}
+function voucherSetKind(k) {
+  _vfilter.kind = k;
+  document.querySelectorAll('.vch-chip').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-kind') === k); });
+  voucherDraw();
+}
+function voucherSetWho(w) { _vfilter.who = w; voucherDraw(); }
+function voucherSetQuery(q) { _vfilter.q = String(q || '').trim().toLowerCase(); voucherDraw(); }
+
+function voucherDraw() {
+  var all = App._cache.vouchers || [];
+  var nV = all.filter(function(v) { return v.entity !== 'task'; }).length;
+  var nT = all.length - nV;
+  var cv = document.getElementById('vch-n-v'); if (cv) cv.textContent = nV;
+  var ct = document.getElementById('vch-n-t'); if (ct) ct.textContent = nT;
+  var isTasks = _vfilter.section === 'tasks';
+  var shown = all.filter(function(v) {
+    if ((v.entity === 'task') !== isTasks) return false;
+    if (!isTasks && _vfilter.kind !== 'all' && voucherKind(v) !== _vfilter.kind) return false;
+    if (_vfilter.who !== 'all' && String(v.uploader_id) !== _vfilter.who) return false;
+    if (_vfilter.q) {
+      var hay = [v.file_name, v.uploader_name, VOUCHER_ORIGIN[v.entity] || '', v.ref_text, v.batch].join(' ').toLowerCase();
+      if (hay.indexOf(_vfilter.q) < 0) return false;
+    }
+    return true;
+  });
+  var sub = document.getElementById('vch-sub');
+  var grid = document.getElementById('vch-grid');
+  if (!grid) return;
+  if (isTasks) return voucherDrawTasks(shown, all, sub, grid);
+  if (sub) sub.innerHTML = scopeTag() + shown.length + (shown.length === 1 ? ' comprobante' : ' comprobantes');
+  grid.className = 'vch-grid';
+  if (!shown.length) {
+    grid.innerHTML = '<div class="vch-empty"><i class="fas fa-receipt" style="font-size:34px;display:block;margin-bottom:8px"></i>' +
+      (nV ? 'No hay comprobantes con ese filtro' : 'Aún no hay comprobantes subidos') + '</div>';
+    return;
+  }
+  grid.innerHTML = shown.map(function(v) {
+    var k = voucherKind(v), idx = all.indexOf(v);
+    var thumb = k === 'image'
+      ? '<img src="' + escHtml(driveThumbUrl(v.url)) + '" alt="' + escHtml(v.file_name) + '" loading="lazy" data-src="' + escHtml(v.url) + '" onerror="loadDriveImageBase64(this, this.getAttribute(\'data-src\'))">' +
+        '<div class="vch-fallback"><i class="fas fa-image" style="font-size:28px"></i><span>No se pudo cargar</span></div>'
+      : '<i class="vch-ico fas ' + (k === 'pdf' ? 'fa-file-pdf' : 'fa-file') + '" style="color:' + (k === 'pdf' ? '#ef4444' : 'var(--gray)') + '"></i>';
+    var origin = VOUCHER_ORIGIN[v.entity];
+    return '<div class="vch-card" onclick="openVoucher(' + idx + ')" title="Ver comprobante">' + voucherDelBtn(idx) +
+      '<div class="vch-thumb">' + thumb + '</div>' +
+      '<div class="vch-info">' +
+        '<div class="vch-name" title="' + escHtml(v.file_name) + '">' + escHtml(v.file_name) + '</div>' +
+        '<div class="vch-by"><i class="fas fa-user" style="margin-right:4px"></i>' + escHtml(v.uploader_name || '—') +
+          (v.uploader_role ? ' · <span class="badge badge-purple">' + escHtml(ROLE_LABELS[v.uploader_role] || v.uploader_role) + '</span>' : '') + '</div>' +
+        '<div class="vch-date"><i class="fas fa-calendar" style="margin-right:4px"></i>' + fmtDateTime(v.uploaded_at) + '</div>' +
+        (origin ? '<div class="vch-ref"><i class="fas fa-link" style="margin-right:4px"></i>' + origin + (v.ref_text ? ' · ' + escHtml(v.ref_text) : '') + '</div>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+// Evidencia de tareas: una tarjeta por tarea con sus fotos.
+function voucherDrawTasks(shown, all, sub, grid) {
+  var groups = {}, order = [];
+  shown.forEach(function(v) {
+    var k = String(v.entity_id || v.id);
+    if (!groups[k]) { groups[k] = []; order.push(k); }
+    groups[k].push(v);
+  });
+  if (sub) sub.innerHTML = (isMgrFE() ? '' : scopeTag()) + order.length + (order.length === 1 ? ' tarea' : ' tareas') + ' · ' + shown.length + (shown.length === 1 ? ' foto' : ' fotos');
+  grid.className = '';
+  if (!order.length) {
+    grid.innerHTML = '<div class="vch-empty"><i class="fas fa-camera" style="font-size:34px;display:block;margin-bottom:8px"></i>' +
+      (all.some(function(v) { return v.entity === 'task'; }) ? 'No hay evidencia con ese filtro' : 'Aún no hay evidencia de tareas') + '</div>';
+    return;
+  }
+  var stTxt = { done: 'Completada', pending: 'Pendiente', in_progress: 'En curso', overdue: 'Vencida', cancelled: 'Cancelada' };
+  grid.innerHTML = order.map(function(k) {
+    var list = groups[k].slice().sort(function(a, b) { return String(a.uploaded_at).localeCompare(String(b.uploaded_at)); });
+    var f = list[0];
+    var photos = list.map(function(v) {
+      var idx = all.indexOf(v);
+      return '<div class="vch-photo" onclick="openVoucher(' + idx + ')" title="Ver foto">' + voucherDelBtn(idx) +
+        '<img src="' + escHtml(driveThumbUrl(v.url)) + '" alt="Evidencia" loading="lazy" data-src="' + escHtml(v.url) + '" onerror="loadDriveImageBase64(this, this.getAttribute(\'data-src\'))">' +
+        '<div class="vch-fallback"><i class="fas fa-image" style="font-size:22px"></i><span>No se pudo cargar</span></div>' +
+        '<small>' + fmtDateTime(v.uploaded_at) + '</small></div>';
+    }).join('');
+    var done = f.task_status === 'done';
+    return '<div class="vch-group"><div class="vch-group-h"><div>' +
+        '<h4><i class="fas fa-list-check" style="color:var(--primary);margin-right:6px"></i>' + escHtml(f.task_title || 'Tarea') + '</h4>' +
+        '<div class="vch-meta">' + (f.task_series ? '<span class="chip-daily"><i class="fas fa-rotate"></i> Diaria</span> ' : '') + (f.task_area ? '<i class="fas fa-tag" style="margin:0 3px"></i>' + escHtml(f.task_area) + ' · ' : '') + (f.task_start ? '<i class="fas fa-calendar" style="margin:0 3px"></i>' + fmtDateTime(f.task_start) + ' · ' : '') + (f.batch ? 'Lote ' + escHtml(f.batch) + ' · ' : '') +
+          '<i class="fas fa-user" style="margin:0 3px"></i>' + escHtml(f.uploader_name || '—') +
+          (f.uploader_role ? ' (' + escHtml(ROLE_LABELS[f.uploader_role] || f.uploader_role) + ')' : '') + '</div></div>' +
+        '<span class="badge ' + (done ? 'badge-success' : 'badge-purple') + '">' + (stTxt[f.task_status] || '—') + ' · ' + list.length + (list.length === 1 ? ' foto' : ' fotos') + '</span></div>' +
+      '<div class="vch-photos">' + photos + '</div>' +
+      (f.task_done_at ? '<div class="vch-meta" style="margin-top:8px"><i class="fas fa-circle-check" style="color:var(--success);margin-right:4px"></i>Completada ' + fmtDateTime(f.task_done_at) + (f.task_late ? ' · <span style="color:var(--danger,#dc2626);font-weight:700">fuera de plazo</span>' : ' · a tiempo') + '</div>' : '') +
+      (f.task_note ? '<div class="vch-meta" style="margin-top:4px"><i class="fas fa-comment-dots" style="margin-right:4px"></i>' + escHtml(f.task_note) + '</div>' : '') + '</div>';
+  }).join('');
+}
+
+// ---------- Control total del administrador: eliminar comprobantes / fotos de evidencia ----------
+function isAdminFE() { return !!(App.user && App.user.role === 'admin'); }   // SOLO administrador (p. ej. eliminar boletas)
+// Quien ve y revisa TODO (admin + gerente). Debe coincidir con CONFIG.ROLES_VER_TODO del servidor.
+function seeAllFE() { return !!(App.user && (App.user.seeAll === true || App.user.role === 'admin' || App.user.role === 'manager')); }
+function isOperatorFE() { return !!(App.user && App.user.role === 'operator'); }
+// El operador no registra costos ni boletas en Salud / Mantenimiento: se ocultan esos campos.
+function opHideCostFields(prefix, costId) {
+  var on = isOperatorFE();
+  var c = document.getElementById(costId), g = c && c.closest ? c.closest('.form-group') : null;
+  if (g) {
+    g.style.display = on ? 'none' : '';
+    var row = g.parentElement;
+    if (row && row.classList.contains('form-row')) row.classList.toggle('one-col', on);
+  }
+  // La boleta (foto) la sube el operador; el costo lo anota después el administrador desde «Pendientes».
+  var vi = document.getElementById(prefix + '-vinfo'), vb = vi && vi.closest ? vi.closest('.voucher-box') : null;
+  if (vb) {
+    vb.style.display = '';
+    var vl = vb.querySelector('label'), vh = vb.querySelector('.field-hint');
+    if (vl && on) vl.textContent = 'Foto de la boleta / factura (si hay)';
+    if (vh && on) vh.textContent = 'Toma o adjunta la boleta. El costo lo anota después el administrador.';
+  }
+}
+// Pollos vendidos / descartados: solo administración (y el observador de solo lectura). El operador no los ve.
+function canExitsFE() { return !!(App.user && (App.user.role === 'admin' || App.user.role === 'manager' || App.user.role === 'viewer')); }
+function voucherDelBtn(idx) {
+  return isAdminFE() ? '<button type="button" class="vch-del" title="Eliminar (solo administrador)" onclick="event.stopPropagation();confirmDeleteVoucher(' + idx + ')"><i class="fas fa-trash"></i></button>' : '';
+}
+function confirmDeleteVoucher(idx) {
+  var v = (App._cache.vouchers || [])[idx];
+  if (!v || !isAdminFE()) return;
+  var isTask = v.entity === 'task';
+  var detalle = isTask
+    ? 'Se borra la foto de evidencia de «' + (v.task_title || 'la tarea') + '» de ' + (v.uploader_name || 'un usuario') + '. Se envía a la papelera de Drive.'
+    : 'Se borra «' + (v.file_name || 'el comprobante') + '» de ' + (v.uploader_name || 'un usuario') + (v.ref_text ? ' (' + v.ref_text + ')' : '') + ' y se quita del registro al que pertenece. Se envía a la papelera de Drive.';
+  confirmDialog('¿Eliminar ' + (isTask ? 'esta foto de evidencia' : 'este comprobante') + '? ' + detalle, function() {
+    showLoader(true);
+    api('deleteVoucher', { id: v.id, file_id: v.file_id }, function(r) {
+      showLoader(false);
+      if (r && r.success) {
+        App._cache.vouchers = (App._cache.vouchers || []).filter(function(x) { return x !== v; });
+        closeLightbox();
+        showToast('Comprobante eliminado', 'success');
+        if (App._cacheTs) { App._cacheTs.dashboard = 0; App._cacheTs.tasks = 0; }
+        voucherDraw();
+      } else showToast((r && r.error) || 'No se pudo eliminar', 'error');
+    });
+  });
+}
+
+// Imagen: se abre ampliada. PDF u otro archivo: se abre en una pestaña nueva.
+function openVoucher(idx) {
+  var v = (App._cache.vouchers || [])[idx];
+  if (!v || !v.url) return;
+  if (voucherKind(v) !== 'image') { window.open(voucherUrlOpen(v.url), '_blank', 'noopener'); return; }
+  var lb = document.getElementById('lightbox'), img = document.getElementById('lightbox-img');
+  if (!lb || !img) { window.open(voucherUrlOpen(v.url), '_blank', 'noopener'); return; }
+  img.src = driveViewUrl(v.url);
+  img.onerror = function() { loadDriveImageBase64(img, v.url); };
+  window._lbIdx = idx;
+  var ld = document.getElementById('lightbox-del'); if (ld) ld.style.display = isAdminFE() ? 'flex' : 'none';
+  lb.style.display = 'flex';
+}
+
+function closeLightbox() {
+  var lb = document.getElementById('lightbox');
+  if (lb) lb.style.display = 'none';
+}
+
+function loadDriveImageBase64(imgEl, originalUrl) {
+  // Evitar loops infinitos de onerror
+  imgEl.onerror = function() {
+    imgEl.style.display = 'none';
+    if(imgEl.nextElementSibling) imgEl.nextElementSibling.style.display = 'flex';
+  };
+  
+  var fileId = '';
+  var m = originalUrl.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (!m) { m = originalUrl.match(/[?&]id=([a-zA-Z0-9_-]{20,})/); }
+  if (m) fileId = m[1];
+  
+  if (!fileId) {
+    if (originalUrl.startsWith('data:')) imgEl.src = originalUrl;
+    return;
+  }
+  
+  api('getImageBase64', { fileId: fileId }, function(r) {
+    if (r && r.success && r.base64) {
+      imgEl.src = r.base64;
+    } else {
+      imgEl.style.display = 'none';
+      if(imgEl.nextElementSibling) imgEl.nextElementSibling.style.display = 'flex';
+    }
+  });
+}
+
+function driveThumbUrl(url) {
+  if (!url) return '';
+  var m = url.match(/\/d\/([a-zA-Z0-9_-]{20,})/);
+  if (!m) { m = url.match(/[?&]id=([a-zA-Z0-9_-]{20,})/); }
+  if (m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  return url;
+}
+function driveViewUrl(url) {
+  return driveThumbUrl(url); // lh3 suele servir la imagen completa
+}
+
+// ==================== COMPROBANTES (adjuntar boleta en cualquier formulario) ====================
+// Un mismo componente para Alimentación (compra), Salud, Mantenimiento y Finanzas.
+// Cada formulario usa un "prefijo" (ej. 'fe', 'he', 'mn', 'fi') para sus ids.
+// Al guardar, voucherUpload() sube el archivo a Drive y devuelve la URL que se guarda
+// en el registro y en su movimiento de Finanzas.
+var _vch = {};   // prefijo -> { file: File|null, current: 'url actual' }
+
+// URL abrible de un comprobante: PDF => visor de Drive; imagen => vista directa.
+function voucherUrlOpen(url) {
+  if (!url) return '';
+  if (String(url).indexOf('/file/d/') > -1) return url;
+  return driveThumbUrl(url);
+}
+
+function voucherLinkHtml(url, label) {
+  if (!url) return '';
+  return '<a class="voucher-link" href="' + escHtml(voucherUrlOpen(url)) + '" target="_blank" rel="noopener" title="Ver comprobante adjunto">' +
+    '<i class="fas fa-paperclip"></i> ' + escHtml(label || 'Comprobante') + '</a>';
+}
+
+function voucherFieldHtml(prefix, label, hint) {
+  return '<div class="form-group voucher-box">' +
+    '<label>' + (label || 'Boleta / comprobante') + '</label>' +
+    '<div class="voucher-actions">' +
+      '<button type="button" class="btn-secondary" onclick="voucherOpen(\'' + prefix + '\',\'cam\')"><i class="fas fa-camera"></i> Tomar foto</button>' +
+      '<button type="button" class="btn-secondary" onclick="voucherOpen(\'' + prefix + '\',\'file\')"><i class="fas fa-paperclip"></i> Adjuntar archivo</button>' +
+    '</div>' +
+    '<div id="' + prefix + '-vinfo" class="voucher-info" style="display:none"></div>' +
+    '<img id="' + prefix + '-vprev" class="img-preview" style="display:none" alt="Vista previa del comprobante">' +
+    '<small class="field-hint">' + (hint || 'Foto de la boleta o factura (imagen o PDF, máx. 10 MB). Se guarda en el sistema y en Finanzas.') + '</small>' +
+  '</div>';
+}
+
+// Prepara el componente al abrir el modal. currentUrl = comprobante ya guardado (si edita).
+function voucherReset(prefix, currentUrl) {
+  _vch[prefix] = { file: null, current: currentUrl || '' };
+  ['vfile', 'vcam'].forEach(function(s) { var el = document.getElementById(prefix + '-' + s); if (el) el.value = ''; });
+  var prev = document.getElementById(prefix + '-vprev');
+  if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  _voucherRenderInfo(prefix);
+}
+
+function _voucherRenderInfo(prefix) {
+  var box = document.getElementById(prefix + '-vinfo');
+  var st = _vch[prefix];
+  if (!box || !st) return;
+  if (st.file) {
+    box.style.display = 'flex';
+    box.innerHTML = '<span><i class="fas fa-check-circle" style="color:var(--success)"></i> ' + escHtml(st.file.name) + ' — se subirá al guardar</span>' +
+      '<button type="button" class="btn-icon danger" title="Quitar" onclick="voucherClear(\'' + prefix + '\')"><i class="fas fa-times"></i></button>';
+  } else if (st.current) {
+    box.style.display = 'flex';
+    box.innerHTML = '<span>' + voucherLinkHtml(st.current, 'Ver comprobante actual') + ' <small style="color:var(--gray)">· adjunta otro para reemplazarlo</small></span>';
+  } else {
+    box.style.display = 'none';
+    box.innerHTML = '';
+  }
+}
+
+// Abre la cámara ('cam') o el selector de archivos ('file'). Se crea un <input> nuevo en cada clic
+// (igual que myProofPick) para que el navegador no reutilice la acción anterior.
+function voucherOpen(prefix, mode) {
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.style.display = 'none';
+  if (mode === 'cam') {
+    inp.accept = 'image/*';
+    inp.setAttribute('capture', 'environment');   // abre la cámara directo
+  } else {
+    // Con extensiones (sin image/*) el celular abre el explorador de archivos, no la cámara
+    inp.accept = '.pdf,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf';
+  }
+  inp.onchange = function() {
+    voucherPick(prefix, inp);
+    setTimeout(function() { if (inp.parentNode) inp.parentNode.removeChild(inp); }, 0);
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+function voucherPick(prefix, input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  var isImg = file.type.indexOf('image/') === 0, isPdf = file.type === 'application/pdf';
+  if (!isImg && !isPdf) { showToast('Solo se permiten imágenes o PDF', 'warning'); input.value = ''; return; }
+  if (file.size > 10 * 1024 * 1024) { showToast('Archivo muy grande (máx 10 MB)', 'warning'); input.value = ''; return; }
+  if (!_vch[prefix]) _vch[prefix] = { file: null, current: '' };
+  _vch[prefix].file = file;
+  var prev = document.getElementById(prefix + '-vprev');
+  if (prev) {
+    if (isImg) {
+      var fr = new FileReader();
+      fr.onload = function(e) { prev.src = e.target.result; prev.style.display = 'block'; };
+      fr.readAsDataURL(file);
+    } else { prev.src = ''; prev.style.display = 'none'; }
+  }
+  _voucherRenderInfo(prefix);
+}
+
+function voucherClear(prefix) {
+  if (_vch[prefix]) _vch[prefix].file = null;
+  ['vfile', 'vcam'].forEach(function(s) { var el = document.getElementById(prefix + '-' + s); if (el) el.value = ''; });
+  var prev = document.getElementById(prefix + '-vprev');
+  if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  _voucherRenderInfo(prefix);
+}
+
+// Reduce fotos grandes (lado mayor 1800 px, JPEG) para subir rápido. PDF se sube tal cual.
+function _voucherCompress(file, cb) {
+  if (file.type === 'application/pdf' || file.type === 'image/gif') { cb(file); return; }
+  var fr = new FileReader();
+  fr.onerror = function() { cb(file); };
+  fr.onload = function(e) {
+    var im = new Image();
+    im.onerror = function() { cb(file); };
+    im.onload = function() {
+      try {
+        var s = Math.min(1, 1800 / Math.max(im.naturalWidth, im.naturalHeight));
+        var c = document.createElement('canvas');
+        c.width = Math.round(im.naturalWidth * s); c.height = Math.round(im.naturalHeight * s);
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob(function(b) {
+          if (!b || b.size >= file.size) { cb(file); return; }
+          cb(new File([b], (file.name || 'boleta').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.85);
+      } catch (err) { cb(file); }
+    };
+    im.src = e.target.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+// Datos importantes del formulario que se usan para nombrar el archivo en Drive (el servidor añade usuario, fecha/hora y extensión).
+function voucherRef(prefix) {
+  function sel(id) { var e = document.getElementById(id); return (e && e.options && e.selectedIndex >= 0 && e.value) ? e.options[e.selectedIndex].text : ''; }
+  function money(id) { var n = parseFloat(v(id)); return n > 0 ? 'S' + n.toFixed(2) : ''; }
+  if (prefix === 'fe') return ['Compra alimento', v('fe-date') || today(), sel('fe-type') || v('fe-type'), sel('fe-camp'), v('fe-supplier'), money('fe-cost')];
+  if (prefix === 'fi') return [v('fi-type') === 'income' ? 'Ingreso' : 'Egreso', v('fi-date') || today(), sel('fi-cat'), sel('fi-camp'), sel('fi-house'), v('fi-desc'), money('fi-amount')];
+  if (prefix === 'he') return ['Salud', v('he-date') || today(), sel('he-type'), sel('he-house'), v('he-desc'), money('he-cost')];
+  if (prefix === 'mn') return ['Mantenimiento', v('mn-sched') || today(), sel('mn-type'), sel('mn-house'), v('mn-desc'), money('mn-cost')];
+  return [prefix, today()];
+}
+
+// Sube el archivo pendiente (si hay) y devuelve la URL a guardar.
+// cb(errorMsg|null, url). Si no hay archivo nuevo devuelve el comprobante actual (o '').
+function voucherUpload(prefix, cb) {
+  var st = _vch[prefix] || { file: null, current: '' };
+  if (!st.file) { cb(null, st.current || ''); return; }
+  showToast('Subiendo comprobante...', 'info');
+  _voucherCompress(st.file, function(f) {
+    var fr = new FileReader();
+    fr.onerror = function() { cb('No se pudo leer el archivo'); };
+    fr.onload = function(ev) {
+      api('uploadImage', {
+        base64: ev.target.result,
+        mimeType: f.type || 'image/jpeg',
+        ref: voucherRef(prefix),
+        fileName: 'comprobante_' + prefix + '_' + Date.now() + '_' + String(f.name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_')
+      }, function(r) {
+        if (r && r.success && r.url) { st.file = null; st.current = r.url; cb(null, r.url); }
+        else cb((r && r.error) || 'No se pudo subir el comprobante');
+      });
+    };
+    fr.readAsDataURL(f);
+  });
+}
+
+// ==================== CHAT ====================
+function getChatUserColor(userId) {
+  var colors = ['#e8531a','#3b82f6','#22c55e','#8b5cf6','#f59e0b','#ef4444','#06b6d4','#ec4899','#14b8a6','#f97316'];
+  var hash = 0;
+  var s = String(userId || 'x');
+  for (var i = 0; i < s.length; i++) { hash = (hash * 31 + s.charCodeAt(i)) & 0xffffffff; }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function chatNotify(msg) {
+  var name = msg.fullName || msg.username || 'Usuario';
+  var initials = name.split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+  var color = getChatUserColor(msg.user_id);
+  var preview = String(msg.message || '').slice(0, 55);
+
+  // Eliminar cualquier callout anterior
+  var prev = document.getElementById('chat-callout-bubble');
+  if (prev) prev.remove();
+
+  var isMobile = window.matchMedia('(max-width:768px)').matches;
+  var el = document.createElement('div');
+  el.id = 'chat-callout-bubble';
+  el.className = 'chat-callout';
+  el.setAttribute('role', 'status');
+
+  // Solo en escritorio se alinea con el ícono del Chat. En móvil el CSS lo ancla arriba.
+  // Se usa una variable CSS (no style.top) para que el media query móvil siempre mande.
+  if (!isMobile) {
+    var chatNav = document.querySelector('.nav-item[data-module="chat"]');
+    var topPx = 180; // fallback
+    if (chatNav) {
+      var ref = chatNav.querySelector('i') || chatNav;
+      var rect = ref.getBoundingClientRect();
+      topPx = Math.max(40, rect.top + rect.height / 2 - 33);
+    }
+    el.style.setProperty('--callout-top', topPx + 'px');
+  }
+
+  el.innerHTML =
+    '<div class="chat-callout-avatar" style="background:' + color + '">' + escHtml(initials) + '</div>' +
+    '<div class="chat-callout-body">' +
+      '<div class="chat-callout-top"><span class="chat-callout-name">' + escHtml(name) + '</span><span class="chat-callout-time">ahora</span></div>' +
+      '<div class="chat-callout-msg">' + escHtml(preview) + '</div>' +
+    '</div>' +
+    '<button type="button" class="chat-callout-close" aria-label="Cerrar"><i class="fas fa-times"></i></button>';
+
+  var timer;
+  function dismiss() {
+    if (!el.parentNode || el.classList.contains('fade-out')) return;
+    clearTimeout(timer);
+    el.classList.add('fade-out');
+    setTimeout(function() { if (el.parentNode) el.remove(); }, 320);
+  }
+  el.querySelector('.chat-callout-close').onclick = function(e) { e.stopPropagation(); dismiss(); };
+  el.onclick = function() { el.remove(); loadModule('chat'); };
+
+  // Deslizar hacia arriba o a los lados para descartar (como Messenger)
+  var sx = 0, sy = 0;
+  el.addEventListener('touchstart', function(e) {
+    var t = e.touches[0]; sx = t.clientX; sy = t.clientY; clearTimeout(timer);
+  }, { passive: true });
+  el.addEventListener('touchend', function(e) {
+    var t = e.changedTouches[0];
+    if ((t.clientY - sy) < -25 || Math.abs(t.clientX - sx) > 60) dismiss();
+    else timer = setTimeout(dismiss, 3000);
+  }, { passive: true });
+
+  document.body.appendChild(el);
+  timer = setTimeout(dismiss, 6000);
+}
+
+function renderChat() {
+  var _co = document.getElementById('chat-callout-bubble'); if (_co) _co.remove();
+  // Limpiar badge de mensajes no leídos
+  App._unreadChat = 0;
+  var cb = document.getElementById('chat-badge');
+  if (cb) { cb.style.display = 'none'; cb.textContent = '0'; }
+
+  var onlineCount = App._onlineUsers ? App._onlineUsers.length : 0;
+  var onlineAvatarsHtml = (App._onlineUsers || []).slice(0, 5).map(function(u) {
+    var initials = (u.fullName || u.username || 'U').split(' ').map(function(w){return w[0]||'';}).slice(0,2).join('').toUpperCase();
+    var color = getChatUserColor(u.user_id);
+    return '<div class="chat-online-avatar-sm" style="background:' + color + '" title="' + escHtml(u.fullName || u.username) + '">' + initials + '</div>';
+  }).join('');
+  if (App._onlineUsers && App._onlineUsers.length > 5) {
+    onlineAvatarsHtml += '<span style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600">+' + (App._onlineUsers.length - 5) + '</span>';
+  }
+
+  var html =
+    '<div class="chat-container">' +
+      '<div class="chat-header">' +
+        '<div class="chat-header-left">' +
+          '<div class="chat-group-avatar"><i class="fas fa-users"></i></div>' +
+          '<div class="chat-header-info">' +
+            '<h3>Chat General</h3>' +
+            '<p id="chat-online-count">' + onlineCount + ' en línea</p>' +
+          '</div>' +
+        '</div>' +
+        '<div id="chat-online-avatars" class="chat-online-avatars">' + onlineAvatarsHtml + '</div>' +
+      '</div>' +
+      '<div class="chat-messages" id="chat-messages"><div class="chat-empty"><i class="fas fa-comments"></i><p>Cargando mensajes...</p></div></div>' +
+      '<div class="chat-input-bar">' +
+        '<div class="chat-input-inner">' +
+          '<textarea id="chat-input" placeholder="Escribe un mensaje..." rows="1" onkeydown="chatKeyDown(event)" oninput="autoResizeTextarea(this)"></textarea>' +
+        '</div>' +
+        '<button class="chat-send-btn" onclick="sendChatMsg()" title="Enviar"><i class="fas fa-paper-plane"></i></button>' +
+      '</div>' +
+    '</div>';
+  document.getElementById('dynamic-content').innerHTML = html;
+  showLoader(false);
+  api('getChatMessages', {}, function(r) {
+    var data = (r && Array.isArray(r.data)) ? r.data : (Array.isArray(r) ? r : []);
+    renderChatMessages(data);
+    if (data.length > 0) App._lastChatMsgId = data[data.length-1].id;
+  });
+  pollOnline();
+}
+
+function chatDayLabel(d) {
+  var now = new Date();
+  var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  var d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  var diff = Math.round((t0 - d0) / 86400000);
+  if (diff === 0) return 'HOY';
+  if (diff === 1) return 'AYER';
+  return d.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function renderChatMessages(msgs) {
+  var container = document.getElementById('chat-messages');
+  if (!container) return;
+  if (!msgs || !msgs.length) {
+    container.innerHTML = '<div class="chat-empty"><i class="fas fa-comments"></i><p>No hay mensajes aún. ¡Sé el primero en escribir!</p></div>';
+    return;
+  }
+  var wasAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 60;
+  // Agrupar mensajes consecutivos del mismo autor y separar por día (estilo WhatsApp)
+  var prevUserId = null;
+  var prevDay = '';
+  var html = msgs.map(function(m) {
+    var isOwn   = App.user && String(m.user_id) === String(App.user.id);
+    var isSystem = m.user_id === 'system';
+    var name = m.fullName || m.username || 'Usuario';
+    var color = getChatUserColor(m.user_id);
+    var time = '', dayHtml = '';
+    try {
+      var d = new Date(m.timestamp);
+      if (!isNaN(d.getTime())) {
+        time = d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+        var dayKey = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+        if (dayKey !== prevDay) {
+          prevDay = dayKey; prevUserId = null;
+          dayHtml = '<div class="chat-date-row"><span class="chat-date-chip">' + escHtml(chatDayLabel(d)) + '</span></div>';
+        }
+      }
+    } catch(e) {}
+    var isFirst  = String(m.user_id) !== String(prevUserId);
+    var showName = !isOwn && !isSystem && isFirst;
+    prevUserId = m.user_id;
+
+    if (isSystem) {
+      return dayHtml + '<div class="chat-msg-row system-msg"><div class="msg-bubble">' + escHtml(m.message) + '</div></div>';
+    }
+    return dayHtml + (
+      '<div class="chat-msg-row ' + (isOwn ? 'own' : 'other') + (isFirst ? ' first' : '') + '">' +
+        '<div class="chat-msg-col">' +
+          '<div class="msg-bubble ' + (isOwn ? 'own' : 'other') + (isFirst ? ' tail' : '') + '">' +
+            (showName ? '<div class="chat-msg-name" style="color:' + color + '">' + escHtml(name) + '</div>' : '') +
+            '<span class="msg-text">' + escHtml(m.message) + '</span>' +
+            '<div class="msg-footer">' +
+              '<span class="msg-time">' + time + '</span>' +
+              (isOwn ? '<span class="msg-ticks"><i class="fas fa-check-double"></i></span>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+  container.innerHTML = html;
+  if (wasAtBottom) container.scrollTop = container.scrollHeight;
+}
+
+function chatKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMsg(); }
+}
+
+function autoResizeTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function sendChatMsg() {
+  var input = document.getElementById('chat-input');
+  if (!input) return;
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  input.style.height = 'auto';
+  // Mensaje optimista local
+  var tempMsg = {
+    id: 'temp-' + Date.now(),
+    user_id: App.user ? App.user.id : 'me',
+    username: App.user ? App.user.username : '',
+    fullName: App.user ? (App.user.fullName || App.user.username) : 'Yo',
+    message: msg,
+    timestamp: new Date().toISOString()
+  };
+  var container = document.getElementById('chat-messages');
+  if (container) {
+    // Añadir mensaje provisional
+    var div = document.createElement('div');
+    div.id = tempMsg.id;
+    var time = new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+    var lastRow = container.lastElementChild;
+    var grouped = lastRow && lastRow.classList.contains('own');
+    div.className = 'chat-msg-row own' + (grouped ? '' : ' first');
+    div.innerHTML =
+      '<div class="chat-msg-col">' +
+        '<div class="msg-bubble own' + (grouped ? '' : ' tail') + '"><span class="msg-text">' + escHtml(msg) + '</span>' +
+          '<div class="msg-footer"><span class="msg-time">' + time + '</span>' +
+            '<span class="msg-ticks" style="color:#8696a0"><i class="fas fa-check"></i></span>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+  api('sendChatMessage', { message: msg }, function(r) {
+    if (r && r.success) {
+      api('getChatMessages', {}, function(r2) {
+        var data = (r2 && Array.isArray(r2.data)) ? r2.data : (Array.isArray(r2) ? r2 : []);
+        renderChatMessages(data);
+        if (data.length > 0) App._lastChatMsgId = data[data.length-1].id;
+      });
+    } else {
+      var tempEl = document.getElementById(tempMsg.id);
+      if (tempEl) tempEl.remove();
+      showToast((r && r.error) || 'Error al enviar', 'error');
+    }
+  });
+}
+
+// ==================== NOTIFICACIONES PUSH (barra del celular / PC) ====================
+// Pega aquí los datos de tu proyecto Firebase (Configuración del proyecto → Tus apps → Web)
+// y la clave VAPID (Cloud Messaging → Certificados push web). Son datos públicos, no secretos.
+var PUSH_WEB = { apiKey: '', authDomain: '', projectId: '', messagingSenderId: '', appId: '', vapidKey: '' };
+var _pushMsgInit = false;
+
+function pushConfigured_() { return !!(PUSH_WEB.apiKey && PUSH_WEB.projectId && PUSH_WEB.messagingSenderId && PUSH_WEB.appId && PUSH_WEB.vapidKey); }
+function pushInGas_() { return typeof google !== 'undefined' && google.script && google.script.run; }
+function pushSupport_() {
+  if (!pushConfigured_()) return { ok: false, reason: 'config' };
+  if (pushInGas_()) return { ok: false, reason: 'gas' };
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if (ios && !standalone) return { ok: false, reason: 'ios' };
+  if (!('serviceWorker' in navigator) || !('Notification' in window) || !('PushManager' in window) || typeof firebase === 'undefined') return { ok: false, reason: 'unsupported' };
+  return { ok: true };
+}
+function pushPlatform_() {
+  var ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return 'iOS';
+  if (/Android/.test(ua)) return 'Android';
+  if (/Windows/.test(ua)) return 'Windows';
+  if (/Mac/.test(ua)) return 'Mac';
+  return 'Otro';
+}
+function pushMessaging_(cb) {
+  navigator.serviceWorker.register('/firebase-messaging-sw.js').then(function(reg) {
+    return navigator.serviceWorker.ready.then(function() {
+      if (!firebase.apps.length) firebase.initializeApp({ apiKey: PUSH_WEB.apiKey, authDomain: PUSH_WEB.authDomain, projectId: PUSH_WEB.projectId, messagingSenderId: PUSH_WEB.messagingSenderId, appId: PUSH_WEB.appId });
+      var m = firebase.messaging();
+      if (!_pushMsgInit) {
+        _pushMsgInit = true;
+        // App abierta y visible: se muestra un aviso dentro de la app y se refresca la campanita
+        m.onMessage(function(p) {
+          var d = (p && p.data) || {};
+          showToast((d.title || 'Notificación') + (d.body ? ' — ' + d.body : ''), d.type === 'error' ? 'error' : (d.type === 'warning' ? 'warning' : (d.type === 'success' ? 'success' : 'info')));
+          try { pollNotifications(); } catch (e) {}
+        });
+      }
+      cb(null, m, reg);
+    });
+  }).catch(function(e) { cb(e); });
+}
+function pushRegisterToken_(silent) {
+  pushMessaging_(function(err, m, reg) {
+    if (err) { if (!silent) showToast('No se pudo activar los avisos: ' + (err.message || err), 'error'); renderPushBox_(); return; }
+    m.getToken({ vapidKey: PUSH_WEB.vapidKey, serviceWorkerRegistration: reg }).then(function(tk) {
+      if (!tk) { if (!silent) showToast('No se obtuvo el permiso del dispositivo', 'warning'); renderPushBox_(); return; }
+      // OJO: el parámetro se llama fcm_token porque api() ya usa "token" para la sesión
+      api('registerPushDevice', { fcm_token: tk, platform: pushPlatform_(), ua: navigator.userAgent }, function(r) {
+        if (r && r.success) {
+          try { localStorage.setItem('gs_push_token', tk); } catch (e) {}
+          if (!silent) showToast('Avisos activados en este dispositivo', 'success');
+        } else if (!silent) showToast((r && r.error) || 'No se pudo registrar el dispositivo', 'error');
+        renderPushBox_();
+      });
+    }).catch(function(e) { if (!silent) showToast('No se pudo activar los avisos: ' + (e.message || e), 'error'); renderPushBox_(); });
+  });
+}
+// Botón «Activar»: el permiso del navegador solo se puede pedir desde un toque del usuario
+function enablePush() {
+  var s = pushSupport_(); if (!s.ok) return;
+  Notification.requestPermission().then(function(perm) {
+    if (perm === 'granted') pushRegisterToken_(false);
+    else { showToast('Permiso no concedido. Puedes activarlo en los ajustes del navegador.', 'warning'); renderPushBox_(); }
+  });
+}
+function disablePush() {
+  var tk = ''; try { tk = localStorage.getItem('gs_push_token') || ''; } catch (e) {}
+  try { localStorage.removeItem('gs_push_token'); } catch (e) {}
+  if (tk) api('unregisterPushDevice', { fcm_token: tk }, function() {});
+  try { pushMessaging_(function(err, m) { if (!err) m.deleteToken().catch(function() {}); }); } catch (e) {}
+  showToast('Avisos desactivados en este dispositivo', 'info');
+  setTimeout(renderPushBox_, 300);
+}
+function initPush() {
+  var s = pushSupport_();
+  if (s.ok && Notification.permission === 'granted') pushRegisterToken_(true);   // renueva el token y lo liga al usuario actual
+  renderPushBox_();
+}
+function renderPushBox_() {
+  var box = document.getElementById('push-box'); if (!box) return;
+  var s = pushSupport_(), msg = '', btn = '';
+  if (s.reason === 'config') { box.style.display = 'none'; return; }
+  var muted = 'color:var(--gray,#64748b)';
+  if (!s.ok) {
+    msg = s.reason === 'gas' ? '🔔 Para recibir avisos en la barra del celular, abre el sistema desde su dirección web (no desde el enlace de Apps Script).'
+        : s.reason === 'ios'  ? '🔔 <b>iPhone:</b> toca <b>Compartir</b> → <b>Agregar a pantalla de inicio</b> y abre el sistema desde ese ícono para activar los avisos.'
+        : '🔔 Este navegador no admite avisos en la barra de notificaciones.';
+    box.innerHTML = '<span style="' + muted + '">' + msg + '</span>';
+  } else if (Notification.permission === 'granted' && localStorage.getItem('gs_push_token')) {
+    box.innerHTML = '<span style="color:var(--success,#16a34a);font-weight:600"><i class="fas fa-check-circle"></i> Avisos activos en este dispositivo</span> ' +
+      '<a href="#" onclick="disablePush();return false" style="margin-left:8px;' + muted + ';text-decoration:underline">Desactivar</a>';
+  } else if (Notification.permission === 'denied') {
+    box.innerHTML = '<span style="' + muted + '">🔕 Los avisos están bloqueados en este navegador. Actívalos en los ajustes del sitio (candado junto a la dirección).</span>';
+  } else {
+    box.innerHTML = '<button type="button" class="btn-primary" style="padding:7px 12px;font-size:12.5px" onclick="enablePush()"><i class="fas fa-bell"></i> Activar avisos en este dispositivo</button>' +
+      '<div style="' + muted + ';margin-top:5px">Recibe las alertas en la barra de notificaciones, incluso con la app cerrada.</div>';
+  }
+  box.style.display = 'block';
+}
+
+// ==================== NOTIFICACIONES PANEL ====================
+var NOTIF_ICONS_ = { success: 'fa-check-circle', warning: 'fa-exclamation-triangle', error: 'fa-times-circle', info: 'fa-info-circle' };
+var NOTIF_EMOJI_RE_ = null;   // emoji al inicio del título → se muestra como ícono del aviso
+try { NOTIF_EMOJI_RE_ = new RegExp('^\\s*((?:\\p{Extended_Pictographic}[\\uFE0F\\u200D]*)+)\\s*', 'u'); } catch (e) {}
+
+function notifDate_(n) {
+  if (!n || !n.created_at) return null;
+  var d = parseLocal(n.created_at);
+  return isNaN(d.getTime()) ? null : d;
+}
+function notifGroup_(n) {
+  var d = notifDate_(n);
+  if (!d) return 'Sin fecha';
+  var t = new Date(); t.setHours(0, 0, 0, 0);
+  var diff = Math.round((t - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Ayer';
+  return fmtDate(n.created_at);
+}
+function notifTime_(n) {
+  var d = notifDate_(n);
+  if (!d) return '';
+  var min = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (min < 1) return 'Ahora';
+  if (notifGroup_(n) === 'Hoy') {
+    if (min < 60) return 'hace ' + min + ' min';
+    if (min < 720) return 'hace ' + Math.floor(min / 60) + ' h';
+  }
+  return d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function notifItemHtml_(n, clickable) {
+  var type = n.type || 'info';
+  var title = String(n.title || '');
+  var iconHtml = '<i class="fas ' + (NOTIF_ICONS_[n.type] || 'fa-bell') + '"></i>';
+  if (NOTIF_EMOJI_RE_) {
+    var m = title.match(NOTIF_EMOJI_RE_);
+    if (m && title.length > m[0].length) { iconHtml = escHtml(m[1]); title = title.slice(m[0].length); }
+  }
+  var msg = String(n.message || '');
+  var parts = msg.split(' · ');
+  var body = '';
+  if (parts.length >= 2 && parts.every(function(p) { return p.length <= 45; })) {
+    body = '<div class="notif-chips">' + parts.map(function(p) { return '<span class="notif-chip">' + escHtml(p) + '</span>'; }).join('') + '</div>';
+  } else if (msg) {
+    body = '<p>' + escHtml(msg) + '</p>';
+  }
+  var isUnread = !n.is_read;
+  return '<div class="notification-item ' + (isUnread ? 'unread' : '') + '"' + (clickable ? ' onclick="markNotifRead(\'' + n.id + '\')"' : '') + '>' +
+    '<div class="notif-icon ' + type + '">' + iconHtml + '</div>' +
+    '<div class="notif-content">' +
+      '<div class="notif-top"><h4>' + escHtml(title) + '</h4>' +
+        '<span class="notif-time">' + (isUnread ? '<span class="notif-new"></span>' : '') + escHtml(notifTime_(n)) + '</span></div>' +
+      body +
+    '</div>' +
+  '</div>';
+}
+function renderNotificationsPanel() {
+  var list = document.getElementById('notifications-list');
+  if (!list) return;
+  var notifs = App.notifications || [];
+  var unread = notifs.filter(function(n) { return !n.is_read; }).length;
+  var cnt = document.getElementById('notif-count');
+  if (cnt) { cnt.textContent = unread; cnt.style.display = unread > 0 ? '' : 'none'; }
+  if (!notifs.length) { list.innerHTML = '<div class="no-notifications"><i class="fas fa-bell-slash" style="font-size:28px;color:var(--border);display:block;margin-bottom:8px"></i>Sin notificaciones</div>'; return; }
+  var html = '', last = null;
+  notifs.forEach(function(n) {
+    var g = notifGroup_(n);
+    if (g !== last) { html += '<div class="notif-group">' + escHtml(g) + '</div>'; last = g; }
+    html += notifItemHtml_(n, true);
+  });
+  list.innerHTML = html;
+}
+
+function markNotifRead(id) {
+  api('markNotificationRead', { id: id }, function(r) {
+    if (r && r.success) {
+      App.notifications = App.notifications.map(function(n) {
+        if (n.id === id) n.is_read = true;
+        return n;
+      });
+      var unread = App.notifications.filter(function(n) { return !n.is_read; }).length;
+      var dot = document.getElementById('notif-dot');
+      if (dot) dot.className = 'badge' + (unread > 0 ? ' show' : '');
+      renderNotificationsPanel();
+    }
+  });
+}
+
+// ==================== NOTIFICACIONES ADMIN ====================
+function renderNotifAdmin() {
+  if (!App.user || (App.user.role !== 'admin' && App.user.role !== 'manager')) {
+    document.getElementById('dynamic-content').innerHTML = '<p style="padding:20px;color:var(--danger)">Sin permisos para acceder a esta sección.</p>';
+    showLoader(false); return;
+  }
+  apiGet('getUsers', {}, function(users) {
+    var selectedType = 'info';
+    var userOpts = '<option value="all">Todos los usuarios</option>' + users.map(function(u) {
+      return '<option value="' + u.id + '">' + escHtml(u.full_name || u.username) + ' (' + u.role + ')</option>';
+    }).join('');
+    var html =
+      '<div class="module-header"><div><h1 class="page-title">Enviar Notificación</h1><div class="page-subtitle">Envía mensajes a uno o todos los usuarios</div></div></div>' +
+      '<div class="notif-compose">' +
+        '<h3><i class="fas fa-bullhorn"></i> Redactar Notificación</h3>' +
+        '<div class="form-group" style="padding:0 0 14px"><label>Tipo de Notificación</label>' +
+          '<div class="notif-type-grid">' +
+            '<button type="button" class="notif-type-btn selected-info" id="ntype-info"    onclick="selectNotifType(\'info\')"   >ℹ️ Info</button>' +
+            '<button type="button" class="notif-type-btn" id="ntype-success" onclick="selectNotifType(\'success\')">✅ Éxito</button>' +
+            '<button type="button" class="notif-type-btn" id="ntype-warning" onclick="selectNotifType(\'warning\')">⚠️ Alerta</button>' +
+            '<button type="button" class="notif-type-btn" id="ntype-error"   onclick="selectNotifType(\'error\')"  >🚨 Error</button>' +
+          '</div>' +
+          '<input type="hidden" id="notif-type-val" value="info">' +
+        '</div>' +
+        '<div class="form-group" style="padding:0 0 14px"><label>Destinatario</label><select id="notif-recipient">' + userOpts + '</select></div>' +
+        '<div class="form-group" style="padding:0 0 14px"><label>Título *</label><input type="text" id="notif-title" placeholder="Título de la notificación" maxlength="100"></div>' +
+        '<div class="form-group" style="padding:0 0 14px"><label>Mensaje *</label><textarea id="notif-message" rows="4" placeholder="Escribe el mensaje aquí..." maxlength="500"></textarea></div>' +
+        '<div style="padding:0 0 14px;display:flex;justify-content:flex-end">' +
+          '<button class="btn-primary" onclick="sendBroadcast()"><i class="fas fa-paper-plane"></i> Enviar Notificación</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="section-card"><div class="section-card-header"><h3>Notificaciones Recientes</h3></div>' +
+        '<div class="notifications-list" style="max-height:400px;overflow-y:auto" id="admin-notif-list">' +
+          '<div class="no-notifications">Cargando...</div>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    showLoader(false);
+    renderAdminNotifList();
+  });
+}
+
+function selectNotifType(type) {
+  ['info','success','warning','error'].forEach(function(t) {
+    var btn = document.getElementById('ntype-' + t);
+    if (btn) btn.className = 'notif-type-btn' + (t === type ? ' selected-' + t : '');
+  });
+  var inp = document.getElementById('notif-type-val');
+  if (inp) inp.value = type;
+}
+
+function renderAdminNotifList() {
+  var list = document.getElementById('admin-notif-list');
+  if (!list) return;
+  var notifs = App.notifications || [];
+  if (!notifs.length) { list.innerHTML = '<div class="no-notifications">Sin notificaciones recientes</div>'; return; }
+  list.innerHTML = notifs.slice(0, 20).map(function(n) { return notifItemHtml_(n, false); }).join('');
+}
+
+function sendBroadcast() {
+  var title     = (document.getElementById('notif-title')   || {}).value || '';
+  var message   = (document.getElementById('notif-message') || {}).value || '';
+  var type      = (document.getElementById('notif-type-val')|| {}).value || 'info';
+  var recipient = (document.getElementById('notif-recipient')|| {}).value || 'all';
+  if (!title.trim())   { showToast('El título es requerido', 'warning'); return; }
+  if (!message.trim()) { showToast('El mensaje es requerido', 'warning'); return; }
+  api('broadcastNotification', { title: title.trim(), message: message.trim(), type: type, recipient: recipient }, function(r) {
+    if (r && r.success) {
+      showToast('Notificación enviada correctamente', 'success');
+      var titleEl = document.getElementById('notif-title');
+      var msgEl   = document.getElementById('notif-message');
+      if (titleEl) titleEl.value = '';
+      if (msgEl)   msgEl.value   = '';
+      selectNotifType('info');
+      pollNotifications();
+      renderAdminNotifList();
+    } else {
+      showToast((r && r.error) || 'Error al enviar', 'error');
+    }
+  });
+}
+
+// ==================== USUARIOS ====================
+function renderUsers() {
+  if (!App.user || App.user.role !== 'admin') {
+    document.getElementById('dynamic-content').innerHTML = '<p style="padding:20px;color:var(--danger)"><i class="fas fa-lock" style="margin-right:8px"></i>Solo administradores pueden acceder a esta sección.</p>';
+    showLoader(false); return;
+  }
+  var searchVal = ''; var sEl = document.getElementById('users-search'); if (sEl) searchVal = sEl.value;
+  api('getUsers', {}, function(r) {
+    var users = [];
+    if (r && r.success && Array.isArray(r.data)) users = r.data;
+    else if (Array.isArray(r)) users = r;
+    App._cache.users = users; App._cache.staffUsers = null;
+    var filtered = filterTable(users, searchVal, ['username', 'full_name', 'email', 'role']);
+    var roleBadges = {
+      admin: 'role-admin', manager: 'role-manager', operator: 'role-operator',
+      viewer: 'role-viewer', vet: 'role-vet', maintenance: 'role-maintenance'
+    };
+    var roleLabels = {
+      admin: 'Administrador', manager: 'Gerente', operator: 'Operario',
+      viewer: 'Visualizador', vet: 'Veterinario', maintenance: 'Mantenimiento'
+    };
+    var onlineIds = App._onlineUsers.map(function(u){ return String(u.user_id); });
+    var userRows = filtered.map(function(u) {
+      var isMe    = App.user && String(u.id) === String(App.user.id);
+      var isOnline= onlineIds.indexOf(String(u.id)) > -1;
+      var initials= (u.full_name || u.username || 'U').split(' ').map(function(w){ return w[0]; }).slice(0,2).join('').toUpperCase();
+      return '<tr>' +
+        '<td><div style="display:flex;align-items:center;gap:10px">' +
+          '<div style="position:relative;flex-shrink:0">' +
+            '<div style="width:38px;height:38px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:13px;font-weight:700">' + initials + '</div>' +
+            '<span class="online-indicator ' + (isOnline ? 'online' : 'offline') + '" data-online-uid="' + escHtml(String(u.id)) + '" title="' + (isOnline ? 'En línea' : 'Desconectado') + '"></span>' +
+          '</div>' +
+          '<div><strong>' + escHtml(u.full_name || '') + '</strong>' +
+            '<div style="font-size:11px;color:var(--gray)">@' + escHtml(u.username || '') + (isMe ? ' <span style="color:var(--primary);font-weight:600">(tú)</span>' : '') + '</div>' +
+          '</div>' +
+        '</div></td>' +
+        '<td><span class="user-role-badge ' + (roleBadges[u.role] || 'role-viewer') + '">' + escHtml(roleLabels[u.role] || u.role) + '</span></td>' +
+        '<td>' + escHtml(u.email || '—') + '</td>' +
+        '<td><span class="badge ' + (u.status === 'active' ? 'badge-success' : 'badge-warning') + '">' + (u.status === 'active' ? 'Activo' : 'Inactivo') + '</span></td>' +
+        '<td>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+            '<span class="badge ' + (isOnline ? 'badge-success' : 'badge-gray') + '" style="font-size:11px">' +
+              '<i class="fas fa-circle" style="font-size:7px;margin-right:4px"></i>' + (isOnline ? 'En línea' : 'Offline') +
+            '</span>' +
+          '</div>' +
+        '</td>' +
+        '<td style="font-size:12px;color:var(--gray-light)">' + (u.last_login ? fmtDate(u.last_login) : 'Nunca') + '</td>' +
+        '<td class="actions">' +
+          '<button class="btn-icon" onclick="editUser(\'' + u.id + '\')" title="Editar"><i class="fas fa-edit"></i></button>' +
+          (!isMe ? '<button class="btn-icon danger" onclick="confirmDeleteUser(\'' + u.id + '\')" title="Eliminar"><i class="fas fa-trash"></i></button>' : '') +
+        '</td></tr>';
+    });
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Usuarios del sistema</h1><div class="page-subtitle">' + users.length + ' usuarios con acceso (usuario, contraseña y rol). Los trabajadores de planilla van en Empleados.</div></div>' +
+        '<button class="btn-primary" onclick="showUserModal()"><i class="fas fa-user-plus"></i> Nuevo Usuario</button>' +
+      '</div>' +
+      '<div class="filters-bar"><div class="search-box"><i class="fas fa-search"></i><input type="text" id="users-search" placeholder="Buscar usuario, nombre, email..." value="' + escHtml(searchVal) + '" oninput="renderUsers()"></div></div>' +
+      tblBuild('users', userRows, '<tr class="empty-row"><td colspan="7">No se encontraron usuarios</td></tr>',
+        '<tr><th>Usuario</th><th>Rol</th><th>Email</th><th>Estado</th><th>En Línea</th><th>Último Acceso</th><th>Acciones</th></tr>') +
+      '<div id="user-modal" class="modal" style="display:none"><div class="modal-content">' +
+        '<div class="modal-header"><h3 id="user-modal-title">Nuevo Usuario</h3><button class="close-modal" onclick="closeModal(\'user-modal\')">&times;</button></div>' +
+        '<form id="user-form"><input type="hidden" id="us-id" value="new">' +
+        fGroup('Nombre Completo *', 'text', 'us-fullname', '', 'required', 'Ej: María López') +
+        fGroup('Nombre de Usuario *', 'text', 'us-username', '', 'required', 'Ej: mlopez (sin espacios)') +
+        fGroup('Email', 'email', 'us-email', '', '', 'Ej: maria@granja.com') +
+        '<div class="form-group"><label>Rol *</label><select id="us-role" required>' +
+          selOpt(['admin:Administrador','manager:Gerente','operator:Operario','vet:Veterinario','maintenance:Mantenimiento','viewer:Visualizador'], 'operator') +
+        '</select></div>' +
+        '<div class="form-group"><label>Estado</label><select id="us-status">' + selOpt(['active:Activo','inactive:Inactivo'], 'active') + '</select></div>' +
+        '<div class="form-group"><label id="us-pass-label">Contraseña *</label><input type="password" id="us-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>' +
+        '<div class="form-actions"><button type="button" class="btn-secondary" onclick="closeModal(\'user-modal\')">Cancelar</button><button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar</button></div>' +
+        '</form></div></div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    bindForm('user-form', saveUserForm);
+    showLoader(false);
+  });
+}
+
+function showUserModal(u) {
+  u = u || {};
+  var isEdit = !!(u.id);
+  document.getElementById('user-modal-title').textContent = isEdit ? 'Editar Usuario' : 'Nuevo Usuario';
+  document.getElementById('us-id').value       = u.id        || 'new';
+  document.getElementById('us-fullname').value = u.full_name || '';
+  document.getElementById('us-username').value = u.username  || '';
+  document.getElementById('us-email').value    = u.email     || '';
+  document.getElementById('us-role').value     = u.role      || 'operator';
+  document.getElementById('us-status').value   = u.status    || 'active';
+  document.getElementById('us-password').value = '';
+  var passLabel = document.getElementById('us-pass-label');
+  if (passLabel) passLabel.textContent = isEdit ? 'Nueva Contraseña (dejar vacío para no cambiar)' : 'Contraseña *';
+  var usernameInput = document.getElementById('us-username');
+  if (usernameInput) usernameInput.readOnly = isEdit;
+  openModal('user-modal');
+}
+
+function editUser(id) {
+  var u = (App._cache.users || []).find(function(x) { return x.id === id; });
+  if (u) showUserModal(u);
+}
+
+function confirmDeleteUser(id) {
+  confirmDialog('¿Eliminar este usuario? Esta acción no se puede deshacer.', function() {
+    api('deleteUser', { id: id }, function(r) {
+      if (r && r.success) { showToast('Usuario eliminado', 'success'); App._cache.users = null; renderUsers(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+
+function saveUserForm(e) {
+  e.preventDefault();
+  var isNew = v('us-id') === 'new';
+  var pass  = v('us-password');
+  if (isNew && (!pass || pass.trim().length < 6)) { showToast('La contraseña debe tener al menos 6 caracteres', 'warning'); return; }
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  api('saveUser', {
+    id: v('us-id'), full_name: v('us-fullname'), username: v('us-username'),
+    email: v('us-email'), role: v('us-role'), status: v('us-status'),
+    password: pass
+  }, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) { closeModal('user-modal'); showToast('Usuario guardado', 'success'); App._cache.users = null; renderUsers(); }
+    else showToast((r && r.error) || 'Error al guardar', 'error');
+  });
+}
+
+// ==================== AJUSTES ====================
+function renderSettings() {
+  if (!App.user || App.user.role !== 'admin') {
+    document.getElementById('dynamic-content').innerHTML = '<p style="padding:20px;color:var(--danger)"><i class="fas fa-lock" style="margin-right:8px"></i>Solo administradores pueden acceder a esta sección.</p>';
+    showLoader(false); return;
+  }
+  api('getSettings', {}, function(r) {
+    var s = (r && r.data) || {};
+    App._cache.settings = s;
+    var html =
+      '<div class="module-header">' +
+        '<div><h1 class="page-title">Ajustes del Sistema</h1><div class="page-subtitle">Personalización de la plataforma</div></div>' +
+      '</div>' +
+      '<div class="section-card" style="max-width:600px">' +
+        '<div class="section-card-header"><h3>Branding y Apariencia</h3></div>' +
+        '<div class="section-card-body">' +
+          '<form id="settings-form">' +
+            fGroup('Título del Sitio *', 'text', 'set-title', s.title || '', 'required', 'Ej: Mi Granja Avícola') +
+            fGroup('Subtítulo del Sitio', 'text', 'set-subtitle', s.subtitle || '', '', 'Ej: Gestión Avícola') +
+            fGroup('URL de Imagen de Fondo (Login)', 'url', 'set-bg', s.bgUrl || '', '', 'Ej: https://misitio.com/fondo.jpg') +
+            fGroup('URL del Logo (Opcional)', 'url', 'set-logo', s.logoUrl || '', '', 'Ej: https://misitio.com/logo.png') +
+            fGroup('Texto del Footer', 'text', 'set-footer-text', s.footerText || '', '', 'Ej: © 2026 Mi Granja Avícola') +
+            fGroup('URL del Footer (Enlace)', 'url', 'set-footer-url', s.footerUrl || '', '', 'Ej: https://misitio.com') +
+            '<div style="font-weight:700;font-size:13px;padding:18px 22px 0">Redes sociales (se muestran en el footer)</div><div class="sug-hint" style="padding:2px 22px 0">Pega el enlace completo de cada una. Déjalo vacío para ocultarla.</div>' +
+            SOCIAL_NETS.map(function(x) { return fGroup(x.n, 'text', 'set-soc-' + x.k, (s.social || {})[x.k] || '', '', x.ph); }).join('') +
+            '<div style="font-weight:700;font-size:13px;padding:18px 22px 0">Notificaciones</div>' +
+            '<div class="form-group"><label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="set-notif-sound"' + (s.notifSound === false ? '' : ' checked') + ' style="width:auto;margin:0"> Sonido cuando llega una notificación o un mensaje de chat</label>' +
+            '<small class="field-hint">Si lo apagas, nadie escuchará el aviso (las notificaciones se siguen mostrando). Cada celular o computador necesita tocar la pantalla una vez para que el navegador permita el sonido.</small>' +
+            '<div style="margin-top:8px"><button type="button" class="btn-secondary" onclick="playNotifSound(true)"><i class="fas fa-volume-high"></i> Probar sonido</button></div></div>' +
+            '<div class="form-actions" style="margin-top:20px">' +
+              '<button type="submit" class="btn-primary"><i class="fas fa-save"></i> Guardar Ajustes</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>' +
+      '</div>' +
+      '<div class="section-card" style="max-width:600px;margin-top:20px">' +
+        '<div class="section-card-header"><h3>Informes automáticos por correo</h3></div>' +
+        '<div class="section-card-body">' +
+          '<p style="font-size:13px;color:#64748b;line-height:1.6;margin:0 0 14px">' +
+            'El sistema envía solo, al administrador y a los gerentes, un <b>informe general</b> cada día (9:00 pm) y cada lunes (7:00 am, resumen de la semana). ' +
+            'Si un operario pasa varias horas sin registrar actividad, avisa por correo a administración y al propio operario. ' +
+            'Usa estos botones para probar el envío ahora mismo.' +
+          '</p>' +
+          '<div class="form-actions" style="display:flex;gap:10px;flex-wrap:wrap">' +
+            '<button type="button" class="btn-primary" id="btn-report-daily" onclick="sendReportNow(\'daily\')"><i class="fas fa-paper-plane"></i> Enviar informe diario ahora</button>' +
+            '<button type="button" class="btn-secondary" id="btn-report-weekly" onclick="sendReportNow(\'weekly\')"><i class="fas fa-calendar-week"></i> Enviar informe semanal ahora</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    document.getElementById('dynamic-content').innerHTML = html;
+    bindForm('settings-form', saveSettingsForm);
+    showLoader(false);
+  });
+}
+
+function saveSettingsForm(e) {
+  e.preventDefault();
+  var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
+  var params = {
+    title: v('set-title'),
+    subtitle: v('set-subtitle'),
+    bgUrl: v('set-bg'),
+    logoUrl: v('set-logo'),
+    footerText: v('set-footer-text'),
+    footerUrl: v('set-footer-url'),
+    notifSound: !!(document.getElementById('set-notif-sound') && document.getElementById('set-notif-sound').checked)
+  };
+  var social = {}, badNet = '';
+  SOCIAL_NETS.forEach(function(x) {
+    var raw = v('set-soc-' + x.k);
+    if (!raw) { social[x.k] = ''; return; }
+    var u = socialNormalize_(x.k, raw);
+    if (!u) badNet = badNet || x.n;
+    social[x.k] = u;
+  });
+  if (badNet) { if (btn) btn.disabled = false; showToast('El enlace de ' + badNet + ' no es válido. Pega la dirección completa (https://…)', 'warning'); return; }
+  params.social = social;
+  api('saveSettings', params, function(r) {
+    if (btn) btn.disabled = false;
+    if (r && r.success) { 
+      showToast('Ajustes guardados', 'success'); 
+      fetchAndApplyInitialSettings();
+    } else {
+      showToast((r && r.error) || 'Error al guardar', 'error');
+    }
+  });
+}
+
+function sendReportNow(kind) {
+  var btn = document.getElementById(kind === 'weekly' ? 'btn-report-weekly' : 'btn-report-daily');
+  var orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
+  api('sendSystemReportNow', { kind: kind }, function(r) {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    if (r && r.success) showToast('Informe enviado a ' + (r.recipients || 0) + ' destinatario(s)', 'success');
+    else showToast((r && r.error) || 'No se pudo enviar el informe', 'error');
+  });
+}
+
+// ==================== REDES SOCIALES DEL FOOTER ====================
+var SOCIAL_NETS = [
+  { k: 'whatsapp',  n: 'WhatsApp',  i: 'fa-whatsapp',   ph: 'Ej: https://wa.me/51999999999 (o solo el número)' },
+  { k: 'facebook',  n: 'Facebook',  i: 'fa-facebook-f', ph: 'Ej: https://facebook.com/migranja' },
+  { k: 'instagram', n: 'Instagram', i: 'fa-instagram',  ph: 'Ej: https://instagram.com/migranja' },
+  { k: 'tiktok',    n: 'TikTok',    i: 'fa-tiktok',     ph: 'Ej: https://www.tiktok.com/@migranja' },
+  { k: 'youtube',   n: 'YouTube',   i: 'fa-youtube',    ph: 'Ej: https://youtube.com/@migranja' },
+  { k: 'telegram',  n: 'Telegram',  i: 'fa-telegram',   ph: 'Ej: https://t.me/migranja' }
+];
+// Mismo criterio que el servidor: solo enlaces http(s); acepta número (WhatsApp) o @usuario
+function socialNormalize_(k, raw) {
+  var u = String(raw || '').trim();
+  if (!u) return '';
+  if (k === 'whatsapp' && /^[+\d\s()-]{7,}$/.test(u)) return 'https://wa.me/' + u.replace(/\D/g, '');
+  if (/^@[\w.]+$/.test(u)) {
+    if (k === 'telegram')  return 'https://t.me/' + u.slice(1);
+    if (k === 'instagram') return 'https://instagram.com/' + u.slice(1);
+    if (k === 'tiktok')    return 'https://www.tiktok.com/' + u;
+    return '';
+  }
+  if (/^(javascript|data|vbscript|file):/i.test(u)) return '';
+  if (!/^https?:\/\//i.test(u)) {
+    if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(u)) u = 'https://' + u; else return '';
+  }
+  if (/[\s"'<>`\\]/.test(u)) return '';
+  return u.slice(0, 300);
+}
+function renderFooterSocial(s) {
+  var box = document.getElementById('app-footer-social');
+  if (!box) return 0;
+  var soc = (s && s.social) || {}, n = 0;
+  box.innerHTML = '';
+  SOCIAL_NETS.forEach(function(x) {
+    var u = String(soc[x.k] || '').trim();
+    if (!/^https?:\/\//i.test(u)) return;
+    var a = document.createElement('a');
+    a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.setAttribute('data-soc', x.k); a.title = x.n; a.setAttribute('aria-label', x.n);
+    var ic = document.createElement('i'); ic.className = 'fa-brands ' + x.i;
+    a.appendChild(ic); box.appendChild(a); n++;
+  });
+  box.style.display = n ? 'flex' : 'none';
+  return n;
+}
+
+function fetchAndApplyInitialSettings() {
+  api('getSettings', {}, function(r) {
+    var s = (r && r.data) || {};
+    // ── Guardar SIEMPRE en caché global para que PDF y otros módulos lo tengan ──
+    if (!App._cache) App._cache = {};
+    App._cache.settings = s;
+    App.notifSound = s.notifSound !== false;
+    if (s && (s.title || s.bgUrl || s.logoUrl)) {
+      if (s.title) {
+        document.title = s.title + ((s.subtitle && String(s.subtitle).toLowerCase() !== String(s.title).toLowerCase()) ? ' - ' + s.subtitle : '');
+        try { var mApple = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (mApple) mApple.setAttribute('content', s.title); } catch (eMeta) {}
+        document.querySelectorAll('.app-title').forEach(function(el) { el.textContent = s.title; });
+        if (s.subtitle) document.querySelectorAll('.app-subtitle').forEach(function(el) { el.textContent = s.subtitle; });
+      }
+      if (s.bgUrl) {
+        var bgImg = document.getElementById('login-bg-img');
+        var bgOverlay = document.getElementById('login-bg-overlay');
+        if (bgImg) {
+          bgImg.style.backgroundImage = 'url(' + s.bgUrl + ')';
+          // Cargar imagen primero, luego hacer fade-in
+          var testImg = new Image();
+          testImg.onload = function() {
+            bgImg.classList.add('loaded');
+            // Cuando hay imagen, quitar el gradiente oscuro sólido del overlay
+            if (bgOverlay) bgOverlay.classList.remove('login-bg-no-img');
+          };
+          testImg.onerror = function() {
+            // La URL falló — mantener fondo oscuro
+            bgImg.style.backgroundImage = '';
+          };
+          testImg.src = s.bgUrl;
+        }
+      } else {
+        // Sin imagen configurada — asegurar fondo oscuro
+        var bgImg2 = document.getElementById('login-bg-img');
+        var bgOverlay2 = document.getElementById('login-bg-overlay');
+        if (bgImg2) { bgImg2.style.backgroundImage = ''; bgImg2.classList.remove('loaded'); }
+        if (bgOverlay2) bgOverlay2.classList.add('login-bg-no-img');
+      }
+      if (s.logoUrl) {
+         document.querySelectorAll('.login-logo, .sidebar-logo').forEach(function(el) {
+            el.innerHTML = '<img src="' + s.logoUrl + '" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;padding:2px;">';
+            if (el.classList.contains('login-logo')) {
+               el.classList.add('has-image');
+            } else {
+               el.style.background = 'transparent';
+               el.style.boxShadow = 'none';
+            }
+         });
+      } else {
+         document.querySelectorAll('.login-logo, .sidebar-logo').forEach(function(el) {
+            el.innerHTML = '<i class="fas fa-drumstick-bite"></i>';
+            if (el.classList.contains('login-logo')) {
+               el.classList.remove('has-image');
+            } else {
+               el.style.background = '';
+               el.style.boxShadow = '';
+            }
+         });
+      }
+      var fCont = document.getElementById('app-footer-container');
+      var fText = document.getElementById('app-footer-text');
+      var fLink = document.getElementById('app-footer-link');
+      var nSoc = renderFooterSocial(s);
+      if (s.footerText || s.footerUrl || nSoc) {
+         if (fCont) {
+            fCont.style.display = 'block';
+            if (fLink) fLink.style.display = (s.footerText || s.footerUrl) ? '' : 'none';
+            if (fText) fText.textContent = s.footerText || s.footerUrl || 'Enlace';
+            if (s.footerUrl) {
+               if (fLink) {
+                 fLink.href = s.footerUrl;
+                 fLink.style.pointerEvents = 'auto';
+                 fLink.style.color = 'var(--primary)';
+               }
+            } else {
+               if (fLink) {
+                 fLink.href = '#';
+                 fLink.style.pointerEvents = 'none';
+                 fLink.style.color = 'var(--gray)';
+               }
+            }
+         }
+      } else {
+         if (fCont) fCont.style.display = 'none';
+      }
+    } else {
+      var fCont = document.getElementById('app-footer-container');
+      if (fCont) fCont.style.display = 'none';
+    }
+  });
+}
+
+// ==================== EVENTOS GLOBALES ====================
+document.addEventListener('DOMContentLoaded', function() {
+
+  // Fetch App Branding configuration unconditionally
+  fetchAndApplyInitialSettings();
+
+  // Verificar sesión guardada
+  checkSession();
+
+  // Login
+  var loginBtn = document.getElementById('login-btn');
+  if (loginBtn) loginBtn.addEventListener('click', doLogin);
+
+  document.getElementById('username').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+
+  // Logout
+  var logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) logoutBtn.addEventListener('click', doLogout);
+
+  // Navegación sidebar
+  document.querySelectorAll('.nav-item[data-module]').forEach(function(el) {
+    el.addEventListener('click', function() {
+      var mod = this.getAttribute('data-module');
+      if (mod) {
+        loadModule(mod);
+        // Cerrar sidebar en móvil
+        var sidebar  = document.getElementById('sidebar');
+        var overlay  = document.getElementById('sidebar-overlay');
+        if (sidebar)  sidebar.classList.remove('mobile-open');
+        if (overlay)  overlay.classList.remove('show');
+      }
+    });
+  });
+
+  // Toggle sidebar móvil
+  var menuToggle = document.getElementById('menu-toggle');
+  var sidebar    = document.getElementById('sidebar');
+  var overlay    = document.getElementById('sidebar-overlay');
+  if (menuToggle) {
+    menuToggle.addEventListener('click', function() {
+      if (sidebar)  sidebar.classList.toggle('mobile-open');
+      if (overlay)  overlay.classList.toggle('show');
+    });
+  }
+  if (overlay) {
+    overlay.addEventListener('click', function() {
+      if (sidebar)  sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('show');
+    });
+  }
+
+  // Panel de notificaciones
+  var notifIcon  = document.getElementById('notifications-icon');
+  var notifPanel = document.getElementById('notifications-panel');
+  var closeNotif = document.getElementById('close-notifications');
+
+  if (notifIcon) {
+    notifIcon.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (notifPanel) {
+        var isVisible = notifPanel.style.display !== 'none';
+        notifPanel.style.display = isVisible ? 'none' : 'flex';
+        if (!isVisible) renderNotificationsPanel();
+      }
+    });
+  }
+
+  if (closeNotif) {
+    closeNotif.addEventListener('click', function() {
+      if (notifPanel) notifPanel.style.display = 'none';
+    });
+  }
+
+  // Cerrar panel al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (notifPanel && notifPanel.style.display !== 'none') {
+      if (!notifPanel.contains(e.target) && e.target !== notifIcon && !notifIcon.contains(e.target)) {
+        notifPanel.style.display = 'none';
+      }
+    }
+  });
+
+  // Cerrar modales con Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal').forEach(function(m) { m.style.display = 'none'; });
+      if (notifPanel) notifPanel.style.display = 'none';
+      closeLightbox();
+    }
+  });
+
+  // Cerrar modales al hacer clic en el fondo
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.classList && e.target.classList.contains('modal')) {
+      e.target.style.display = 'none';
+    }
+  });
+
+  // Activar clic con la tecla "Enter" para elementos enfocables que no sean botones/inputs
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+      var act = document.activeElement;
+      if (act && act.tagName !== 'BUTTON' && act.tagName !== 'INPUT' && act.tagName !== 'TEXTAREA') {
+        act.click();
+      }
+    }
+  });
+
+  // Inicializar Navegación Espacial (Smart TV / D-Pad)
+  if (typeof SpatialNavigation !== 'undefined') {
+    SpatialNavigation.init();
+    SpatialNavigation.add({
+      selector: 'button, input, select, textarea, .nav-item, .tb-btn, .close-modal'
+    });
+    // Volver a añadir focusables al recargar vistas dinámicas
+    var observer = new MutationObserver(function() {
+      SpatialNavigation.makeFocusable();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    SpatialNavigation.makeFocusable();
+    SpatialNavigation.focus();
+  }
+
+});
+// ==================== FUNCIONES ELIMINAR AÑADIDAS ====================
+function confirmDeleteBird(id) {
+  confirmDialog('¿Eliminar este lote? Se modificará la población del galpón correspondiente.', function() {
+    api('deleteBird', { id: id }, function(r) {
+      if (r && r.success) { renderBirds(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteProduction(id) {
+  confirmDialog('¿Eliminar registro de producción?', function() {
+    api('deleteProduction', { id: id }, function(r) {
+      if (r && r.success) { renderProduction(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteFeeding(id) {
+  confirmDialog('¿Eliminar registro de alimentación?', function() {
+    api('deleteFeeding', { id: id }, function(r) {
+      if (r && r.success) { renderFeeding(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteFinance(id) {
+  confirmDialog('¿Eliminar registro financiero?', function() {
+    api('deleteFinance', { id: id }, function(r) {
+      if (r && r.success) { renderFinance(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteAttendance(id) {
+  confirmDialog('¿Eliminar registro de asistencia?', function() {
+    api('deleteAttendance', { id: id }, function(r) {
+      if (r && r.success) { renderAttendance(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteTask(id) {
+  confirmDialog('¿Eliminar esta tarea?', function() {
+    api('deleteTask', { id: id }, function(r) {
+      if (r && r.success) { renderTasks(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteHealth(id) {
+  confirmDialog('¿Eliminar registro de salud?', function() {
+    api('deleteHealthEvent', { id: id }, function(r) {
+      if (r && r.success) { renderHealth(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+function confirmDeleteMaintenance(id) {
+  confirmDialog('¿Eliminar registro de mantenimiento?', function() {
+    api('deleteMaintenance', { id: id }, function(r) {
+      if (r && r.success) { renderMaintenance(); }
+      else showToast((r && r.error) || 'Error al eliminar', 'error');
+    });
+  });
+}
+// ==================== RESPONSIVIDAD — HELPERS JS ====================
+
+/**
+ * renderCell(label, content, extraClass)
+ * Genera un <td> con data-label para modo card en móvil.
+ * Usar en lugar de '<td>...</td>' al construir filas de tablas.
+ */
+function renderCell(label, content, extraClass) {
+  var cls = extraClass ? (' ' + extraClass) : '';
+  return '<td data-label="' + escHtml(label) + '" class="' + cls.trim() + '">' + (content != null ? content : '—') + '</td>';
+}
+
+/**
+ * applyCardMode(card)
+ * Activa/desactiva el modo card en un .table-card según el ancho de pantalla.
+ */
+function labelCardCells(card) {
+  var ths = card.querySelectorAll('thead th');
+  if (!ths.length) return;
+  var labels = Array.prototype.map.call(ths, function(th) { return (th.textContent || '').trim(); });
+  card.querySelectorAll('tbody tr').forEach(function(tr) {
+    Array.prototype.forEach.call(tr.children, function(td, i) {
+      if (td.tagName !== 'TD' || td.hasAttribute('colspan')) return;
+      if (!td.hasAttribute('data-label')) td.setAttribute('data-label', labels[i] || '');
+    });
+  });
+}
+function applyCardMode(card) {
+  if (!card) return;
+  if (window.innerWidth <= 600) { labelCardCells(card); card.classList.add('table-card-mode'); }
+  else card.classList.remove('table-card-mode');
+}
+
+/** Listener global para resize de tablas */
+var _resizeTablesTimer;
+function _onResizeTables() {
+  clearTimeout(_resizeTablesTimer);
+  _resizeTablesTimer = setTimeout(function() {
+    document.querySelectorAll('.table-card').forEach(function(c) { applyCardMode(c); });
+    addScrollHints();
+  }, 150);
+}
+
+/**
+ * initResponsiveTables()
+ * Llama al final de cada renderXxx() que tenga tablas.
+ * Activa modo card y registra el listener de resize.
+ */
+function initResponsiveTables() {
+  document.querySelectorAll('.table-card').forEach(function(c) { applyCardMode(c); });
+  window.removeEventListener('resize', _onResizeTables);
+  window.addEventListener('resize', _onResizeTables);
+  addScrollHints();
+}
+
+/**
+ * addScrollHints()
+ * Agrega "Desliza para ver más →" en tablas con scroll horizontal en móvil.
+ */
+function addScrollHints() {
+  if (window.innerWidth > 768) return;
+  document.querySelectorAll('.table-card:not(.table-card-mode)').forEach(function(card) {
+    if (!card.querySelector('.table-scroll-hint')) {
+      var hint = document.createElement('div');
+      hint.className = 'table-scroll-hint';
+      hint.innerHTML = '<i class="fas fa-arrows-left-right" style="margin-right:4px"></i>Desliza para ver más';
+      card.insertBefore(hint, card.firstChild);
+    }
+  });
+}
+
+// ── SIDEBAR MÓVIL MEJORADO (swipe + locks body scroll) ──────────────
+(function() {
+  var _sbReady = false;
+  function initSidebar() {
+    if (_sbReady) return;
+    var sidebar    = document.getElementById('sidebar');
+    var overlay    = document.getElementById('sidebar-overlay');
+    var toggle     = document.getElementById('menu-toggle');
+    if (!sidebar || !overlay || !toggle) return;
+    _sbReady = true;
+
+    function openSidebar() {
+      sidebar.classList.add('mobile-open');
+      overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSidebar() {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    // Eliminar handler anterior para evitar duplicados
+    var newToggle = toggle.cloneNode(true);
+    toggle.parentNode.replaceChild(newToggle, toggle);
+    newToggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (sidebar.classList.contains('mobile-open')) closeSidebar();
+      else openSidebar();
+    });
+
+    overlay.addEventListener('click', closeSidebar);
+
+    // Cerrar al navegar en móvil
+    document.querySelectorAll('.nav-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        if (window.innerWidth <= 768) closeSidebar();
+      });
+    });
+
+    // Swipe izquierda → cerrar sidebar (SOLO en el sidebar)
+    var touchStartX = 0;
+    sidebar.addEventListener('touchstart', function(e) {
+      touchStartX = e.changedTouches[0].clientX;
+    }, { passive: true });
+    sidebar.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - touchStartX;
+      // Solo cerrar si el swipe fue claro hacia la izquierda (más de 60px)
+      if (dx < -60) closeSidebar();
+    }, { passive: true });
+  }
+
+  // Inicializar cuando el dashboard esté visible
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSidebar);
+  } else {
+    // Si ya se cargó, esperar a que el dashboard sea visible
+    var _origInitDashboard = window.initDashboard;
+    // Se llamará desde initDashboard() tras el login
+    setTimeout(initSidebar, 500);
+  }
+
+  // Re-inicializar después del login (por si los elementos aún no existían)
+  var _origInitDash = typeof initDashboard !== 'undefined' ? initDashboard : null;
+  if (_origInitDash) {
+    window._responsiveSidebarHooked = true;
+  }
+  // Hook en DOMContentLoaded para asegurar binding
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initSidebar, 200);
+  });
+})();
+
+// ── AUTO-HOOK: initResponsiveTables al cambiar de módulo ──────────────
+(function() {
+  var _origLoadModule = typeof loadModule !== 'undefined' ? loadModule : null;
+  // Dado que el archivo está en orden, el hook se aplica sobre-escribiendo loadModule
+  // en el momento que el intérprete ya la procesó. Usamos un observer de mutaciones
+  // sobre el contenido dinámico para activar las tablas automáticamente.
+  var _contentObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.addedNodes.length) {
+        var hasTables = document.querySelectorAll('.table-card').length > 0;
+        if (hasTables) {
+          setTimeout(function() {
+            initResponsiveTables();
+          }, 50);
+        }
+      }
+    });
+  });
+  document.addEventListener('DOMContentLoaded', function() {
+    var dynContent = document.getElementById('dynamic-content');
+    if (dynContent) {
+      _contentObserver.observe(dynContent, { childList: true, subtree: false });
+    }
+  });
+})();
+
+window.addEventListener('resize', function() {
+  if (window.innerWidth > 768) {
+    var sb = document.getElementById('sidebar'), ov = document.getElementById('sidebar-overlay');
+    if (sb) sb.classList.remove('mobile-open');
+    if (ov) ov.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+});
+
+// ==================== FIN DEL SCRIPT ====================
+</script>
+</body>
+</html>
