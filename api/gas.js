@@ -1549,6 +1549,10 @@ html[data-theme="dark"] .table-card-mode .data-table td.td-actions,
 html[data-theme="dark"] .table-card-mode .data-table td.actions{background:#1e232b}
 html[data-theme="pesaje"] .table-card-mode .data-table td.td-actions,
 html[data-theme="pesaje"] .table-card-mode .data-table td.actions{background:#1e293b}
+/* ===== Escala compacta (cards y textos, todos los roles) ===== */
+.module-content{zoom:.88}
+@media (max-width:768px){.module-content{zoom:.9}}
+@media (min-width:1366px) and (min-height:768px){.module-content{zoom:.85}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/spatial-navigation-js@1.3.0/spatial_navigation.min.js" defer></script>
 <script>try{var _t=localStorage.getItem('gs_theme');if(_t==='dark'||_t==='pesaje'){document.documentElement.setAttribute('data-theme',_t);}}catch(e){}</script>
