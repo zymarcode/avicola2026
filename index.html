@@ -1164,6 +1164,19 @@ button, .btn-primary, .btn-secondary, .btn-success,
   .online-pill { font-size: 11px; padding: 4px 6px; gap: 4px; }
 }
 
+/* ===== TABLAS: ancho de columnas ajustado al contenido (lo asigna sizeTableColumns_) =====
+   c-fit  = columnas con poca información (fecha, estado, cantidad, acciones): ocupan solo lo necesario
+   c-wrap = columnas con texto largo (descripción, notas): ancho limitado y el texto baja de línea */
+.data-table{table-layout:auto}
+.data-table th,.data-table td{padding:10px 12px}
+.data-table th.c-fit,.data-table td.c-fit{width:1%;white-space:nowrap}
+.data-table th.c-wrap,.data-table td.c-wrap{min-width:180px;max-width:340px;white-space:normal;overflow-wrap:anywhere;line-height:1.45}
+.data-table td.actions,.data-table th.c-act{width:1%;white-space:nowrap}
+.data-table td.actions{padding-left:6px;padding-right:6px}
+.data-table td .badge{white-space:nowrap}
+.data-table td .progress-inline{min-width:110px;max-width:170px}
+.table-card-mode .data-table td.c-fit,.table-card-mode .data-table td.c-wrap{width:100%;max-width:none;min-width:0;white-space:normal}
+
 /* KEYBOARD / TV NAVIGATION */
 :focus-visible {
   outline: 3px solid var(--primary) !important;
@@ -7747,8 +7760,52 @@ function labelCardCells(card) {
     });
   });
 }
+/** Ajusta el ancho de cada columna según su contenido:
+ *  c-fit  = poca información (fecha, estado, cantidad, acciones) → ancho mínimo
+ *  c-wrap = texto largo (descripción, notas) → ancho limitado, baja de línea */
+function sizeTableColumns_(card) {
+  var table = card.querySelector('table.data-table') || card.querySelector('table');
+  if (!table) return;
+  var ths = table.querySelectorAll('thead th');
+  if (!ths.length) return;
+  Array.prototype.forEach.call(table.querySelectorAll('.c-fit,.c-wrap,.c-act'), function(el) {
+    el.classList.remove('c-fit', 'c-wrap', 'c-act');
+  });
+  if (window.innerWidth <= 600) return;
+  var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr')).filter(function(tr) {
+    return !tr.querySelector('.empty-row') && !tr.querySelector('td[colspan]');
+  }).slice(0, 30);
+  var kinds = Array.prototype.map.call(ths, function(th, i) {
+    var label = (th.textContent || '').trim().toLowerCase();
+    var max = 0, sum = 0, n = 0, actions = false;
+    rows.forEach(function(tr) {
+      var td = tr.children[i];
+      if (!td) return;
+      if (td.classList.contains('actions')) actions = true;
+      var len = (td.textContent || '').replace(/\s+/g, ' ').trim().length;
+      if (len > max) max = len;
+      sum += len; n++;
+    });
+    if (!label || label === 'acciones' || actions) return 'act';
+    if (!n) return 'fit';
+    if (max <= 18) return 'fit';
+    if (sum / n > 40) return 'wrap';
+    return '';
+  });
+  kinds.forEach(function(k, i) {
+    if (!k) return;
+    var cls = k === 'act' ? 'c-fit' : 'c-' + k;
+    ths[i].classList.add(cls);
+    if (k === 'act') ths[i].classList.add('c-act');
+    rows.forEach(function(tr) {
+      var td = tr.children[i];
+      if (td && td.tagName === 'TD') td.classList.add(cls);
+    });
+  });
+}
 function applyCardMode(card) {
   if (!card) return;
+  try { sizeTableColumns_(card); } catch (e) {}
   if (window.innerWidth <= 600) { labelCardCells(card); card.classList.add('table-card-mode'); }
   else card.classList.remove('table-card-mode');
 }
