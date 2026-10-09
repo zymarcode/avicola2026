@@ -1214,6 +1214,30 @@ html[data-theme="dark"] .data-table tbody tr:not(.empty-row):hover td{background
 html[data-theme="pesaje"] .data-table tbody tr:nth-child(even):not(.empty-row) td{background:#0b1324}
 html[data-theme="pesaje"] .data-table tbody tr:not(.empty-row):hover td{background:#1e293b}
 
+/* ===== Vista previa del registro (estilo boleta) — se abre desde la descripción ===== */
+.rv-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:2500;padding:16px;animation:fadeIn .2s ease}
+.rv-sheet{background:var(--white);color:var(--dark);width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);overflow:hidden;animation:slideInUp .25s ease}
+.rv-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px 14px;border-bottom:2px dashed var(--border)}
+.rv-head .rv-kicker{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--primary)}
+.rv-head .rv-title{font-size:17px;font-weight:800;margin-top:2px;overflow-wrap:anywhere}
+.rv-close{flex:none;background:var(--light);border:0;width:30px;height:30px;border-radius:50%;cursor:pointer;color:var(--gray);font-size:15px}
+.rv-close:hover{background:var(--border);color:var(--dark)}
+.rv-body{overflow-y:auto;padding:16px 22px}
+.rv-desc{background:var(--light);border-left:4px solid var(--primary);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.rv-desc .rv-label{font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--gray);margin-bottom:6px}
+.rv-desc .rv-text{font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.rv-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.rv-row{padding:9px 0;border-bottom:1px dashed var(--border);min-width:0}
+.rv-row .rv-label{font-size:10.5px;font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--gray);margin-bottom:3px}
+.rv-row .rv-val{font-size:13.5px;font-weight:600;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.rv-foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;padding:12px 22px;border-top:2px dashed var(--border);background:var(--light)}
+.rv-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--white);color:var(--dark);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.rv-btn:hover{border-color:var(--primary);color:var(--primary)}
+.rv-btn.rv-primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.rv-btn.rv-primary:hover{opacity:.9;color:#fff}
+.data-table td.c-wrap .cell-text{cursor:pointer}
+@media(max-width:600px){.rv-grid{grid-template-columns:1fr}.rv-sheet{max-height:94vh}}
+
 /* KEYBOARD / TV NAVIGATION */
 :focus-visible {
   outline: 3px solid var(--primary) !important;
@@ -7861,16 +7885,101 @@ function wrapLongCell_(td) {
   var more = document.createElement('button');
   more.type = 'button';
   more.className = 'cell-more';
-  more.textContent = 'ver más';
+  more.innerHTML = '<i class="fas fa-file-lines"></i> ver detalle';
   more.style.display = 'none';
-  more.addEventListener('click', function(ev) {
-    ev.stopPropagation();
-    var open = box.classList.toggle('open');
-    more.textContent = open ? 'ver menos' : 'ver más';
+  more.addEventListener('click', function(ev) { ev.stopPropagation(); openRowPreview_(td); });
+  box.addEventListener('click', function(ev) {
+    if (ev.target.closest('a,button')) return;
+    openRowPreview_(td);
   });
   td.appendChild(more);
-  var check = function() { more.style.display = (box.classList.contains('open') || box.scrollHeight > box.clientHeight + 1) ? '' : 'none'; };
+  var check = function() { more.style.display = (box.scrollHeight > box.clientHeight + 1) ? '' : 'none'; };
   (window.requestAnimationFrame || setTimeout)(check);
+}
+/** Vista previa tipo boleta: muestra el registro completo (descripción destacada + demás campos) */
+function openRowPreview_(td) {
+  var tr = td.closest('tr'), table = td.closest('table');
+  if (!tr || !table) return;
+  var ths = table.querySelectorAll('thead th');
+  var idx = Array.prototype.indexOf.call(tr.children, td);
+  var descLabel = ths[idx] ? (ths[idx].textContent || '').replace(/[▲▼]/g, '').trim() : 'Descripción';
+  var descBox = td.querySelector('.cell-text') || td;
+  var descText = (descBox.textContent || '').trim();
+  var fields = [], title = '';
+  Array.prototype.forEach.call(tr.children, function(c, i) {
+    if (c === td || c.tagName !== 'TD' || c.hasAttribute('colspan') || c.classList.contains('actions')) return;
+    var label = ths[i] ? (ths[i].textContent || '').replace(/[▲▼]/g, '').trim() : '';
+    if (!label || label.toLowerCase() === 'acciones') return;
+    var clone = c.cloneNode(true);
+    Array.prototype.forEach.call(clone.querySelectorAll('.cell-more,button,input,select,textarea'), function(x) { x.remove(); });
+    var txt = (clone.textContent || '').trim();
+    if (!txt) return;
+    if (!title) title = txt;
+    fields.push({ label: label, node: clone });
+  });
+  closeRowPreview_();
+  var ov = document.createElement('div');
+  ov.className = 'rv-overlay';
+  ov.id = 'rvOverlay';
+  var sheet = document.createElement('div');
+  sheet.className = 'rv-sheet';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  var head = document.createElement('div');
+  head.className = 'rv-head';
+  var hl = document.createElement('div');
+  var k = document.createElement('div'); k.className = 'rv-kicker'; k.textContent = 'Vista previa del registro';
+  var t = document.createElement('div'); t.className = 'rv-title'; t.textContent = title || descLabel;
+  hl.appendChild(k); hl.appendChild(t);
+  var x = document.createElement('button'); x.type = 'button'; x.className = 'rv-close'; x.setAttribute('aria-label', 'Cerrar'); x.innerHTML = '&times;';
+  x.addEventListener('click', closeRowPreview_);
+  head.appendChild(hl); head.appendChild(x);
+  var body = document.createElement('div');
+  body.className = 'rv-body';
+  var d = document.createElement('div'); d.className = 'rv-desc';
+  var dl = document.createElement('div'); dl.className = 'rv-label'; dl.textContent = descLabel;
+  var dt = document.createElement('div'); dt.className = 'rv-text'; dt.textContent = descText;
+  d.appendChild(dl); d.appendChild(dt); body.appendChild(d);
+  var grid = document.createElement('div'); grid.className = 'rv-grid';
+  fields.forEach(function(f) {
+    var r = document.createElement('div'); r.className = 'rv-row';
+    var l = document.createElement('div'); l.className = 'rv-label'; l.textContent = f.label;
+    var v = document.createElement('div'); v.className = 'rv-val';
+    while (f.node.firstChild) v.appendChild(f.node.firstChild);
+    r.appendChild(l); r.appendChild(v); grid.appendChild(r);
+  });
+  body.appendChild(grid);
+  var foot = document.createElement('div');
+  foot.className = 'rv-foot';
+  var bCopy = document.createElement('button'); bCopy.type = 'button'; bCopy.className = 'rv-btn'; bCopy.innerHTML = '<i class="fas fa-copy"></i> Copiar texto';
+  bCopy.addEventListener('click', function() {
+    var done = function() { bCopy.innerHTML = '<i class="fas fa-check"></i> Copiado'; };
+    try { navigator.clipboard.writeText(descText).then(done, function() {}); } catch (e) {}
+  });
+  var bPrint = document.createElement('button'); bPrint.type = 'button'; bPrint.className = 'rv-btn'; bPrint.innerHTML = '<i class="fas fa-print"></i> Imprimir';
+  bPrint.addEventListener('click', function() {
+    var w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write('<!doctype html><meta charset="utf-8"><title>' + escHtml(title || descLabel) + '</title><style>body{font-family:Arial,sans-serif;color:#111;margin:24px}h2{margin:0 0 12px}.d{border-left:4px solid #444;background:#f3f3f3;padding:10px 12px;white-space:pre-wrap;margin-bottom:14px}.r{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed #aaa}.r b{min-width:140px;font-size:12px;text-transform:uppercase;color:#555}</style>');
+    w.document.write('<h2>' + escHtml(title || descLabel) + '</h2><div class="d"><b>' + escHtml(descLabel) + '</b><br>' + escHtml(descText) + '</div>');
+    fields.forEach(function(f) { w.document.write('<div class="r"><b>' + escHtml(f.label) + '</b><span>' + escHtml((f.node.textContent || '').trim()) + '</span></div>'); });
+    w.document.close(); w.focus(); w.print();
+  });
+  var bClose = document.createElement('button'); bClose.type = 'button'; bClose.className = 'rv-btn rv-primary'; bClose.textContent = 'Cerrar';
+  bClose.addEventListener('click', closeRowPreview_);
+  foot.appendChild(bCopy); foot.appendChild(bPrint); foot.appendChild(bClose);
+  sheet.appendChild(head); sheet.appendChild(body); sheet.appendChild(foot);
+  ov.appendChild(sheet);
+  ov.addEventListener('click', function(ev) { if (ev.target === ov) closeRowPreview_(); });
+  document.body.appendChild(ov);
+  document.addEventListener('keydown', rvKey_);
+  try { bClose.focus(); } catch (e) {}
+}
+function rvKey_(ev) { if (ev.key === 'Escape') closeRowPreview_(); }
+function closeRowPreview_() {
+  var o = document.getElementById('rvOverlay');
+  if (o) o.remove();
+  document.removeEventListener('keydown', rvKey_);
 }
 function applyCardMode(card) {
   if (!card) return;
