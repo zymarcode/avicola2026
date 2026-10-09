@@ -1177,6 +1177,14 @@ button, .btn-primary, .btn-secondary, .btn-success,
 .data-table td .progress-inline{min-width:110px;max-width:170px}
 .table-card-mode .data-table td.c-fit,.table-card-mode .data-table td.c-wrap{width:100%;max-width:none;min-width:0;white-space:normal}
 
+/* Texto largo (descripción, notas): 3 líneas + «ver más» */
+.data-table td.c-wrap{vertical-align:top}
+.data-table .cell-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.45;max-width:340px}
+.data-table .cell-text.open{display:block;-webkit-line-clamp:unset;line-clamp:unset;overflow:visible}
+.data-table .cell-more{display:inline-block;margin-top:3px;padding:0;border:0;background:none;color:var(--primary);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.data-table .cell-more:hover{opacity:.8}
+.table-card-mode .data-table .cell-text{max-width:none}
+
 /* KEYBOARD / TV NAVIGATION */
 :focus-visible {
   outline: 3px solid var(--primary) !important;
@@ -7789,7 +7797,7 @@ function sizeTableColumns_(card) {
     if (!label || label === 'acciones' || actions) return 'act';
     if (!n) return 'fit';
     if (max <= 18) return 'fit';
-    if (sum / n > 40) return 'wrap';
+    if (max > 60 || sum / n > 40) return 'wrap';
     return '';
   });
   kinds.forEach(function(k, i) {
@@ -7799,9 +7807,40 @@ function sizeTableColumns_(card) {
     if (k === 'act') ths[i].classList.add('c-act');
     rows.forEach(function(tr) {
       var td = tr.children[i];
-      if (td && td.tagName === 'TD') td.classList.add(cls);
+      if (td && td.tagName === 'TD') {
+        td.classList.add(cls);
+        if (k === 'wrap') wrapLongCell_(td);
+      }
     });
   });
+}
+/** Texto largo: se muestra en máx. 3 líneas con botón «ver más / ver menos» (solo si no cabe) */
+function wrapLongCell_(td) {
+  if (td.querySelector('button,a,input,select,textarea,.badge')) return;
+  var box = td.firstElementChild;
+  if (!box || !box.classList.contains('cell-text')) {
+    var txt = (td.textContent || '').trim();
+    if (!txt) return;
+    box = document.createElement('div');
+    box.className = 'cell-text';
+    while (td.firstChild) box.appendChild(td.firstChild);
+    td.appendChild(box);
+    td.setAttribute('title', txt);
+  }
+  if (td.querySelector('.cell-more')) return;
+  var more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'cell-more';
+  more.textContent = 'ver más';
+  more.style.display = 'none';
+  more.addEventListener('click', function(ev) {
+    ev.stopPropagation();
+    var open = box.classList.toggle('open');
+    more.textContent = open ? 'ver menos' : 'ver más';
+  });
+  td.appendChild(more);
+  var check = function() { more.style.display = (box.classList.contains('open') || box.scrollHeight > box.clientHeight + 1) ? '' : 'none'; };
+  (window.requestAnimationFrame || setTimeout)(check);
 }
 function applyCardMode(card) {
   if (!card) return;
