@@ -1649,6 +1649,16 @@ html[data-theme="pesaje"] .table-card-mode .data-table td.actions{background:#1e
 .data-table th:not(.num):not([colspan]),.data-table td:not(.num):not([colspan]){text-align:left}
 .data-table th.num,.data-table td.num{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 .data-table td.num{font-weight:600}
+/* Ajuste de columnas: las cortas se ajustan a su contenido; el espacio sobrante lo usa la columna de texto largo */
+.data-table thead th{padding:11px 12px}
+.data-table tbody td{padding:10px 12px}
+.data-table th:first-child,.data-table td:first-child{padding-left:14px}
+.data-table th:last-child,.data-table td:last-child{padding-right:14px}
+.data-table th.tf,.data-table td.tf{width:1%;white-space:nowrap}
+.data-table th.tx,.data-table td.tx{width:auto;min-width:130px;white-space:normal;overflow-wrap:anywhere}
+.data-table td.c-wrap,.data-table th.c-wrap{width:auto;min-width:130px;max-width:none}
+.data-table .cell-text{max-width:none}
+.table-card-mode .data-table th.tf,.table-card-mode .data-table td.tf,.table-card-mode .data-table th.tx,.table-card-mode .data-table td.tx{width:100%;min-width:0;white-space:normal}
 /* Etiquetas de estado */
 .data-table .badge{padding:3px 10px 3px 8px;gap:6px;font-size:11.5px;font-weight:700;box-shadow:inset 0 0 0 1px color-mix(in srgb,currentColor 22%,transparent)}
 .data-table .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 6px}
@@ -8144,38 +8154,58 @@ window.addEventListener('resize', function() {
 // ==================== FIN DEL SCRIPT ====================
 </script>
 <script>
-/* Tablas: centra las columnas numéricas / de dinero (solo visual, no toca datos) */
+/* Tablas: centra las columnas numéricas y ajusta el ancho de cada columna a su contenido (solo visual, no toca datos) */
 (function () {
   var NUM = /^[\s\u00a0]*[-\u2212+]?\s*(S\/\.?\s*)?[-\u2212+]?\d[\d.,\s]*(\s?(%|kg|g|aves|sacos|und|d[i\u00ed]as?))?[\s\u00a0]*$/i;
   var VACIO = /^[\s\u00a0]*([\u2014\u2013-]|)[\s\u00a0]*$/;
-  function marcar(t) {
+  var FIT_MAX = 26;   // hasta este largo de texto la columna se ajusta a su contenido
+  function procesar(t) {
     try {
       var filas = t.querySelectorAll('tbody tr');
-      var cols = {}, n = 0;
-      for (var i = 0; i < filas.length; i++) {
+      var sig = filas.length + ':' + (t.textContent || '').length;
+      if (t.__plSig === sig && !t.querySelector('tbody tr:not(.empty-row) td:not([colspan]):not(.tf):not(.tx)')) return;
+      var viejos = t.querySelectorAll('.num,.tf,.tx');
+      for (var v = 0; v < viejos.length; v++) { viejos[v].classList.remove('num'); viejos[v].classList.remove('tf'); viejos[v].classList.remove('tx'); }
+      var info = {}, n = 0, i, j;
+      for (i = 0; i < filas.length; i++) {
         var f = filas[i]; if (f.className.indexOf('empty-row') > -1) continue;
         var cs = f.children; if (!cs.length || (cs.length === 1 && cs[0].colSpan > 1)) continue;
-        for (var j = 0; j < cs.length; j++) {
-          if (cs[j].colSpan > 1) { cols[j] = false; continue; }
-          var tx = (cs[j].textContent || '').trim();
-          if (VACIO.test(tx)) { if (cols[j] === undefined) cols[j] = null; continue; }
+        for (j = 0; j < cs.length; j++) {
+          var c = cs[j], o = info[j] || (info[j] = { num: null, len: 0, act: false, wrap: false });
+          if (c.colSpan > 1) { o.num = false; continue; }
+          if (c.classList.contains('actions')) o.act = true;
+          if (c.classList.contains('c-wrap')) o.wrap = true;
+          var tx = (c.textContent || '').trim();
+          if (tx.length > o.len) o.len = tx.length;
+          if (VACIO.test(tx)) continue;
           var ok = NUM.test(tx) && !/^\d{8,}$/.test(tx.replace(/\s/g, ''));   // DNI, teléfonos, códigos: no
-          cols[j] = (cols[j] === false) ? false : ok;
+          o.num = (o.num === false) ? false : ok;
         }
         n++;
       }
       if (!n) return;
-      var ths = t.querySelectorAll('thead th');
-      Object.keys(cols).forEach(function (k) {
-        if (cols[k] !== true) return;
-        k = +k;
-        if (ths[k]) ths[k].classList.add('num');
-        for (var i = 0; i < filas.length; i++) { var c = filas[i].children[k]; if (c && c.colSpan <= 1) c.classList.add('num'); }
+      var ths = t.querySelectorAll('thead th'), keys = Object.keys(info), flex = 0, maxLen = -1, maxJ = -1;
+      keys.forEach(function (k) {
+        var o = info[k], th = ths[k];
+        var fijo = o.act || (th && (th.classList.contains('c-fit') || th.classList.contains('c-act')));
+        o.kind = (!fijo && (o.wrap || o.len > FIT_MAX)) ? 'x' : 'f';
+        if (o.kind === 'x') flex++;
+        if (!fijo && o.num !== true && o.len > maxLen) { maxLen = o.len; maxJ = k; }
       });
+      if (!flex && maxJ > -1) info[maxJ].kind = 'x';   // siempre una columna absorbe el espacio sobrante
+      keys.forEach(function (k) {
+        var o = info[k], cls = o.kind === 'x' ? 'tx' : 'tf', K = +k;
+        if (ths[K]) { ths[K].classList.add(cls); if (o.num === true) ths[K].classList.add('num'); }
+        for (var r = 0; r < filas.length; r++) {
+          var cel = filas[r].children[K];
+          if (cel && cel.colSpan <= 1 && filas[r].className.indexOf('empty-row') < 0) { cel.classList.add(cls); if (o.num === true) cel.classList.add('num'); }
+        }
+      });
+      t.__plSig = sig;
     } catch (e) {}
   }
   var pend = false;
-  function pasar() { pend = false; var ts = document.querySelectorAll('table.data-table'); for (var i = 0; i < ts.length; i++) marcar(ts[i]); }
+  function pasar() { pend = false; var ts = document.querySelectorAll('table.data-table'); for (var i = 0; i < ts.length; i++) procesar(ts[i]); }
   function pedir() { if (pend) return; pend = true; (window.requestAnimationFrame || setTimeout)(pasar, 60); }
   try { new MutationObserver(pedir).observe(document.body, { childList: true, subtree: true }); } catch (e) {}
   pedir();
