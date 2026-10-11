@@ -1764,7 +1764,7 @@ html[data-theme="pesaje"] .table-card-mode .data-table td.actions{background:#1e
       <button id="menu-toggle" class="menu-toggle" tabindex="0"><i class="fas fa-bars"></i></button>
       <span class="top-bar-title" id="top-bar-title">Dashboard</span>
       <div class="top-bar-right">
-        <div class="tb-btn" id="showclosed-btn" style="display:none" title="Campañas cerradas: ocultas" tabindex="0" role="button" aria-label="Mostrar u ocultar la información de campañas cerradas" onclick="toggleShowClosed()">
+        <div class="tb-btn" id="showclosed-btn" style="display:none" title="Campañas sin iniciar y cerradas: ocultas" tabindex="0" role="button" aria-label="Ver la información de campañas sin iniciar y cerradas" onclick="toggleShowClosed()">
           <i class="fas fa-eye-slash" id="showclosed-icon"></i>
         </div>
         <div class="tb-btn" id="theme-toggle-btn" title="Modo oscuro / claro" tabindex="0" role="button" aria-label="Cambiar modo oscuro" onclick="toggleTheme()">
@@ -2202,12 +2202,12 @@ var _proxyFalloHasta = 0;        // si el proxy falló por red, se evita probarl
 var _gasCbSeq = 0;               // contador para que cada llamada JSONP tenga un callback único
 var GAS_JSONP_MAX_URL = 7000;    // largo máximo seguro de URL en navegadores móviles
 
-// Botón «campañas cerradas» (solo administrador): cuando está activo, el servidor deja de ocultar lo que pertenece a campañas cerradas
+// Botón «ver todo» (solo administrador): activo = ve y registra en campañas SIN INICIAR y CERRADAS sin tener que iniciarlas
 function showClosedOn_() { return !!(App.user && App.user.role === 'admin' && App.showClosed); }
 function updateShowClosedBtn_() {
   var b = document.getElementById('showclosed-btn'), i = document.getElementById('showclosed-icon');
   var on = showClosedOn_();
-  if (b) { b.classList.toggle('sc-on', on); b.title = on ? 'Campañas cerradas: se muestran (clic para ocultar)' : 'Campañas cerradas: ocultas (clic para mostrar)'; }
+  if (b) { b.classList.toggle('sc-on', on); b.title = on ? 'Ver todo activado: campañas sin iniciar y cerradas visibles (clic para desactivar)' : 'Ver todo desactivado (clic para ver campañas sin iniciar y cerradas sin iniciarlas)'; }
   if (i) i.className = on ? 'fas fa-eye' : 'fas fa-eye-slash';
 }
 function toggleShowClosed() {
@@ -2216,17 +2216,19 @@ function toggleShowClosed() {
   try { localStorage.setItem('gx_show_closed', App.showClosed ? '1' : '0'); } catch (e) {}
   updateShowClosedBtn_();
   clearCache(); try { _swrLimpiar(); } catch (e) {}
-  showToast(App.showClosed ? 'Se muestra también la información de campañas cerradas' : 'Vista normal: campañas cerradas ocultas', 'info');
+  showToast(App.showClosed ? 'Ver todo activado: ahora ves y registras en campañas sin iniciar y cerradas' : 'Vista normal: se requiere campaña iniciada', 'info');
   if (App.currentModule) loadModule(App.currentModule);
   try { pollTaskAlerts(); } catch (e) {}
 }
 // Administrador con una campaña CERRADA elegida arriba: los guardados por galpón se registran en esa campaña
 function adminClosedCamp_(action, p) {
-  if (!App.user || App.user.role !== 'admin' || !App.camp || p.campaign_id) return '';
+  // Con el botón «ver todo» activo se usa la campaña elegida en la sección (filtro propio); si no, la elegida arriba
+  var cid = (showClosedOn_() && typeof campCur_ === 'function') ? campCur_(App.currentModule) : String(App.camp || '');
+  if (!App.user || App.user.role !== 'admin' || !cid || p.campaign_id) return '';
   if (action !== 'saveHealthEvent' && action !== 'saveMaintenance' && !(action === 'saveFeeding' && p.movement === 'consumption')) return '';
   var b = null, l = (App._campMeta && App._campMeta.birds) || [];
-  for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(App.camp)) { b = l[i]; break; }
-  return (b && campStatusFE(b) === 'closed') ? String(App.camp) : '';
+  for (var i = 0; i < l.length; i++) if (String(l[i].id) === String(cid)) { b = l[i]; break; }
+  return (b && (campStatusFE(b) === 'closed' || (campStatusFE(b) === 'draft' && showClosedOn_()))) ? String(cid) : '';
 }
 function _apiRaw(action, params, cb) {
   var cb0 = cb;
@@ -3076,11 +3078,11 @@ function campCur_(mod) { return String((App._fc && App._fc[mod]) || App.camp || 
 function campFilterHtml_(mod, rerender) {
   var cur = campCur_(mod);
   var hMap = {}; ((App._campMeta && App._campMeta.houses) || []).forEach(function(h) { hMap[h.id] = h.name; });
-  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) { return !campIsDraft_(b); })
+  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) { return !campIsDraft_(b) || showClosedOn_(); })
     .sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
   return '<select title="Filtrar por campaña" onchange="App._fc=App._fc||{};App._fc[\'' + mod + '\']=this.value;' + rerender + '">' +
     '<option value="">Todas las campañas</option>' + list.map(function(b) {
-      return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === cur ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + '</option>';
+      return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === cur ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (campIsDraft_(b) ? ' (sin iniciar)' : '') + '</option>';
     }).join('') + '</select>';
 }
 function campOfHouse_(houseId) {
@@ -3789,7 +3791,7 @@ function dashFilterBar_(data) {
   var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
     return String(b.start).localeCompare(String(a.start));
   }).map(function(c) {
-    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : (c.cstatus === 'draft' ? ' (sin iniciar)' : ' (cerrada)')) + '</option>';
   }).join('');
   return '<div class="filters-bar dash-filter"><label><i class="fas fa-layer-group"></i> Campaña</label>' +
     '<select title="Filtrar por campaña" onchange="dashCampPick(this.value)">' + opts + '</select></div>';
@@ -3830,7 +3832,7 @@ function dashFullHtml_(k, data) {
   var opts = '<option value="all"' + (sel ? '' : ' selected') + '>Todas las campañas</option>' + camps.slice().sort(function(a, b) {
     return String(b.start).localeCompare(String(a.start));
   }).map(function(c) {
-    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : ' (cerrada)') + '</option>';
+    return '<option value="' + escHtml(c.id) + '"' + (String(c.id) === sel ? ' selected' : '') + '>' + escHtml(c.batch) + ' · ' + escHtml(c.house) + (c.active ? '' : (c.cstatus === 'draft' ? ' (sin iniciar)' : ' (cerrada)')) + '</option>';
   }).join('');
   var card = function(cls, icon, ic, title, val, sub, extra) {
     return '<div class="summary-card ' + cls + '"' + (extra || '') + '><div class="summary-icon ' + ic + '"><i class="fas ' + icon + '"></i></div><div><h3>' + title + '</h3><p title="' + escHtml(fmtMoney(val)) + '">' + fmtMoneyShort(val, 10000) + '</p>' + (sub ? '<small>' + sub + '</small>' : '') + '</div></div>';
@@ -3919,7 +3921,7 @@ function gxTodayCards(list) {
   return '<div id="gx-today" data-k="' + escHtml(key) + '">' +
     gxTitle('fa-clipboard-check', 'Hoy en los galpones', '<span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600">' + done + ' de ' + list.length + ' completos</span><button class="gx-x" onclick="gxClose(\'gx-today\')" title="Quitar">&times;</button>') +
     '<div class="gx-grid">' + list.map(function(x) {
-      return '<div class="gx-card gx-today" style="--c:' + ((x.feed && x.prod) ? '#22c55e' : '#f59e0b') + '"><div><b style="font-size:15px;color:var(--dark)">' + escHtml(x.house) + '</b><div class="s">' + escHtml(x.batch) + (x.closed ? ' · <b>Cerrada</b>' : '') + '</div></div>' +
+      return '<div class="gx-card gx-today" style="--c:' + ((x.feed && x.prod) ? '#22c55e' : '#f59e0b') + '"><div><b style="font-size:15px;color:var(--dark)">' + escHtml(x.house) + '</b><div class="s">' + escHtml(x.batch) + (x.closed ? ' · <b>' + (x.cstatus === 'draft' ? 'Sin iniciar' : 'Cerrada') + '</b>' : '') + '</div></div>' +
         '<div class="r"><span><i class="fas fa-seedling"></i> Alimentación</span>' + chip(x.feed) + '</div>' +
         '<div class="r"><span><i class="fas fa-clipboard-list"></i> Registro diario</span>' + chip(x.prod) + '</div></div>';
     }).join('') + '</div></div>';
@@ -3999,7 +4001,7 @@ function campaignTable(list, opt) {
       (opt.money ? '<td class="num-r">' + tip(fmtMoneyShort(c.income), fmtMoney(c.income)) + '</td>' +
         '<td class="num-r">' + tip(fmtMoneyShort(c.expenses), fmtMoney(c.expenses)) + '</td>' +
         '<td class="num-r" style="color:' + pc + ';font-weight:700">' + tip(fmtMoneyShort(pr), fmtMoney(pr)) + '</td>' : '') +
-      '<td><span class="badge ' + (c.active ? 'badge-success' : 'badge-warning') + '">' + (c.active ? 'Activa' : 'Cerrada') + '</span></td></tr>';
+      '<td><span class="badge ' + (c.active ? 'badge-success' : 'badge-warning') + '">' + (c.active ? 'Activa' : (c.cstatus === 'draft' ? 'Sin iniciar' : 'Cerrada')) + '</span></td></tr>';
   }).join('');
   return '<div class="table-scroll"><table class="data-table"><thead><tr><th>Campaña</th><th>Galpón</th><th>Inicio</th><th>Días</th><th>Aves</th>' + (opt.pz ? '<th>Vivas</th>' : '') + '<th>Mortalidad</th>' +
     (opt.ops ? (opt.sold === false ? '' : '<th>Vendidos</th>') + '<th>Alimento kg</th>' : '') + (opt.pz ? '<th>Kg vend.</th><th>Conv.</th><th>Precio/kg</th><th>Vendido</th><th>Debe</th>' : '') + (opt.money ? '<th>' + (opt.pz ? 'Cobrado' : 'Ingresos') + '</th><th>Gastos</th><th>Utilidad</th>' : '') +
@@ -4317,9 +4319,9 @@ function loadBirdsForProd(selectedBirdId) {
   var sel = document.getElementById('pr-bird');
   if (!sel) return;
   if (!houseId) { sel.innerHTML = '<option value="">— Selecciona galpón primero —</option>'; return; }
-  var birds = (App._cache.birds || []).filter(function(b) { return b.house_id === houseId && ((b.status === 'active' && campStatusFE(b) === 'started') || (isAdminFE() && campStatusFE(b) === 'closed')); });
+  var birds = (App._cache.birds || []).filter(function(b) { return b.house_id === houseId && ((b.status === 'active' && campStatusFE(b) === 'started') || (isAdminFE() && campStatusFE(b) === 'closed') || (showClosedOn_() && campStatusFE(b) === 'draft')); });
   sel.innerHTML = '<option value="">Seleccionar lote</option>' + birds.map(function(b) {
-    return '<option value="' + b.id + '"' + (selectedBirdId === b.id ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' (' + fmtNum(parseInt(b.quantity) || 0) + ' aves)' + (campStatusFE(b) === 'closed' ? ' · cerrada' : '') + '</option>';
+    return '<option value="' + b.id + '"' + (selectedBirdId === b.id ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' (' + fmtNum(parseInt(b.quantity) || 0) + ' aves)' + (campStatusFE(b) === 'closed' ? ' · cerrada' : (campStatusFE(b) === 'draft' ? ' · sin iniciar' : '')) + '</option>';
   }).join('');
 }
 
@@ -4327,7 +4329,7 @@ function showProductionModal(p) {
   p = p || {};
   document.getElementById('prod-modal-title').textContent = p.id ? 'Editar Registro' : (seeAllFE() ? 'Registrar salida de pollos' : 'Registrar del día');
   document.getElementById('pr-id').value       = p.id         || 'new';
-  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && (campStatusFE(b) === 'started' || (isAdminFE() && campStatusFE(b) === 'closed')); })[0] : null;
+  var defB = (!p.id && App.camp) ? (App._cache.birds || []).filter(function(b) { return String(b.id) === String(App.camp) && (campStatusFE(b) === 'started' || (isAdminFE() && campStatusFE(b) === 'closed') || (showClosedOn_() && campStatusFE(b) === 'draft')); })[0] : null;
   document.getElementById('pr-house').value    = p.house_id   || (defB ? defB.house_id : '');
   loadBirdsForProd(p.bird_id || (defB ? defB.id : ''));
   document.getElementById('pr-date').value     = p.date       || today();
@@ -4417,7 +4419,7 @@ function campaignOpts(birds, houses, selected, emptyLabel) {
   return '<option value="">' + (emptyLabel || '— Sin campaña —') + '</option>' + (birds || []).map(function(b) {
     var act = String(b.status).trim().toLowerCase() === 'active';
     return '<option value="' + b.id + '"' + (selected === b.id ? ' selected' : '') + '>' +
-      escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (act ? '' : ' (cerrada)') + '</option>';
+      escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (campStatusFE(b) === 'draft' ? ' (sin iniciar)' : (act ? '' : ' (cerrada)')) + '</option>';
   }).join('');
 }
 
@@ -4573,10 +4575,10 @@ function showFeedingModal(f, movement) {
     var camps = App._cache.feedCamps || [], hm = {};
     (App._cache.houses || []).forEach(function(h) { hm[h.id] = h.name; });
     var cur = (isP && f.campaign_id) ? f.campaign_id : '';
-    var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur || (isAdminFE() && c.campaign_status === 'closed'); });
+    var list = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === cur || (isAdminFE() && c.campaign_status === 'closed') || (showClosedOn_() && c.campaign_status === 'draft'); });
     var pick = cur || ((!f.id && App.camp && list.some(function(c) { return String(c.id) === String(App.camp); })) ? String(App.camp) : '') || ((!f.id && list.length === 1) ? list[0].id : '');
     document.getElementById('fe-camp').innerHTML = '<option value="">Stock general (varias campañas)</option>' + list.map(function(c) {
-      return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + (c.campaign_status === 'closed' ? ' (cerrada)' : '') + '</option>';
+      return '<option value="' + c.id + '"' + (c.id === pick ? ' selected' : '') + '>' + escHtml(c.batch_number) + ' · ' + escHtml(hm[c.house_id] || '—') + (c.campaign_status === 'closed' ? ' (cerrada)' : (c.campaign_status === 'draft' ? ' (sin iniciar)' : '')) + '</option>';
     }).join('');
   })();
   document.getElementById('fe-notes').value    = f.notes    || '';
@@ -5474,7 +5476,7 @@ function renderTasks() {
     App._cache.houses = houses; App._cache.tasks = tasks; App._cache.users = tUsers; App._cache.campaigns = camps;
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
     var uMap = {}; tUsers.forEach(function(u) { uMap[u.id] = u; });
-    var shown   = camps.filter(function(c) { return c.campaign_status !== 'draft'; });
+    var shown   = camps.filter(function(c) { return c.campaign_status !== 'draft' || showClosedOn_(); });
     var started = camps.filter(function(c) { return c.campaign_status === 'started'; });
     var cMapT = {}; camps.forEach(function(c) { cMapT[c.id] = c.batch_number; });
     var inCamp = tasks;
@@ -5484,7 +5486,7 @@ function renderTasks() {
     var filtered = filterTable(inCamp, searchVal, ['title', 'description', 'area']).filter(function(t) {
       return !(t.series_id && (t.status === 'done' || t.status === 'cancelled') && String(t.start_at || '').slice(0, 10) < tdy);
     });
-    var canCreate = isMgrFE() && (started.length > 0 || (isAdminFE() && App.showClosed && camps.some(function(c) { return c.campaign_status === 'closed'; })));
+    var canCreate = isMgrFE() && (started.length > 0 || (showClosedOn_() && camps.some(function(c) { return c.campaign_status === 'closed' || c.campaign_status === 'draft'; })));
     var TK_COL = { pending: '#3b82f6', in_progress: '#f59e0b', done: '#22c55e', overdue: '#ef4444', cancelled: '#9ca3af' };
     var TK_ICO = { pending: 'fa-hourglass-half', in_progress: 'fa-spinner', done: 'fa-circle-check', overdue: 'fa-triangle-exclamation', cancelled: 'fa-ban' };
     var statsHtml = '<div class="tk-stats">' + ['pending', 'in_progress', 'done', 'overdue', 'cancelled'].map(function(st) {
@@ -5671,7 +5673,7 @@ function showTaskModal(t) {
   t = t || {};
   var mgr = isMgrFE(), isNew = !t.id;
   var camps = App._cache.campaigns || [], houses = {}; (App._cache.houses || []).forEach(function(h) { houses[h.id] = h.name; });
-  var campList = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === t.campaign_id || (isAdminFE() && c.campaign_status === 'closed'); });
+  var campList = camps.filter(function(c) { return c.campaign_status === 'started' || c.id === t.campaign_id || (isAdminFE() && c.campaign_status === 'closed') || (showClosedOn_() && c.campaign_status === 'draft'); });
   document.getElementById('tk-camp').innerHTML = '<option value="">Seleccionar campaña</option>' + campList.map(function(c) {
     return '<option value="' + c.id + '">' + escHtml(c.batch_number) + ' · ' + escHtml(houses[c.house_id] || '—') + (c.campaign_status !== 'started' ? ' (' + (c.campaign_status === 'closed' ? 'cerrada' : 'sin iniciar') + ')' : '') + '</option>';
   }).join('');
