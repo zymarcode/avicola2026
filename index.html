@@ -4156,12 +4156,13 @@ function renderBirds() {
     var hMap = {}; houses.forEach(function(h) { hMap[h.id] = h.name; });
     var filtered = filterHouse ? birds.filter(function(b) { return b.house_id === filterHouse; }) : birds;
     if (campCur_('birds')) filtered = filtered.filter(function(b) { return String(b.id) === campCur_('birds'); });
-    filtered = filterTable(filtered, searchVal, ['batch_number', 'species', 'status']); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
+    filtered = filterTable(filtered, searchVal, ['batch_number', 'species', 'breed', 'status']); var canEdit = isMgrFE();   // solo administrador y gerente administran; el resto consulta
     var birdRows = filtered.map(function(b) {
       return '<tr>' +
         '<td><strong>' + escHtml(b.batch_number) + '</strong></td>' +
         '<td>' + escHtml(hMap[b.house_id] || '—') + '</td>' +
         '<td>' + escHtml(b.species || '') + '</td>' +
+        '<td>' + (b.breed ? '<span class="badge badge-info">' + escHtml(b.breed) + '</span>' : '<span style="color:var(--gray-light)">—</span>') + '</td>' +
         '<td>' + fmtNum(parseInt(b.quantity) || 0) + '</td>' +
         '<td>' + fmtDate(b.arrival_date) + '</td>' +
         '<td><span class="badge ' + ({started:'badge-success',draft:'badge-warning',closed:'badge-gray'}[campStatusFE(b)]) + '">' + ({started:'Iniciada',draft:'Sin iniciar',closed:'Cerrada'}[campStatusFE(b)]) + '</span></td>' +
@@ -4175,17 +4176,20 @@ function renderBirds() {
         (canEdit ? '<button class="btn-primary" onclick="showBirdModal()"><i class="fas fa-plus"></i> Nuevo Lote</button>' : '') +
       '</div>' +
       '<div class="filters-bar">' +
-        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="birds-search" placeholder="Buscar lote, especie..." value="' + escHtml(searchVal) + '" oninput="renderBirds()"></div>' + campFilterHtml_('birds', 'renderBirds()') +
+        '<div class="search-box"><i class="fas fa-search"></i><input type="text" id="birds-search" placeholder="Buscar lote, especie, raza..." value="' + escHtml(searchVal) + '" oninput="renderBirds()"></div>' + campFilterHtml_('birds', 'renderBirds()') +
         '<select id="birds-filter-house" onchange="renderBirds()">' + hOpts + '</select>' +
       '</div>' +
-      tblBuild('birds', birdRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 7 : 6) + '">No se encontraron lotes de aves</td></tr>',
-        '<tr><th>Lote</th><th>Galpón</th><th>Especie</th><th>Cantidad</th><th>Fecha Ingreso</th><th>Campaña</th>' + (canEdit ? '<th></th>' : '') + '</tr>') +
+      tblBuild('birds', birdRows, '<tr class="empty-row"><td colspan="' + (canEdit ? 8 : 7) + '">No se encontraron lotes de aves</td></tr>',
+        '<tr><th>Lote</th><th>Galpón</th><th>Especie</th><th>Raza / Línea</th><th>Cantidad</th><th>Fecha Ingreso</th><th>Campaña</th>' + (canEdit ? '<th></th>' : '') + '</tr>') +
       (canEdit ? '<div id="bird-modal" class="modal" style="display:none"><div class="modal-content">' +
         '<div class="modal-header"><h3 id="bird-modal-title">Nuevo Lote</h3><button class="close-modal" onclick="closeModal(\'bird-modal\')">&times;</button></div>' +
         '<form id="bird-form"><input type="hidden" id="b-id" value="new">' +
         '<div class="form-group"><label>Galpón *</label><select id="b-house-id" required>' + hModalOpts + '</select></div>' +
         fGroup('Número de Lote', 'text', 'b-batch', '', 'required', 'Ej: L-2026-10-A') +
-        '<div class="form-group"><label>Especie</label><select id="b-species">' + selOpt(['Pollo:Pollo', 'Gallina:Gallina', 'Pavo:Pavo', 'Pato:Pato'], 'Pollo') + '</select></div>' +
+        '<div class="form-group"><label>Especie</label><select id="b-species" onchange="birdSpeciesChange_()">' + selOpt(['Pollo:Pollo', 'Gallina:Gallina', 'Pavo:Pavo', 'Pato:Pato'], 'Pollo') + '</select></div>' +
+        '<div class="form-group"><label>Raza / línea genética</label><select id="b-breed" onchange="birdBreedChange_()"></select>' +
+          '<input type="text" id="b-breed-other" maxlength="60" placeholder="Escribe la raza o línea" style="display:none;margin-top:6px">' +
+          '<small class="field-hint">Ej.: Ross 308, Cobb 500 (la línea que te entregó la incubadora). Es opcional.</small></div>' +
         fGroup('Cantidad de Aves', 'number', 'b-quantity', '', 'required', 'Ej: 4800 (pollitos recibidos)') +
         fGroup('Fecha de Ingreso',  'date', 'b-arrival', today(), 'required') +
         '<div class="form-group"><label>Estado</label><select id="b-status">' + selOpt(['active:Activo', 'inactive:Inactivo'], 'active') + '</select></div>' +
@@ -4211,6 +4215,36 @@ function startCampaignUI(id) {
   }, { okText: 'Iniciar campaña', icon: 'fa-play' });
 }
 
+// Razas / líneas genéticas más usadas por especie (la lista se adapta a la especie elegida)
+var BIRD_BREEDS_ = {
+  'Pollo':   ['Ross 308', 'Ross 708', 'Cobb 500', 'Cobb 700', 'Hubbard Flex', 'Arbor Acres Plus', 'Hybro', 'Criollo / de campo'],
+  'Gallina': ['Hy-Line Brown', 'Lohmann Brown', 'ISA Brown', 'Dekalb White', 'Criolla / de campo'],
+  'Pavo':    ['BUT Big 6', 'Nicholas', 'Hybrid Converter', 'Criollo'],
+  'Pato':    ['Pekín', 'Muscovy (criollo)', 'Cherry Valley']
+};
+function birdBreedFill_(species, current) {
+  var sel = document.getElementById('b-breed'), oth = document.getElementById('b-breed-other'); if (!sel || !oth) return;
+  var list = BIRD_BREEDS_[species] || [];
+  current = String(current || '').trim();
+  var known = list.indexOf(current) > -1;
+  sel.innerHTML = '<option value="">Sin especificar</option>' +
+    list.map(function(x) { return '<option value="' + escHtml(x) + '">' + escHtml(x) + '</option>'; }).join('') +
+    '<option value="__otra">Otra (escribir)</option>';
+  sel.value = !current ? '' : (known ? current : '__otra');
+  oth.style.display = sel.value === '__otra' ? '' : 'none';
+  oth.value = (current && !known) ? current : '';
+}
+function birdBreedChange_() {
+  var sel = document.getElementById('b-breed'), oth = document.getElementById('b-breed-other'); if (!sel || !oth) return;
+  oth.style.display = sel.value === '__otra' ? '' : 'none';
+  if (sel.value === '__otra') oth.focus();
+}
+function birdSpeciesChange_() { birdBreedFill_(v('b-species'), ''); }
+function birdBreedValue_() {
+  var sel = document.getElementById('b-breed'); if (!sel) return '';
+  return sel.value === '__otra' ? v('b-breed-other').trim() : sel.value;
+}
+
 function showBirdModal(b) {
   b = b || {};
   document.getElementById('bird-modal-title').textContent = b.id ? 'Editar Lote' : 'Nuevo Lote';
@@ -4218,6 +4252,7 @@ function showBirdModal(b) {
   document.getElementById('b-house-id').value = b.house_id     || '';
   document.getElementById('b-batch').value    = b.batch_number || '';
   document.getElementById('b-species').value  = b.species      || 'Pollo';
+  birdBreedFill_(b.species || 'Pollo', b.breed || '');
   document.getElementById('b-quantity').value = b.quantity     || '';
   document.getElementById('b-arrival').value  = b.arrival_date || today();
   document.getElementById('b-status').value   = b.status       || 'active';
@@ -4234,7 +4269,7 @@ function saveBirdForm(e) {
   var btn = e.target.querySelector('[type="submit"]'); if (btn) btn.disabled = true;
   api('saveBird', {
     id: v('b-id'), house_id: v('b-house-id'), batch_number: v('b-batch'),
-    species: v('b-species'), quantity: v('b-quantity'),
+    species: v('b-species'), breed: birdBreedValue_(), quantity: v('b-quantity'),
     arrival_date: v('b-arrival'), status: v('b-status')
   }, function(r) {
     if (btn) btn.disabled = false;
