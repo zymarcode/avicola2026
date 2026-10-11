@@ -2238,7 +2238,11 @@ function _apiRaw(action, params, cb) {
   if (App.token) p.token = App.token;
   if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;   // aislamiento por campaña
   var _acc = adminClosedCamp_(action, p); if (_acc) p.campaign_id = _acc;
-  if (showClosedOn_()) p.show_closed = 1;   // botón «campañas cerradas» activo (solo administrador)
+  if (showClosedOn_()) {   // botón «ver todo» activo (solo administrador)
+    p.show_closed = 1;
+    // El filtro de campaña de cada sección también se envía al servidor (antes solo recortaba en pantalla y por eso no llegaban los datos de otras campañas)
+    if (CAMP_API_[action] && !p.campaign_id) { var _cc = campCur_(App.currentModule); if (_cc) p.campaign_id = _cc; }
+  }
 
   var isSilent = (action === 'getTaskAlert' || action === 'updateOnlineStatus' || action === 'getNotifications' || action === 'getChatMessages' || action === 'getOnlineUsers');
 
@@ -2318,7 +2322,10 @@ function api(action, params, cb) {
   var p = Object.assign({}, params || {});
   if (CAMP_API_[action] && p.campaign_id === undefined && App.camp) p.campaign_id = App.camp;
   var _acc2 = adminClosedCamp_(action, p); if (_acc2) p.campaign_id = _acc2;
-  if (showClosedOn_()) p.show_closed = 1;
+  if (showClosedOn_()) {
+    p.show_closed = 1;
+    if (CAMP_API_[action] && !p.campaign_id) { var _cc2 = campCur_(App.currentModule); if (_cc2) p.campaign_id = _cc2; }
+  }
   var k = _swrClave(action, p);
   var previo = _swrLeer(k);
   var servido = null;
@@ -6149,7 +6156,7 @@ function renderHealth() {
       var html =
         '<div class="module-header"><div><h1 class="page-title">Salud / Veterinaria</h1><div class="page-subtitle">' + scopeTag() + filtered.length + ' eventos registrados</div></div>' +
         (seeAllFE() ? '' : '<button class="btn-primary" onclick="showHealthModal()"><i class="fas fa-plus"></i> Nuevo Evento</button>') + '</div>' + pendingBannerHtml(filtered) +
-        '<div class="filters-bar"><select id="health-filter-house" onchange="renderHealth()">' + hOpts + '</select>' + cardSortSelectHtml('health', 'renderHealth()') + '</div>' +
+        '<div class="filters-bar"><select id="health-filter-house" onchange="renderHealth()">' + hOpts + '</select>' + (showClosedOn_() ? campFilterHtml_('health', 'renderHealth()') : '') + cardSortSelectHtml('health', 'renderHealth()') + '</div>' +
         '<div class="health-grid">' + cards + '</div>' +
         '<div id="health-modal" class="modal" style="display:none"><div class="modal-content">' +
           '<div class="modal-header"><h3 id="health-modal-title">Nuevo Evento de Salud</h3><button class="close-modal" onclick="closeModal(\'health-modal\')">&times;</button></div>' +
@@ -6233,7 +6240,7 @@ function renderMaintenance() {
             '<option value="pending"' + (filterStatus === 'pending' ? ' selected' : '') + '>Pendiente</option>' +
             '<option value="in_progress"' + (filterStatus === 'in_progress' ? ' selected' : '') + '>En Progreso</option>' +
             '<option value="done"' + (filterStatus === 'done' ? ' selected' : '') + '>Completado</option>' +
-          '</select>' + cardSortSelectHtml('maintenance', 'renderMaintenance()') +
+          '</select>' + (showClosedOn_() ? campFilterHtml_('maintenance', 'renderMaintenance()') : '') + cardSortSelectHtml('maintenance', 'renderMaintenance()') +
         '</div>' +
         '<div class="maint-grid">' + cards + '</div>' +
         '<div id="maint-modal" class="modal" style="display:none"><div class="modal-content">' +
