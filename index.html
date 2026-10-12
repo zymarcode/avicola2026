@@ -4983,6 +4983,7 @@ function finScanNext() {
         showLoader(false);
         if (!r || !r.success) { showToast((r && r.error) || 'No se pudo leer el documento', 'error'); finScanNext(); return; }
         finScanConfirm(f.name, file.type, dataUrl, r.data);
+        if (r.data && r.data.aviso) showToast(r.data.aviso, 'warning');
       });
     };
     fr.readAsDataURL(file);
