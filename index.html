@@ -4771,7 +4771,10 @@ function renderFinance(fromCache) {
     var html =
       '<div class="module-header">' +
         '<div><h1 class="page-title">Finanzas</h1><div class="page-subtitle">' + scopeTag() + finances.length + ' movimientos · todo costo y todo ingreso del sistema se concentra aquí</div></div>' +
-        '<button class="btn-primary" onclick="showFinanceModal()"><i class="fas fa-plus"></i> Nuevo Movimiento</button>' +
+                '<div class="btn-group-row">' +
+          '<button class="btn-secondary" onclick="finScanPick()"><i class="fas fa-file-pdf"></i> Subir PDF / foto</button>' +
+          '<button class="btn-primary" onclick="showFinanceModal()"><i class="fas fa-plus"></i> Nuevo Movimiento</button>' +
+        '</div>' +
       '</div>' +
       '<div class="finance-summary" id="fin-summary">' +
         '<div class="summary-card"><div class="summary-icon balance"><i class="fas fa-piggy-bank"></i></div><div><h3>Capital recibido</h3><p>' + fmtMoneyCard(totalCap) + '</p><small>Con lo que empezó</small></div></div>' +
@@ -4939,6 +4942,152 @@ function saveFinanceForm(e) {
   });
 }
 
+
+
+var _fs = { queue: [], saved: 0, cur: null };
+
+function finScanPick() {
+  var inp = document.createElement('input');
+  inp.type = 'file'; inp.multiple = true; inp.style.display = 'none';
+  inp.accept = '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*';
+  inp.onchange = function() {
+    var fs = Array.prototype.slice.call(inp.files || []);
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (!fs.length) return;
+    _fs.queue = fs; _fs.saved = 0; finScanNext();
+  };
+  document.body.appendChild(inp);
+  inp.click();
+}
+
+function finScanDone() {
+  var n = _fs.saved;
+  _fs.queue = []; _fs.saved = 0; _fs.cur = null;
+  if (n) { App._cache.finData = null; renderFinance(); }
+}
+
+function finScanNext() {
+  var f = _fs.queue.shift();
+  if (!f) { finScanDone(); return; }
+  var isPdf = f.type === 'application/pdf', isImg = String(f.type).indexOf('image/') === 0;
+  if (!isPdf && !isImg) { showToast('«' + f.name + '» no es PDF ni imagen: se omitió', 'warning'); finScanNext(); return; }
+  showLoader(true);
+  showToast('Leyendo «' + f.name + '»…', 'info');
+  var go = function(file) {
+    if (file.size > 3 * 1024 * 1024) { showLoader(false); showToast('«' + f.name + '» pesa más de 3 MB: se omitió', 'warning'); finScanNext(); return; }
+    var fr = new FileReader();
+    fr.onerror = function() { showLoader(false); showToast('No se pudo leer «' + f.name + '»', 'error'); finScanNext(); };
+    fr.onload = function(ev) {
+      var dataUrl = ev.target.result;
+      api('scanFinanceDoc', { base64: dataUrl, mimeType: file.type }, function(r) {
+        showLoader(false);
+        if (!r || !r.success) { showToast((r && r.error) || 'No se pudo leer el documento', 'error'); finScanNext(); return; }
+        finScanConfirm(f.name, file.type, dataUrl, r.data);
+      });
+    };
+    fr.readAsDataURL(file);
+  };
+  if (isImg) _voucherCompress(f, go); else go(f);
+}
+
+function finScanCampOpts_(preSel) {
+  var hMap = {};
+  ((App._campMeta && App._campMeta.houses) || []).forEach(function(h) { hMap[h.id] = h.name; });
+  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) {
+    var s = campStatusFE(b);
+    return s === 'started' || (isAdminFE() && s === 'closed');
+  }).sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
+  var pick = (preSel && list.some(function(b) { return String(b.id) === String(preSel); })) ? String(preSel) : (list.length === 1 ? String(list[0].id) : '');
+  return '<option value="">— Elige la campaña —</option>' + list.map(function(b) {
+    return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === pick ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (campStatusFE(b) === 'closed' ? ' (cerrada)' : '') + '</option>';
+  }).join('');
+}
+
+function finScanCats_(selected) {
+  var sel = document.getElementById('fs-cat'); if (!sel) return;
+  var cats = v('fs-type') === 'income' ? ['Venta de pollos', 'Venta de aves', 'Subsidios', 'Otros ingresos'] : ['Mano de obra', 'Servicios', 'Transporte', 'Impuestos', 'Otros egresos'];
+  sel.innerHTML = cats.map(function(c) { return '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>'; }).join('');
+}
+
+function finScanConfirm(fileName, mime, dataUrl, d) {
+  var old = document.getElementById('fs-modal'); if (old) old.remove();
+  _fs.cur = { name: fileName, mime: mime, dataUrl: dataUrl, doc: d.documento || '' };
+  var left = _fs.queue.length;
+  var m = document.createElement('div');
+  m.id = 'fs-modal'; m.className = 'modal'; m.style.display = 'flex';
+  m.innerHTML =
+    '<div class="modal-content"><div class="modal-header"><h3><i class="fas fa-file-invoice"></i> Confirmar documento</h3><button type="button" class="close-modal" id="fs-x">&times;</button></div>' +
+    '<div class="modal-note"><strong>' + escHtml(fileName) + '</strong>' +
+      '<div class="mn-sub"><span>' + escHtml(d.documento || 'Documento') + '</span>' + (d.emisor ? '<span>· ' + escHtml(d.emisor) + '</span>' : '') + (left ? '<span>· faltan ' + left + ' más</span>' : '') + '</div></div>' +
+    '<div class="form-group"><label>¿En qué campaña se guardará? *</label><select id="fs-camp">' + finScanCampOpts_(campCur_('finance') || App.camp) + '</select>' +
+      '<small class="field-hint">Revisa bien este dato: de él dependen los costos y la utilidad de la campaña.</small></div>' +
+    '<div class="form-row">' +
+      '<div class="form-group"><label>Tipo</label><select id="fs-type" onchange="finScanCats_()">' + (isAdminFE() ? selOpt(['expense:Egreso', 'income:Ingreso'], d.tipo || 'expense') : selOpt(['expense:Egreso'], 'expense')) + '</select></div>' +
+      '<div class="form-group"><label>Categoría</label><select id="fs-cat"></select></div>' +
+    '</div>' +
+    '<div class="form-row">' + fGroup('Fecha', 'date', 'fs-date', d.fecha || today(), 'required') + fGroup('Monto (S/)', 'number', 'fs-amount', d.monto || '', 'required', 'Ej: 250.00', d.monto ? '' : 'El documento no trae monto: escríbelo tú.') + '</div>' +
+    '<div class="form-group"><label>Descripción</label><textarea id="fs-desc" class="fld-desc" rows="2" maxlength="300"></textarea></div>' +
+    '<div class="form-actions"><button type="button" class="btn-secondary" id="fs-skip">' + (left ? 'Omitir este' : 'Cancelar') + '</button>' +
+      (left ? '<button type="button" class="btn-secondary" id="fs-stop">Cancelar todo</button>' : '') +
+      '<button type="button" class="btn-primary" id="fs-save"><i class="fas fa-save"></i> Guardar en Finanzas</button></div></div>';
+  document.body.appendChild(m);
+  document.getElementById('fs-type').value = (d.tipo === 'income' && isAdminFE()) ? 'income' : 'expense';
+  finScanCats_(d.categoria);
+  document.getElementById('fs-desc').value = d.descripcion || '';
+  var close = function() { if (m.parentNode) m.parentNode.removeChild(m); };
+  document.getElementById('fs-x').onclick = function() { close(); finScanDone(); };
+  document.getElementById('fs-skip').onclick = function() { close(); finScanNext(); };
+  var stop = document.getElementById('fs-stop'); if (stop) stop.onclick = function() { close(); finScanDone(); };
+  document.getElementById('fs-save').onclick = function() { finScanSave(close); };
+}
+
+function finScanSave(close) {
+  var camp = v('fs-camp'), amount = parseFloat(v('fs-amount')) || 0;
+  var desc = v('fs-desc').replace(/\s*[\r\n]+\s*/g, ' ').trim();
+  if (!camp) { showToast('Elige la campaña donde se guardará', 'warning'); return; }
+  if (amount <= 0) { showToast('Indica el monto', 'warning'); return; }
+  if (!desc) { showToast('Escribe una descripción', 'warning'); return; }
+  if (!v('fs-date')) { showToast('Indica la fecha', 'warning'); return; }
+  var btn = document.getElementById('fs-save'); btn.disabled = true;
+  var bird = campById_(camp), cur = _fs.cur || {};
+  var payload = {
+    id: 'new', type: v('fs-type'), category: v('fs-cat'), date: v('fs-date'), description: desc,
+    amount: amount, house_id: '', campaign_id: camp, voucher_url: '', close_campaign: false
+  };
+
+  var finish = function(r) {
+    if (r && r.duplicate) {
+      btn.disabled = false;
+      confirmDialog(r.error + ' ¿Es otro documento distinto?', function() {
+        btn.disabled = true; payload.force = true;
+        api('saveFinance', payload, finish);
+      }, { type: 'primary', okText: 'Guardar igual', title: 'Posible duplicado' });
+      return;
+    }
+    if (r && r.success) {
+      _fs.saved++; close();
+      showToast('Guardado en Finanzas' + (bird ? ' · ' + bird.batch_number : ''), 'success');
+      finScanNext();
+    } else {
+      btn.disabled = false;
+      showToast((r && r.error) || 'No se pudo guardar', 'error');
+    }
+  };
+
+  api('uploadImage', {
+    folder_section: 'fi', folder_campaign_id: camp, base64: cur.dataUrl, mimeType: cur.mime,
+    ref: [cur.doc || 'Documento', v('fs-date'), v('fs-cat'), bird ? bird.batch_number : '', 'S' + amount.toFixed(2)],
+    fileName: 'documento_fi_' + Date.now() + '_' + String(cur.name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_')
+  }, function(up) {
+    if (!up || !up.success || !up.url) {
+      btn.disabled = false;
+      showToast((up && up.error) || 'No se pudo subir el archivo', 'error');
+      return;
+    }
+    payload.voucher_url = up.url;
+    api('saveFinance', payload, finish);
+  });
+}
 // ==================== PERSONAL ====================
 function renderStaff() {
   // Carga una sola vez la lista de usuarios del sistema (para vincular empleado ↔ usuario)
