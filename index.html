@@ -4772,7 +4772,6 @@ function renderFinance(fromCache) {
       '<div class="module-header">' +
         '<div><h1 class="page-title">Finanzas</h1><div class="page-subtitle">' + scopeTag() + finances.length + ' movimientos · todo costo y todo ingreso del sistema se concentra aquí</div></div>' +
                 '<div class="btn-group-row">' +
-          '<button class="btn-secondary" onclick="finScanPick()"><i class="fas fa-file-pdf"></i> Subir PDF / foto</button>' +
           '<button class="btn-primary" onclick="showFinanceModal()"><i class="fas fa-plus"></i> Nuevo Movimiento</button>' +
         '</div>' +
       '</div>' +
@@ -4796,6 +4795,7 @@ function renderFinance(fromCache) {
       '<div id="fin-modal" class="modal" style="display:none"><div class="modal-content">' +
         '<div class="modal-header"><h3 id="fin-modal-title">Nuevo Movimiento</h3><button class="close-modal" onclick="closeModal(\'fin-modal\')">&times;</button></div>' +
         '<form id="fin-form"><input type="hidden" id="fi-id" value="new">' +
+        voucherFieldHtml('fi', 'Boleta / comprobante (obligatorio en egresos, salvo administrador)', 'Al adjuntar una boleta, factura o PDF se leen solos la fecha, el monto y el emisor, y ves la vista previa. Revisa y corrige antes de guardar.') +
         '<div class="form-group"><label>Tipo *</label><select id="fi-type" onchange="updateFinCats()">' +
           (canIncome ? selOpt(['income:Ingreso', 'expense:Egreso'], 'expense') : selOpt(['expense:Egreso'], 'expense')) + '</select>' +
           (canIncome ? '' : '<small class="field-hint">Solo el administrador registra ingresos (capital, ventas de campaña u otros).</small>') + '</div>' +
@@ -4807,7 +4807,6 @@ function renderFinance(fromCache) {
           '<small class="field-hint">Puedes anotar el documento: «Boleta de venta B001-000123», «Guía de remisión T001-000456», «Factura F001-0089»…</small>' +
           '<span class="desc-count" id="fi-desc-count">0 / 300</span></div>' +
         fGroup('Monto (S/)', 'number', 'fi-amount', '', 'required', 'Ej: 250.00') +
-        voucherFieldHtml('fi', 'Boleta / comprobante (obligatorio en egresos, salvo administrador)') +
         '<div class="form-group" id="fi-house-group"><label>Galpón (opcional)</label><select id="fi-house"><option value="">— Sin galpón —</option>' + houses.map(function(h) { return '<option value="' + h.id + '">' + escHtml(h.name) + '</option>'; }).join('') + '</select></div>' +
         '<div class="form-group" id="fi-close-group" style="display:none"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="fi-close" style="width:auto"> Cerrar esta campaña (el lote pasa a inactivo)</label><small class="field-hint">Úsalo al registrar la venta final del lote.</small></div>' +
         '<div id="fi-note" class="info-box"><i class="fas fa-circle-info"></i> Alimento, medicinas y mantenimiento no se registran aquí: se cargan solos desde Alimentación, Salud y Mantenimiento.</div>' +
@@ -4944,151 +4943,124 @@ function saveFinanceForm(e) {
 
 
 
-var _fs = { queue: [], saved: 0, cur: null };
+// ---------- Vista previa del documento dentro de «Confirmar documento» ----------
+function finScanBytes_(dataUrl) {
+  var b64 = String(dataUrl || '').slice(String(dataUrl || '').indexOf('base64,') + 7);
+  var bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return u8;
+}
 
-function finScanPick() {
-  var inp = document.createElement('input');
-  inp.type = 'file'; inp.multiple = true; inp.style.display = 'none';
-  inp.accept = '.pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*';
-  inp.onchange = function() {
-    var fs = Array.prototype.slice.call(inp.files || []);
-    if (inp.parentNode) inp.parentNode.removeChild(inp);
-    if (!fs.length) return;
-    _fs.queue = fs; _fs.saved = 0; finScanNext();
+// Carga pdf.js una sola vez (solo cuando hay un PDF que mostrar). El worker se arma como blob para evitar el bloqueo de otro origen.
+function finLoadPdfJs_(cb) {
+  if (window.pdfjsLib) { cb(window.pdfjsLib); return; }
+  var base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  var s = document.createElement('script');
+  s.src = base + 'pdf.min.js';
+  s.onload = function() {
+    try {
+      var lib = window.pdfjsLib;
+      lib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob(["importScripts('" + base + "pdf.worker.min.js');"], { type: 'text/javascript' }));
+      cb(lib);
+    } catch (e) { cb(null); }
   };
-  document.body.appendChild(inp);
-  inp.click();
+  s.onerror = function() { cb(null); };
+  document.head.appendChild(s);
 }
 
-function finScanDone() {
-  var n = _fs.saved;
-  _fs.queue = []; _fs.saved = 0; _fs.cur = null;
-  if (n) { App._cache.finData = null; renderFinance(); }
-}
-
-function finScanNext() {
-  var f = _fs.queue.shift();
-  if (!f) { finScanDone(); return; }
-  var isPdf = f.type === 'application/pdf', isImg = String(f.type).indexOf('image/') === 0;
-  if (!isPdf && !isImg) { showToast('«' + f.name + '» no es PDF ni imagen: se omitió', 'warning'); finScanNext(); return; }
-  showLoader(true);
-  showToast('Leyendo «' + f.name + '»…', 'info');
-  var go = function(file) {
-    if (file.size > 3 * 1024 * 1024) { showLoader(false); showToast('«' + f.name + '» pesa más de 3 MB: se omitió', 'warning'); finScanNext(); return; }
-    var fr = new FileReader();
-    fr.onerror = function() { showLoader(false); showToast('No se pudo leer «' + f.name + '»', 'error'); finScanNext(); };
-    fr.onload = function(ev) {
-      var dataUrl = ev.target.result;
-      api('scanFinanceDoc', { base64: dataUrl, mimeType: file.type }, function(r) {
-        showLoader(false);
-        if (!r || !r.success) { showToast((r && r.error) || 'No se pudo leer el documento', 'error'); finScanNext(); return; }
-        finScanConfirm(f.name, file.type, dataUrl, r.data);
-        if (r.data && r.data.aviso) showToast(r.data.aviso, 'warning');
-      });
-    };
-    fr.readAsDataURL(file);
-  };
-  if (isImg) _voucherCompress(f, go); else go(f);
-}
-
-function finScanCampOpts_(preSel) {
-  var hMap = {};
-  ((App._campMeta && App._campMeta.houses) || []).forEach(function(h) { hMap[h.id] = h.name; });
-  var list = ((App._campMeta && App._campMeta.birds) || []).filter(function(b) {
-    var s = campStatusFE(b);
-    return s === 'started' || (isAdminFE() && s === 'closed');
-  }).sort(function(a, b) { return String(b.arrival_date).localeCompare(String(a.arrival_date)); });
-  var pick = (preSel && list.some(function(b) { return String(b.id) === String(preSel); })) ? String(preSel) : (list.length === 1 ? String(list[0].id) : '');
-  return '<option value="">— Elige la campaña —</option>' + list.map(function(b) {
-    return '<option value="' + escHtml(b.id) + '"' + (String(b.id) === pick ? ' selected' : '') + '>' + escHtml(b.batch_number) + ' · ' + escHtml(hMap[b.house_id] || '—') + (campStatusFE(b) === 'closed' ? ' (cerrada)' : '') + '</option>';
-  }).join('');
-}
-
-function finScanCats_(selected) {
-  var sel = document.getElementById('fs-cat'); if (!sel) return;
-  var cats = v('fs-type') === 'income' ? ['Venta de pollos', 'Venta de aves', 'Subsidios', 'Otros ingresos'] : ['Mano de obra', 'Servicios', 'Transporte', 'Impuestos', 'Otros egresos'];
-  sel.innerHTML = cats.map(function(c) { return '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>'; }).join('');
-}
-
-function finScanConfirm(fileName, mime, dataUrl, d) {
-  var old = document.getElementById('fs-modal'); if (old) old.remove();
-  _fs.cur = { name: fileName, mime: mime, dataUrl: dataUrl, doc: d.documento || '' };
-  var left = _fs.queue.length;
-  var m = document.createElement('div');
-  m.id = 'fs-modal'; m.className = 'modal'; m.style.display = 'flex';
-  m.innerHTML =
-    '<div class="modal-content"><div class="modal-header"><h3><i class="fas fa-file-invoice"></i> Confirmar documento</h3><button type="button" class="close-modal" id="fs-x">&times;</button></div>' +
-    '<div class="modal-note"><strong>' + escHtml(fileName) + '</strong>' +
-      '<div class="mn-sub"><span>' + escHtml(d.documento || 'Documento') + '</span>' + (d.emisor ? '<span>· ' + escHtml(d.emisor) + '</span>' : '') + (left ? '<span>· faltan ' + left + ' más</span>' : '') + '</div></div>' +
-    '<div class="form-group"><label>¿En qué campaña se guardará? *</label><select id="fs-camp">' + finScanCampOpts_(campCur_('finance') || App.camp) + '</select>' +
-      '<small class="field-hint">Revisa bien este dato: de él dependen los costos y la utilidad de la campaña.</small></div>' +
-    '<div class="form-row">' +
-      '<div class="form-group"><label>Tipo</label><select id="fs-type" onchange="finScanCats_()">' + (isAdminFE() ? selOpt(['expense:Egreso', 'income:Ingreso'], d.tipo || 'expense') : selOpt(['expense:Egreso'], 'expense')) + '</select></div>' +
-      '<div class="form-group"><label>Categoría</label><select id="fs-cat"></select></div>' +
-    '</div>' +
-    '<div class="form-row">' + fGroup('Fecha', 'date', 'fs-date', d.fecha || today(), 'required') + fGroup('Monto (S/)', 'number', 'fs-amount', d.monto || '', 'required', 'Ej: 250.00', d.monto ? '' : 'El documento no trae monto: escríbelo tú.') + '</div>' +
-    '<div class="form-group"><label>Descripción</label><textarea id="fs-desc" class="fld-desc" rows="2" maxlength="300"></textarea></div>' +
-    '<div class="form-actions"><button type="button" class="btn-secondary" id="fs-skip">' + (left ? 'Omitir este' : 'Cancelar') + '</button>' +
-      (left ? '<button type="button" class="btn-secondary" id="fs-stop">Cancelar todo</button>' : '') +
-      '<button type="button" class="btn-primary" id="fs-save"><i class="fas fa-save"></i> Guardar en Finanzas</button></div></div>';
-  document.body.appendChild(m);
-  document.getElementById('fs-type').value = (d.tipo === 'income' && isAdminFE()) ? 'income' : 'expense';
-  finScanCats_(d.categoria);
-  document.getElementById('fs-desc').value = d.descripcion || '';
-  var close = function() { if (m.parentNode) m.parentNode.removeChild(m); };
-  document.getElementById('fs-x').onclick = function() { close(); finScanDone(); };
-  document.getElementById('fs-skip').onclick = function() { close(); finScanNext(); };
-  var stop = document.getElementById('fs-stop'); if (stop) stop.onclick = function() { close(); finScanDone(); };
-  document.getElementById('fs-save').onclick = function() { finScanSave(close); };
-}
-
-function finScanSave(close) {
-  var camp = v('fs-camp'), amount = parseFloat(v('fs-amount')) || 0;
-  var desc = v('fs-desc').replace(/\s*[\r\n]+\s*/g, ' ').trim();
-  if (!camp) { showToast('Elige la campaña donde se guardará', 'warning'); return; }
-  if (amount <= 0) { showToast('Indica el monto', 'warning'); return; }
-  if (!desc) { showToast('Escribe una descripción', 'warning'); return; }
-  if (!v('fs-date')) { showToast('Indica la fecha', 'warning'); return; }
-  var btn = document.getElementById('fs-save'); btn.disabled = true;
-  var bird = campById_(camp), cur = _fs.cur || {};
-  var payload = {
-    id: 'new', type: v('fs-type'), category: v('fs-cat'), date: v('fs-date'), description: desc,
-    amount: amount, house_id: '', campaign_id: camp, voucher_url: '', close_campaign: false
-  };
-
-  var finish = function(r) {
-    if (r && r.duplicate) {
-      btn.disabled = false;
-      confirmDialog(r.error + ' ¿Es otro documento distinto?', function() {
-        btn.disabled = true; payload.force = true;
-        api('saveFinance', payload, finish);
-      }, { type: 'primary', okText: 'Guardar igual', title: 'Posible duplicado' });
-      return;
-    }
-    if (r && r.success) {
-      _fs.saved++; close();
-      showToast('Guardado en Finanzas' + (bird ? ' · ' + bird.batch_number : ''), 'success');
-      finScanNext();
-    } else {
-      btn.disabled = false;
-      showToast((r && r.error) || 'No se pudo guardar', 'error');
-    }
-  };
-
-  api('uploadImage', {
-    folder_section: 'fi', folder_campaign_id: camp, base64: cur.dataUrl, mimeType: cur.mime,
-    ref: [cur.doc || 'Documento', v('fs-date'), v('fs-cat'), bird ? bird.batch_number : '', 'S' + amount.toFixed(2)],
-    fileName: 'documento_fi_' + Date.now() + '_' + String(cur.name || 'archivo').replace(/[^a-zA-Z0-9._-]/g, '_')
-  }, function(up) {
-    if (!up || !up.success || !up.url) {
-      btn.disabled = false;
-      showToast((up && up.error) || 'No se pudo subir el archivo', 'error');
-      return;
-    }
-    payload.voucher_url = up.url;
-    api('saveFinance', payload, finish);
+function finScanPreview_(box, mime, dataUrl) {
+  if (!box) return;
+  var alive = function() { return document.body.contains(box); };
+  var msg = function(txt) { box.innerHTML = '<div style="padding:22px 12px;color:#64748b;font-size:13px">' + txt + '</div>'; };
+  if (String(mime).indexOf('image/') === 0) {
+    var im = new Image();
+    im.alt = 'Vista previa del documento';
+    im.style.cssText = 'display:block;width:100%;height:auto';
+    im.onerror = function() { if (alive()) msg('No se pudo mostrar la imagen.'); };
+    im.src = dataUrl;
+    box.innerHTML = ''; box.appendChild(im);
+    return;
+  }
+  msg('<i class="fas fa-spinner fa-spin"></i> Cargando vista previa…');
+  finLoadPdfJs_(function(lib) {
+    if (!alive()) return;
+    if (!lib) { msg('No se pudo cargar la vista previa del PDF. Igual puedes guardarlo.'); return; }
+    lib.getDocument({ data: finScanBytes_(dataUrl) }).promise.then(function(pdf) {
+      if (!alive()) return;
+      box.innerHTML = '';
+      var max = Math.min(pdf.numPages, 3), w = (box.clientWidth || 420) - 2, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var draw = function(n) {
+        if (n > max || !alive()) {
+          if (pdf.numPages > max && alive()) box.insertAdjacentHTML('beforeend', '<div style="padding:8px;color:#64748b;font-size:12px">Mostrando ' + max + ' de ' + pdf.numPages + ' páginas</div>');
+          return;
+        }
+        pdf.getPage(n).then(function(page) {
+          var base = page.getViewport({ scale: 1 });
+          var vp = page.getViewport({ scale: (w / base.width) * dpr });
+          var c = document.createElement('canvas');
+          c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+          c.style.cssText = 'display:block;width:100%;height:auto;border-bottom:1px solid #e2e8f0';
+          box.appendChild(c);
+          return page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise.then(function() { draw(n + 1); });
+        }).catch(function() { if (alive() && !box.firstChild) msg('No se pudo mostrar el PDF. Igual puedes guardarlo.'); });
+      };
+      draw(1);
+    }).catch(function() { if (alive()) msg('No se pudo mostrar el PDF (puede estar protegido o dañado). Igual puedes guardarlo.'); });
   });
 }
+
+function finScanZoom_(boxId, btnId) {
+  var box = document.getElementById(boxId), btn = document.getElementById(btnId);
+  if (!box) return;
+  var big = box.getAttribute('data-big') === '1';
+  box.setAttribute('data-big', big ? '0' : '1');
+  box.style.maxHeight = big ? '240px' : '70vh';
+  if (btn) btn.innerHTML = big ? '<i class="fas fa-expand"></i> Ampliar vista previa' : '<i class="fas fa-compress"></i> Reducir vista previa';
+}
+
+// ---------- Lectura automática dentro del formulario «Nuevo Movimiento» ----------
+function finFormReset_() {
+  var s = document.getElementById('fi-vscan'), b = document.getElementById('fi-vdoc'), z = document.getElementById('fi-vzoom');
+  if (s) { s.style.display = 'none'; s.innerHTML = ''; }
+  if (b) { b.style.display = 'none'; b.innerHTML = ''; b.style.maxHeight = '240px'; b.setAttribute('data-big', '0'); }
+  if (z) { z.style.display = 'none'; z.innerHTML = '<i class="fas fa-expand"></i> Ampliar vista previa'; }
+}
+
+// Al adjuntar el comprobante: muestra la vista previa y rellena SOLO los campos que estén vacíos.
+function finFormRead_(file) {
+  var st = document.getElementById('fi-vscan'), box = document.getElementById('fi-vdoc'), zoom = document.getElementById('fi-vzoom');
+  if (!st || !box) return;
+  var status = function(html, color) { st.style.display = 'block'; st.style.color = color || 'var(--gray)'; st.innerHTML = html; };
+  var still = function() { return !!(_vch.fi && _vch.fi.file === file); };
+  var setv = function(id, val) { var el = document.getElementById(id); if (el) el.value = val; };
+  box.style.display = 'block'; box.innerHTML = ''; box.style.maxHeight = '240px'; box.setAttribute('data-big', '0');
+  if (zoom) { zoom.style.display = ''; zoom.innerHTML = '<i class="fas fa-expand"></i> Ampliar vista previa'; }
+  status('<i class="fas fa-spinner fa-spin"></i> Leyendo documento…');
+  _voucherCompress(file, function(f) {
+    var fr = new FileReader();
+    fr.onerror = function() { if (still()) status('No se pudo leer el archivo.', 'var(--danger)'); };
+    fr.onload = function(ev) {
+      if (!still()) return;
+      var dataUrl = ev.target.result, mime = f.type || file.type;
+      finScanPreview_(box, mime, dataUrl);
+      if (f.size > 3 * 1024 * 1024) { status('El archivo pesa más de 3 MB: no se pudo leer solo. Llena los datos a mano.', 'var(--warning)'); return; }
+      api('scanFinanceDoc', { base64: dataUrl, mimeType: mime }, function(r) {
+        if (!still()) return;
+        if (!r || !r.success) { status(((r && r.error) || 'No se pudo leer el documento.') + ' Llena los datos a mano.', 'var(--warning)'); return; }
+        var d = r.data || {};
+        var fresh = !v('fi-amount') && !v('fi-desc');
+        if (d.fecha && (!v('fi-date') || v('fi-date') === today())) setv('fi-date', d.fecha);
+        if (d.monto && !v('fi-amount')) setv('fi-amount', d.monto);
+        if (d.descripcion && !v('fi-desc')) { setv('fi-desc', d.descripcion); try { descCount_(document.getElementById('fi-desc')); } catch (e) {} }
+        if (fresh && v('fi-type') === 'expense' && d.categoria) updateFinCats(d.categoria);
+        if (d.aviso) status('<i class="fas fa-triangle-exclamation"></i> ' + escHtml(d.aviso), 'var(--warning)');
+        else status('<i class="fas fa-circle-check"></i> Datos leídos del documento. Revísalos y corrige lo que haga falta antes de guardar.', 'var(--success)');
+      });
+    };
+    fr.readAsDataURL(f);
+  });
+}
+
 // ==================== PERSONAL ====================
 function renderStaff() {
   // Carga una sola vez la lista de usuarios del sistema (para vincular empleado ↔ usuario)
@@ -6852,6 +6824,9 @@ function voucherFieldHtml(prefix, label, hint) {
     '</div>' +
     '<div id="' + prefix + '-vinfo" class="voucher-info" style="display:none"></div>' +
     '<img id="' + prefix + '-vprev" class="img-preview" style="display:none" alt="Vista previa del comprobante">' +
+    (prefix === 'fi' ? '<div id="fi-vscan" style="display:none;margin-top:8px;font-size:12.5px;line-height:1.4"></div>' +
+      '<div id="fi-vdoc" data-big="0" style="display:none;max-height:240px;overflow:auto;margin-top:8px;border:1px solid var(--border);border-radius:10px;background:#fff;text-align:center"></div>' +
+      '<button type="button" class="btn-secondary" id="fi-vzoom" onclick="finScanZoom_(\'fi-vdoc\',\'fi-vzoom\')" style="display:none;margin-top:8px;font-size:12px;padding:6px 12px"><i class="fas fa-expand"></i> Ampliar vista previa</button>' : '') +
     '<small class="field-hint">' + (hint || 'Foto de la boleta o factura (imagen o PDF, máx. 10 MB). Se guarda en el sistema y en Finanzas.') + '</small>' +
   '</div>';
 }
@@ -6862,6 +6837,7 @@ function voucherReset(prefix, currentUrl) {
   ['vfile', 'vcam'].forEach(function(s) { var el = document.getElementById(prefix + '-' + s); if (el) el.value = ''; });
   var prev = document.getElementById(prefix + '-vprev');
   if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  if (prefix === 'fi') finFormReset_();
   _voucherRenderInfo(prefix);
 }
 
@@ -6913,13 +6889,14 @@ function voucherPick(prefix, input) {
   _vch[prefix].file = file;
   var prev = document.getElementById(prefix + '-vprev');
   if (prev) {
-    if (isImg) {
+    if (isImg && prefix !== 'fi') {
       var fr = new FileReader();
       fr.onload = function(e) { prev.src = e.target.result; prev.style.display = 'block'; };
       fr.readAsDataURL(file);
     } else { prev.src = ''; prev.style.display = 'none'; }
   }
   _voucherRenderInfo(prefix);
+  if (prefix === 'fi') finFormRead_(file);   // Finanzas: vista previa + lectura automática
 }
 
 function voucherClear(prefix) {
@@ -6927,6 +6904,7 @@ function voucherClear(prefix) {
   ['vfile', 'vcam'].forEach(function(s) { var el = document.getElementById(prefix + '-' + s); if (el) el.value = ''; });
   var prev = document.getElementById(prefix + '-vprev');
   if (prev) { prev.src = ''; prev.style.display = 'none'; }
+  if (prefix === 'fi') finFormReset_();
   _voucherRenderInfo(prefix);
 }
 
